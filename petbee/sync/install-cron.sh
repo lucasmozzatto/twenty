@@ -28,8 +28,14 @@ import('mysql2/promise').then(async ({default: mysql}) => {
   await db.end();
 });"
 
-echo "==> Agendando cron (a cada 30 minutos)…"
-CRON_LINE="*/30 * * * * cd $(pwd) && /usr/bin/env node sync-petbee-crm.mjs >> /var/log/twenty-sync.log 2>&1"
+# Cadência configurável via SYNC_CRON_SCHEDULE no .env (padrão: de hora em
+# hora). Quando a fase de eventos estiver no ar, troque para diário de
+# madrugada (ex.: "0 5 * * *") e rode este script de novo.
+SCHEDULE=$(grep -E '^SYNC_CRON_SCHEDULE=' .env | cut -d= -f2- || true)
+SCHEDULE=${SCHEDULE:-"0 * * * *"}
+
+echo "==> Agendando cron (${SCHEDULE})…"
+CRON_LINE="${SCHEDULE} cd $(pwd) && /usr/bin/env node sync-petbee-crm.mjs >> /var/log/twenty-sync.log 2>&1"
 (crontab -l 2> /dev/null | grep -v sync-petbee-crm; echo "$CRON_LINE") | crontab -
 
 echo
