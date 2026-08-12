@@ -22,7 +22,7 @@ node -e "
 import('mysql2/promise').then(async ({default: mysql}) => {
   const fs = require('fs');
   const env = Object.fromEntries(fs.readFileSync('.env','utf8').split('\n').filter(l=>l.includes('=')).map(l=>l.split(/=(.*)/s).slice(0,2).map(s=>s.trim())));
-  const db = await mysql.createConnection({ uri: env.PETBEE_MYSQL_URL, ssl: { ca: fs.readFileSync('rds-global-bundle.pem') } });
+  const db = await mysql.createConnection({ uri: env.PETBEE_MYSQL_URL, ssl: { ca: fs.readFileSync('rds-global-bundle.pem'), checkServerIdentity: () => undefined } });
   const [r] = await db.query('SELECT COUNT(*) AS n FROM humans');
   console.log('MySQL OK —', r[0].n, 'tutores visíveis');
   await db.end();

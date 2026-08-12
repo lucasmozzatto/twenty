@@ -139,12 +139,15 @@ const run = async () => {
 
   console.log(`[${startedAt.toISOString()}] Sync ${FULL ? 'FULL' : `incremental desde ${cursor.toISOString()}`}`);
 
-  // RDS exige SSL; usa o CA da Amazon se baixado pelo install-cron.sh
+  // RDS exige SSL; usa o CA da Amazon se baixado pelo install-cron.sh.
+  // Via túnel (127.0.0.1) o certificado é do host real do RDS, então a
+  // checagem de hostname é dispensada — a cadeia continua validada pelo CA.
   const caPath = join(HERE, 'rds-global-bundle.pem');
-  const db = await mysql.createConnection({
-    uri: MYSQL_URL,
-    ssl: existsSync(caPath) ? { ca: readFileSync(caPath) } : { rejectUnauthorized: false },
-  });
+  const viaTunnel = /@(127\.0\.0\.1|localhost)[:/]/.test(MYSQL_URL);
+  const ssl = existsSync(caPath)
+    ? { ca: readFileSync(caPath), ...(viaTunnel ? { checkServerIdentity: () => undefined } : {}) }
+    : { rejectUnauthorized: false };
+  const db = await mysql.createConnection({ uri: MYSQL_URL, ssl });
 
   const [plans] = await db.query('SELECT id, name, value, blocked, updated_at FROM plans WHERE deleted_at IS NULL');
   const [humans] = await db.query(

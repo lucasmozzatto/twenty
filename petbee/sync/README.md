@@ -6,11 +6,16 @@ nos campos "ID Petbee" — idempotente, nunca duplica.
 
 ## Pré-requisito (uma vez, com quem administra a AWS)
 
-O VPS precisa enxergar o MySQL, em modo somente-leitura:
+O RDS `petbeedb` é privado (sem acesso público), então o VPS chega até ele
+por **túnel SSH via bastion**:
 
-1. **Liberar o IP do VPS** no Security Group do banco: entrada TCP porta
-   `3306` para `2.25.103.17/32` (só esse IP, nada mais).
-2. **Criar um usuário somente-leitura**:
+1. **No VPS**, gerar a chave do túnel e enviar a parte pública ao CTO:
+   `ssh-keygen -t ed25519 -f /root/.ssh/crm_tunnel -N '' -C crm-tunnel`
+   e `cat /root/.ssh/crm_tunnel.pub`
+2. **CTO**: criar no bastion um usuário para essa chave (ideal: sem shell,
+   só port-forward, ex.: `command="",restrict,port-forwarding` no
+   authorized_keys) e devolver `usuario@host` (e porta, se não for 22).
+3. **CTO**: criar o usuário somente-leitura no MySQL:
 
 ```sql
 CREATE USER 'crm_sync'@'%' IDENTIFIED BY 'UMA_SENHA_FORTE';
@@ -22,16 +27,22 @@ GRANT SELECT ON petbee.* TO 'crm_sync'@'%';
 ```bash
 cd /opt/twenty-repo && git pull && cd petbee/sync
 
-# criar a configuração (trocar HOST e SENHA pelos valores reais)
+# configuração (trocar SENHA, usuario@bastion e a API key)
 cat > .env << 'EOF'
-PETBEE_MYSQL_URL=mysql://crm_sync:SENHA@HOST_DO_MYSQL:3306/petbee
+BASTION_SSH=usuario@host-do-bastion
+PETBEE_MYSQL_URL=mysql://crm_sync:SENHA@127.0.0.1:3307/petbee
 TWENTY_API_URL=https://crm.petbeetools.com.br
 TWENTY_API_KEY=CHAVE_DA_API_DO_TWENTY
 EOF
 
-bash install-cron.sh          # instala dependências, testa conexão, agenda o cron
+bash install-tunnel.sh        # sobe o túnel permanente (systemd + autossh)
+bash install-cron.sh          # dependências, teste de conexão, cron 30 em 30
 node sync-petbee-crm.mjs --full   # primeira carga completa (alguns minutos)
 ```
+
+> Sem bastion disponível? Alternativa: rodar este mesmo script numa
+> instância mínima dentro da VPC (t4g.nano) com o SG dela liberado no
+> `petbee-db-sg` — nada muda no código.
 
 Depois disso o cron roda sozinho a cada 30 min no modo incremental (só o que
 mudou desde a última rodada, com 1h de sobreposição de segurança). Logs em
