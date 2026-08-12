@@ -46,6 +46,14 @@ Memória viva do projeto. Atualizado em 2026-08-12.
 - **Fase 4 — Virada**: time vendendo no Twenty, Bitrix congelado, delta
   final, cancelar **Bitrix e Make**.
 
+### Camada de IA (futuro, pós-virada)
+- Candidato avaliado: **Sim (sim.ai)** — open source Apache 2.0,
+  self-hostável, focado em agentes de IA (LLM + knowledge base). Decisão de
+  2026-08: n8n é a espinha dorsal das automações (maturidade no
+  encanamento); Sim fica no radar para agentes (triagem WhatsApp,
+  atendimento com contexto da base) quando essa camada nascer. Ambos
+  coexistem no mesmo VPS.
+
 ### Fase de eventos (com o dev — quando 1h de latência doer)
 - EventBridge → Lambda (na VPC, lendo a réplica) → API do Twenty, só para os
   eventos que exigem minutos (assinatura bloqueada/cancelada, cliente novo).
