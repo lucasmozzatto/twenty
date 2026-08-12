@@ -207,6 +207,30 @@ const run = async () => {
   for (const link of links) if (!petTutor.has(link.pet_id)) petTutor.set(link.pet_id, link.human_id);
   for (const sub of subs) petTutor.set(sub.pet_id, sub.human_id);
 
+  // Dedup na entrada: a origem tem pets clonados (mesmo tutor + nome +
+  // espécie + sexo, ex.: 9 "Apollo" idênticos). Importa só o melhor
+  // representante de cada grupo (tem assinatura > mais recente); assinaturas
+  // que apontem para um clone são religadas ao representante. Pets sem tutor
+  // não são agrupados (não dá para afirmar que são o mesmo animal).
+  const petsWithSub = new Set(subs.map((s) => s.pet_id));
+  const cloneKey = (p) =>
+    petTutor.has(p.id)
+      ? `${petTutor.get(p.id)}|${String(p.name || '').trim().toLowerCase()}|${p.especie ?? ''}|${p.gender ?? ''}`
+      : `solo-${p.id}`;
+  const cloneScore = (p) =>
+    (petsWithSub.has(p.id) ? 1e15 : 0) + new Date(p.updated_at || p.created_at || 0).getTime();
+  const representative = new Map();
+  for (const p of pets) {
+    const key = cloneKey(p);
+    const current = representative.get(key);
+    if (!current || cloneScore(p) > cloneScore(current)) representative.set(key, p);
+  }
+  const petIdRemap = new Map(pets.map((p) => [p.id, representative.get(cloneKey(p)).id]));
+  const dedupedPets = [...representative.values()];
+  if (dedupedPets.length < pets.length) {
+    console.log(`Dedup de pets na origem: ${pets.length - dedupedPets.length} clones ignorados`);
+  }
+
   const activeHumans = new Set(
     subs.filter((s) => !s.canceled_at && !s.finished && !s.blocked).map((s) => s.human_id),
   );
@@ -273,8 +297,8 @@ const run = async () => {
   await upsertAll({
     label: 'Pets', singular: 'Pets', createMany: 'createPetss', anchorField: 'petIdPetbee',
     anchorMap: petMap,
-    changedIds: new Set(pets.filter(changed).map((p) => String(p.id))),
-    rows: pets.map((p) => ({
+    changedIds: new Set(dedupedPets.filter(changed).map((p) => String(p.id))),
+    rows: dedupedPets.map((p) => ({
       petIdPetbee: String(p.id),
       name: p.name || 'Sem nome',
       especie: p.especie || undefined,
@@ -303,7 +327,7 @@ const run = async () => {
       dataCancelamento: datePart(s.canceled_at),
       cupom: s.coupon || undefined,
       tutorId: personMap.get(String(s.human_id)) || undefined,
-      petId: petMap.get(String(s.pet_id)) || undefined,
+      petId: petMap.get(String(petIdRemap.get(s.pet_id) ?? s.pet_id)) || undefined,
       planoId: planMap.get(String(s.plan_id)) || undefined,
     })),
   });
