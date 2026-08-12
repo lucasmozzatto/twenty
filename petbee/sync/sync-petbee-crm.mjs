@@ -85,12 +85,18 @@ const openSource = async () => {
 // As 5 leituras que qualquer fonte precisa oferecer (contrato do leitor)
 const readSource = async (source) => {
   const { T, query } = source;
-  // A tabela plans pode ainda não estar na réplica — nesse caso o robô segue
-  // sem ela (o catálogo já existente no CRM cobre nomes e vínculos) e avisa.
+  // Catálogo de planos: as assinaturas referenciam o catálogo NOVO
+  // (catalog.Plans — Básico/Plus/Premium/Senior), não a tabela legada
+  // petbee.plans (9 combos antigos, sem assinaturas). Na réplica (Postgres)
+  // lemos catalog."Plans"; em MySQL direto, cai na legada. Se faltar, o robô
+  // segue com o catálogo já existente no CRM e avisa.
   let plans = [];
   let plansMissing = false;
   try {
-    plans = await query(`SELECT id, name, value, blocked, updated_at FROM ${T('plans')} WHERE deleted_at IS NULL`);
+    plans = DB_URL.startsWith('postgres')
+      ? await query(`SELECT id, COALESCE("externalName", name) AS name, blocked, updated AS updated_at
+                     FROM catalog."Plans" WHERE deleted IS NULL`)
+      : await query(`SELECT id, name, value, blocked, updated_at FROM ${T('plans')} WHERE deleted_at IS NULL`);
   } catch {
     plansMissing = true;
   }
@@ -333,7 +339,9 @@ const run = async () => {
       rows: plans.map((p) => ({
         planIdPetbee: String(p.id),
         name: p.name,
-        valorMensal: { amountMicros: centsToMicros(p.value), currencyCode: 'BRL' },
+        // o catálogo novo não tem preço único por plano (varia por porte);
+        // o valor real vive em cada assinatura (MRR)
+        ...(p.value != null ? { valorMensal: { amountMicros: centsToMicros(p.value), currencyCode: 'BRL' } } : {}),
         ativo: !p.blocked,
       })),
     });
