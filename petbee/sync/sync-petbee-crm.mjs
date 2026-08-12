@@ -139,7 +139,12 @@ const run = async () => {
 
   console.log(`[${startedAt.toISOString()}] Sync ${FULL ? 'FULL' : `incremental desde ${cursor.toISOString()}`}`);
 
-  const db = await mysql.createConnection(MYSQL_URL);
+  // RDS exige SSL; usa o CA da Amazon se baixado pelo install-cron.sh
+  const caPath = join(HERE, 'rds-global-bundle.pem');
+  const db = await mysql.createConnection({
+    uri: MYSQL_URL,
+    ssl: existsSync(caPath) ? { ca: readFileSync(caPath) } : { rejectUnauthorized: false },
+  });
 
   const [plans] = await db.query('SELECT id, name, value, blocked, updated_at FROM plans WHERE deleted_at IS NULL');
   const [humans] = await db.query(
