@@ -28,9 +28,18 @@ Memória viva do projeto. Atualizado em 2026-08-12.
 ## Próximas fases
 
 ### Migração do Bitrix24 (comercial) — em etapas
-- **Fase 0 — Raio-X**: inventário do Bitrix via API (funis, etapas, negócios
-  abertos, campos custom usados, leads puros) + inventário dos cenários do
-  Make. Migra-se o que se usa, não o que se acumulou.
+- **Fase 0 — Raio-X** (executado em 2026-08-12): 12 funis, 32.896 negócios
+  (~8.880 abertos), 16.941 contatos, 27 campos custom. Cruzamento por
+  e-mail: **69% dos contatos do Bitrix já são clientes Petbee** (7.639 —
+  serão fundidos por adoção); ~3.345 leads puros a importar; 5.957 sem
+  e-mail (só entram se tiverem negócio aberto em funil prioritário).
+  Prioridades do Lucas: **Vendas (0)** e **Outbound (18)** migram como
+  funis; **Envio de contrato (6) vira automação n8n** (esteira de contrato
+  para assinaturas offline). Em quarentena para validação com o time:
+  Recuperação de Lost (12), Customers (2), Indicação (10), Corretores (16),
+  Crédito (4), Parcerias (22), Brokers (24). Mortos (não migram): Upgrades
+  (14) e Clube Petbee (20). Pendências da fase: inventário dos cenários do
+  Make + nº de usuários do Bitrix + validação da quarentena.
 - **Fase 1 — Modelo comercial no Twenty**: Opportunities (kanban nativo) com
   as etapas dos funis, campos custom equivalentes, âncora `idBitrix` em
   negócio/empresa (Person já tem).
