@@ -46,7 +46,12 @@ Memória viva do projeto. Atualizado em 2026-08-12.
 - **Fase 2 — Dados em lotes**: piloto de ~20 negócios → validação → base
   toda. Contatos entram pela adoção por e-mail (cliente Petbee existente se
   funde ao lead do funil — nunca duplica).
-- **Fase 3 — Automações: matar o Make → n8n self-hosted**. Decisão: substituir
+- **Fase 3 — Automações: matar o Make → n8n self-hosted**. Peça fundadora:
+  o **"porteiro único de entrada"** — subfluxo reutilizável "upsert-lead"
+  (escadinha âncora → e-mail → telefone 1↔1; achou atualiza, senão cria).
+  Regra da casa: nenhuma automação escreve no CRM direto; todas passam pelo
+  porteiro. Virada de fontes por canal (LP/WhatsApp migra = para de criar no
+  Bitrix no mesmo ato — uma maternidade por lead). Decisão: substituir
   o Make por estrutura própria open source (n8n), rodando no MESMO VPS
   (bloco a mais no `petbee/deploy/docker-compose.yml`, subdomínio próprio
   via Caddy). Cada cenário reconstruído no n8n já aponta para o Twenty —
