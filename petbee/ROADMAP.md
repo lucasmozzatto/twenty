@@ -44,8 +44,14 @@ Memória viva do projeto. Atualizado em 2026-08-12.
   as etapas dos funis, campos custom equivalentes, âncora `idBitrix` em
   negócio/empresa (Person já tem).
 - **Fase 2 — Dados em lotes**: piloto de ~20 negócios → validação → base
-  toda. Contatos entram pela adoção por e-mail (cliente Petbee existente se
-  funde ao lead do funil — nunca duplica).
+  toda. **Política de contatos SELADA (Lucas, 2026-08-12)**: 1) casou por
+  e-mail → adota o cliente existente (7.639); 2) casou por telefone em 1↔1
+  perfeito → adota (127); 3) e-mail ou telefone válido sem casamento → cria
+  como Lead (~9,5 mil — leads de WhatsApp são legítimos); 4) sem contato
+  válido → descarta com relatório (162; ressalva: se tiver negócio aberto em
+  funil migrado, aparece destacado para decisão manual). Importador
+  idempotente re-rodável (ancora idBitrix) = delta automático; pode rodar
+  diário via cron no VPS durante a transição.
 - **Fase 3 — Automações: matar o Make → n8n self-hosted**. Peça fundadora:
   o **"porteiro único de entrada"** — subfluxo reutilizável "upsert-lead"
   (escadinha âncora → e-mail → telefone 1↔1; achou atualiza, senão cria).
