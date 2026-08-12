@@ -87,13 +87,38 @@ const chunk = (list, size) => {
   return out;
 };
 
-// Cria em lote os que não existem e atualiza um a um os que mudaram
-const upsertAll = async ({ label, singular, createMany, anchorField, rows, changedIds, anchorMap }) => {
+// Cria em lote os que não existem, adota por e-mail leads sem ID Petbee e
+// atualiza um a um os que mudaram
+const upsertAll = async ({ label, singular, createMany, anchorField, rows, changedIds, anchorMap, adoptByEmail, emailOf }) => {
   const cap = singular.charAt(0).toUpperCase() + singular.slice(1);
-  const toCreate = rows.filter((row) => !anchorMap.has(row[anchorField]));
-  const toUpdate = rows.filter(
-    (row) => anchorMap.has(row[anchorField]) && (FULL ? false : changedIds.has(row[anchorField])),
-  );
+  const toCreate = [];
+  const toUpdate = [];
+  const toAdopt = [];
+
+  for (const row of rows) {
+    if (anchorMap.has(row[anchorField])) {
+      if (!FULL && changedIds.has(row[anchorField])) toUpdate.push(row);
+      continue;
+    }
+    // lead cadastrado antes de virar cliente: mesmo e-mail, sem ID Petbee →
+    // atualiza o registro existente e carimba o ID (nunca duplica)
+    const email = adoptByEmail && emailOf ? (emailOf(row) || '').toLowerCase() : '';
+    const leadId = email ? adoptByEmail.get(email) : undefined;
+    if (leadId) {
+      toAdopt.push([leadId, row, email]);
+    } else {
+      toCreate.push(row);
+    }
+  }
+
+  for (const [leadId, row, email] of toAdopt) {
+    await gql(
+      `mutation A($id: UUID!, $data: ${cap}UpdateInput!) { update${cap}(id: $id, data: $data) { id } }`,
+      { id: leadId, data: row },
+    );
+    anchorMap.set(row[anchorField], leadId);
+    adoptByEmail.delete(email);
+  }
 
   for (const batch of chunk(toCreate, BATCH)) {
     const data = await gql(
@@ -110,7 +135,12 @@ const upsertAll = async ({ label, singular, createMany, anchorField, rows, chang
     );
   }
 
-  console.log(`${label}: +${toCreate.length} criados, ~${toUpdate.length} atualizados, ${rows.length - toCreate.length - toUpdate.length} sem mudança`);
+  const untouched = rows.length - toCreate.length - toUpdate.length - toAdopt.length;
+  console.log(
+    `${label}: +${toCreate.length} criados` +
+      (toAdopt.length ? `, ↷${toAdopt.length} adotados (lead existente por e-mail)` : '') +
+      `, ~${toUpdate.length} atualizados, ${untouched} sem mudança`,
+  );
 };
 
 const datePart = (value) => {
@@ -185,9 +215,29 @@ const run = async () => {
     new Date(row.updated_at || row.created_at || 0) >= cursor || new Date(row.created_at || 0) >= cursor;
 
   console.log('Lendo âncoras existentes no CRM…');
-  const [planMap, personMap, petMap, subMap] = await Promise.all([
+  // Pessoas: além do ID Petbee, mapeia e-mails dos registros SEM ID (leads
+  // criados antes do cadastro no app — candidatos a adoção)
+  const personMap = new Map();
+  const leadsByEmail = new Map();
+  {
+    let after = null;
+    for (;;) {
+      const data = await gql(
+        `query P($after: String) { people(first: 500, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          edges { node { id hIdPetbee emails { primaryEmail } } } } }`,
+        { after },
+      );
+      for (const { node } of data.people.edges) {
+        if (node.hIdPetbee) personMap.set(String(node.hIdPetbee), node.id);
+        else if (node.emails?.primaryEmail) leadsByEmail.set(node.emails.primaryEmail.toLowerCase(), node.id);
+      }
+      if (!data.people.pageInfo.hasNextPage) break;
+      after = data.people.pageInfo.endCursor;
+    }
+  }
+  const [planMap, petMap, subMap] = await Promise.all([
     fetchAnchorMap('planos', 'planIdPetbee'),
-    fetchAnchorMap('people', 'hIdPetbee'),
     fetchAnchorMap('petss', 'petIdPetbee'),
     fetchAnchorMap('assinaturas', 'subsIdPetbee'),
   ]);
@@ -207,6 +257,8 @@ const run = async () => {
   await upsertAll({
     label: 'Tutores', singular: 'Person', createMany: 'createPeople', anchorField: 'hIdPetbee',
     anchorMap: personMap,
+    adoptByEmail: leadsByEmail,
+    emailOf: (row) => row.emails?.primaryEmail,
     changedIds: new Set(humans.filter(changed).map((h) => String(h.id))),
     rows: humans.map((h) => ({
       hIdPetbee: String(h.id),
