@@ -44,6 +44,7 @@ const DB_SCHEMA = process.env.PETBEE_DB_SCHEMA ?? '';
 const API_URL = (process.env.TWENTY_API_URL ?? '').replace(/\/+$/, '');
 const API_KEY = process.env.TWENTY_API_KEY;
 const FULL = process.argv.includes('--full');
+const BACKFILL = process.argv.includes('--backfill');
 const TEST_ONLY = process.argv.includes('--test');
 const CURSOR_FILE = join(HERE, 'sync-cursor.txt');
 const BATCH = 60;
@@ -101,17 +102,30 @@ const readSource = async (source) => {
     plansMissing = true;
   }
   // sequencial de propósito: uma conexão pg não executa consultas em paralelo
-  const humans = await query(`SELECT id, full_name, email, phone,
+  const humans = await query(`SELECT id, full_name, email, phone, birthday,
              CASE WHEN document_type = 'cpf' THEN document END AS cpf, updated_at, created_at
            FROM ${T('humans')} WHERE deleted_at IS NULL`);
-  const pets = await query(`SELECT p.id, p.name, p.gender, p.breed, p.birthday, f.name AS especie, p.updated_at, p.created_at
+  // endereço mais recente por tutor (cadeia só disponível na réplica Postgres)
+  let cities = [];
+  if (DB_URL.startsWith('postgres')) {
+    try {
+      cities = await query(`SELECT DISTINCT ON (ha.human_id) ha.human_id, c.name AS cidade, st.code AS uf
+        FROM ${T('humans_addresses')} ha
+        JOIN ${T('addresses')} a ON a.id = ha.address_id
+        LEFT JOIN ${T('cities')} c ON c.id = a.city_id
+        LEFT JOIN ${T('states')} st ON st.id = c.state_id
+        WHERE ha.deleted_at IS NULL
+        ORDER BY ha.human_id, ha.created_at DESC`);
+    } catch { /* endereço é opcional */ }
+  }
+  const pets = await query(`SELECT p.id, p.name, p.gender, p.breed, p.birthday, p.died_at, p.chip, f.name AS especie, p.updated_at, p.created_at
            FROM ${T('pets')} p LEFT JOIN ${T('pet_families')} f ON f.id = p.family_id
            WHERE p.deleted_at IS NULL`);
   const links = await query(`SELECT pet_id, human_id FROM ${T('pets_humans')} WHERE deleted_at IS NULL ORDER BY created_at ASC`);
   const subs = await query(`SELECT id, plan_id, pet_id, human_id, coupon, amount, frequency, start_date, canceled_at,
-             blocked, finished, next_recurrency, updated_at, created_at
+             blocked, finished, freeware, addons, next_recurrency, updated_at, created_at
            FROM ${T('subscriptions')} WHERE deleted_at IS NULL`);
-  return { plans, plansMissing, humans, pets, links, subs };
+  return { plans, plansMissing, humans, pets, links, subs, cities };
 };
 
 // ─────────────────────── CÉREBRO (regras + escrita) ───────────────────────
@@ -184,7 +198,7 @@ const upsertAll = async ({ label, singular, createMany, anchorField, rows, chang
 
   for (const row of rows) {
     if (anchorMap.has(row[anchorField])) {
-      if (!FULL && changedIds.has(row[anchorField])) toUpdate.push(row);
+      if (!FULL && (BACKFILL || changedIds.has(row[anchorField]))) toUpdate.push(row);
       continue;
     }
     // lead cadastrado antes de virar cliente: mesmo e-mail, sem ID Petbee →
@@ -235,16 +249,21 @@ const upsertAll = async ({ label, singular, createMany, anchorField, rows, chang
     }
   }
 
-  for (const row of toUpdate) {
-    try {
-      await gql(
-        `mutation U($id: UUID!, $data: ${cap}UpdateInput!) { update${cap}(id: $id, data: $data) { id } }`,
-        { id: anchorMap.get(row[anchorField]), data: row },
-      );
-    } catch (rowError) {
-      skipped.push(`${anchorField}=${row[anchorField]} (update): ${rowError.message.slice(0, 90)}`);
+  const updateQueue = [...toUpdate];
+  await Promise.all(Array.from({ length: 6 }, async () => {
+    for (;;) {
+      const row = updateQueue.shift();
+      if (!row) return;
+      try {
+        await gql(
+          `mutation U($id: UUID!, $data: ${cap}UpdateInput!) { update${cap}(id: $id, data: $data) { id } }`,
+          { id: anchorMap.get(row[anchorField]), data: row },
+        );
+      } catch (rowError) {
+        skipped.push(`${anchorField}=${row[anchorField]} (update): ${rowError.message.slice(0, 90)}`);
+      }
     }
-  }
+  }));
 
   const untouched = rows.length - toCreate.length - toUpdate.length - toAdopt.length;
   console.log(
@@ -287,7 +306,7 @@ const run = async () => {
     ? new Date(new Date(readFileSync(CURSOR_FILE, 'utf8').trim()).getTime() - 3600_000)
     : new Date(0);
 
-  console.log(`[${startedAt.toISOString()}] Sync ${TEST_ONLY ? 'TESTE' : FULL ? 'FULL' : `incremental desde ${cursor.toISOString()}`}`);
+  console.log(`[${startedAt.toISOString()}] Sync ${TEST_ONLY ? 'TESTE' : FULL ? 'FULL' : BACKFILL ? 'BACKFILL (re-grava tudo)' : `incremental desde ${cursor.toISOString()}`}`);
 
   const source = await openSource();
 
@@ -302,7 +321,7 @@ const run = async () => {
     return;
   }
 
-  const { plans, plansMissing, humans, pets, links, subs } = await readSource(source);
+  const { plans, plansMissing, humans, pets, links, subs, cities } = await readSource(source);
   await source.end();
 
   if (plansMissing) {
@@ -343,6 +362,15 @@ const run = async () => {
     console.log(`Dedup de pets na origem: ${pets.length - dedupedPets.length} clones ignorados`);
   }
 
+  const cityMap = new Map(
+    (cities || []).map((c) => [c.human_id, c.cidade ? (c.uf ? `${c.cidade}/${c.uf}` : c.cidade) : undefined]),
+  );
+  // addons na origem são ids "1,2,3" → opções do MULTI_SELECT do CRM
+  const ADDON_MAP = { 1: 'VACINAS', 2: 'CHECKUP', 3: 'LIMPEZA_DENTARIA' };
+  const parseAddons = (value) => {
+    const list = String(value || '').split(',').map((x) => ADDON_MAP[x.trim()]).filter(Boolean);
+    return list.length ? list : undefined;
+  };
   const activeHumans = new Set(
     subs.filter((s) => !s.canceled_at && !s.finished && !s.blocked).map((s) => s.human_id),
   );
@@ -406,6 +434,8 @@ const run = async () => {
       emails: parseEmail(h.email) ? { primaryEmail: parseEmail(h.email) } : undefined,
       phones: parsePhone(h.phone),
       cpf: h.cpf || undefined,
+      dataNascimento: datePart(h.birthday),
+      cidade: cityMap.get(h.id) || undefined,
       statusCliente: activeHumans.has(h.id) ? 'ATIVO' : 'INATIVO',
     })),
   });
@@ -421,6 +451,8 @@ const run = async () => {
       raca: p.breed || undefined,
       sexo: p.gender === 'M' ? 'MACHO' : p.gender === 'F' ? 'FEMEA' : undefined,
       dataDeNascimento: datePart(p.birthday),
+      falecido: !!p.died_at,
+      microchip: p.chip || undefined,
       tutorId: personMap.get(String(petTutor.get(p.id))) || undefined,
     })),
   });
@@ -441,13 +473,17 @@ const run = async () => {
     changedIds: new Set(subs.filter(changed).map((s) => String(s.id))),
     rows: subs.map((s) => ({
       subsIdPetbee: String(s.id),
-      name: `${planNames.get(s.plan_id) ?? 'Plano'} – ${petNames.get(s.pet_id) ?? s.pet_id}`,
+      // título = nome do pet (decisão do Lucas); plano e pet têm colunas próprias
+      name: petNames.get(s.pet_id) || `Assinatura #${s.id}`,
       status: subStatus(s),
       periodicidade: s.frequency === 'yearly' ? 'ANUAL' : 'MENSAL',
       valorMensal: { amountMicros: centsToMicros(s.amount), currencyCode: 'BRL' },
       diaVencimento: s.next_recurrency ? new Date(s.next_recurrency).getUTCDate() : undefined,
       dataInicio: datePart(s.start_date),
       dataCancelamento: datePart(s.canceled_at),
+      proximaCobranca: datePart(s.next_recurrency),
+      cortesia: !!s.freeware,
+      addons: parseAddons(s.addons),
       cupom: s.coupon || undefined,
       tutorId: personMap.get(String(s.human_id)) || undefined,
       petId: petMap.get(String(petIdRemap.get(s.pet_id) ?? s.pet_id)) || undefined,
