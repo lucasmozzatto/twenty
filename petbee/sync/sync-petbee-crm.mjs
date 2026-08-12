@@ -213,12 +213,17 @@ const run = async () => {
   // que apontem para um clone são religadas ao representante. Pets sem tutor
   // não são agrupados (não dá para afirmar que são o mesmo animal).
   const petsWithSub = new Set(subs.map((s) => s.pet_id));
+  const petsWithActiveSub = new Set(
+    subs.filter((s) => !s.canceled_at && !s.finished && !s.blocked).map((s) => s.pet_id),
+  );
   const cloneKey = (p) =>
     petTutor.has(p.id)
       ? `${petTutor.get(p.id)}|${String(p.name || '').trim().toLowerCase()}|${p.especie ?? ''}|${p.gender ?? ''}`
       : `solo-${p.id}`;
+  // prioridade: assinatura ATIVA > alguma assinatura (mesmo cancelada) > mais recente
   const cloneScore = (p) =>
-    (petsWithSub.has(p.id) ? 1e15 : 0) + new Date(p.updated_at || p.created_at || 0).getTime();
+    (petsWithActiveSub.has(p.id) ? 2e15 : petsWithSub.has(p.id) ? 1e15 : 0) +
+    new Date(p.updated_at || p.created_at || 0).getTime();
   const representative = new Map();
   for (const p of pets) {
     const key = cloneKey(p);
