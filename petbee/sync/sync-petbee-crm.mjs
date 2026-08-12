@@ -85,8 +85,16 @@ const openSource = async () => {
 // As 5 leituras que qualquer fonte precisa oferecer (contrato do leitor)
 const readSource = async (source) => {
   const { T, query } = source;
-  const [plans, humans, pets, links, subs] = await Promise.all([
-    query(`SELECT id, name, value, blocked, updated_at FROM ${T('plans')} WHERE deleted_at IS NULL`),
+  // A tabela plans pode ainda não estar na réplica — nesse caso o robô segue
+  // sem ela (o catálogo já existente no CRM cobre nomes e vínculos) e avisa.
+  let plans = [];
+  let plansMissing = false;
+  try {
+    plans = await query(`SELECT id, name, value, blocked, updated_at FROM ${T('plans')} WHERE deleted_at IS NULL`);
+  } catch {
+    plansMissing = true;
+  }
+  const [humans, pets, links, subs] = await Promise.all([
     query(`SELECT id, full_name, email, phone,
              CASE WHEN document_type = 'cpf' THEN document END AS cpf, updated_at, created_at
            FROM ${T('humans')} WHERE deleted_at IS NULL`),
@@ -98,7 +106,7 @@ const readSource = async (source) => {
              blocked, finished, next_recurrency, updated_at, created_at
            FROM ${T('subscriptions')} WHERE deleted_at IS NULL`),
   ]);
-  return { plans, humans, pets, links, subs };
+  return { plans, plansMissing, humans, pets, links, subs };
 };
 
 // ─────────────────────── CÉREBRO (regras + escrita) ───────────────────────
@@ -241,9 +249,12 @@ const run = async () => {
     return;
   }
 
-  const { plans, humans, pets, links, subs } = await readSource(source);
+  const { plans, plansMissing, humans, pets, links, subs } = await readSource(source);
   await source.end();
 
+  if (plansMissing) {
+    console.warn('⚠ Tabela plans ausente na réplica — usando o catálogo já existente no CRM. Peça à infra para adicioná-la à replicação.');
+  }
   console.log(`Fonte: ${plans.length} planos, ${humans.length} tutores, ${pets.length} pets, ${subs.length} assinaturas`);
 
   // tutor principal do pet: quem paga a assinatura mais recente; senão o vínculo mais antigo
@@ -314,17 +325,19 @@ const run = async () => {
     fetchAnchorMap('assinaturas', 'subsIdPetbee'),
   ]);
 
-  await upsertAll({
-    label: 'Planos', singular: 'Plano', createMany: 'createPlanos', anchorField: 'planIdPetbee',
-    anchorMap: planMap,
-    changedIds: new Set(plans.filter(changed).map((p) => String(p.id))),
-    rows: plans.map((p) => ({
-      planIdPetbee: String(p.id),
-      name: p.name,
-      valorMensal: { amountMicros: centsToMicros(p.value), currencyCode: 'BRL' },
-      ativo: !p.blocked,
-    })),
-  });
+  if (!plansMissing) {
+    await upsertAll({
+      label: 'Planos', singular: 'Plano', createMany: 'createPlanos', anchorField: 'planIdPetbee',
+      anchorMap: planMap,
+      changedIds: new Set(plans.filter(changed).map((p) => String(p.id))),
+      rows: plans.map((p) => ({
+        planIdPetbee: String(p.id),
+        name: p.name,
+        valorMensal: { amountMicros: centsToMicros(p.value), currencyCode: 'BRL' },
+        ativo: !p.blocked,
+      })),
+    });
+  }
 
   await upsertAll({
     label: 'Tutores', singular: 'Person', createMany: 'createPeople', anchorField: 'hIdPetbee',
@@ -357,7 +370,14 @@ const run = async () => {
     })),
   });
 
-  const planNames = new Map(plans.map((p) => [p.id, p.name]));
+  const planNames = new Map(plans.map((p) => [Number(p.id), p.name]));
+  if (plansMissing) {
+    // nomes do catálogo que já vive no CRM (carregado no piloto/rodadas anteriores)
+    const data = await gql(`query { planos(first: 200) { edges { node { name planIdPetbee } } } }`);
+    for (const { node } of data.planos.edges) {
+      if (node.planIdPetbee) planNames.set(Number(node.planIdPetbee), node.name);
+    }
+  }
   const petNames = new Map(pets.map((p) => [p.id, p.name]));
 
   await upsertAll({
