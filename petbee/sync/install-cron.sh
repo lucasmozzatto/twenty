@@ -28,7 +28,10 @@ SCHEDULE=${SCHEDULE:-"0 * * * *"}
 
 echo "==> Agendando cron (${SCHEDULE})…"
 CRON_LINE="${SCHEDULE} cd $(pwd) && /usr/bin/env node sync-petbee-crm.mjs >> /var/log/twenty-sync.log 2>&1"
-(crontab -l 2> /dev/null | grep -v sync-petbee-crm; echo "$CRON_LINE") | crontab -
+# ||true nos dois pontos: crontab vazio e grep sem resultado não podem
+# abortar o subshell (set -e), senão o crontab é instalado VAZIO em silêncio
+{ { crontab -l 2> /dev/null || true; } | grep -v sync-petbee-crm || true; echo "$CRON_LINE"; } | crontab -
+crontab -l | grep -q sync-petbee-crm && echo "cron instalado e conferido ✓"
 
 echo
 echo "Pronto. Primeira carga completa: node sync-petbee-crm.mjs --full"

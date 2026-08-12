@@ -34,7 +34,8 @@ docker compose up -d
 echo "==> Instalando backup diário (03:30, guarda 14 dias em /opt/twenty-backups)…"
 chmod +x backup.sh
 CRON_LINE="30 3 * * * $(pwd)/backup.sh >> /var/log/twenty-backup.log 2>&1"
-(crontab -l 2> /dev/null | grep -v twenty-backup; echo "$CRON_LINE") | crontab -
+{ { crontab -l 2> /dev/null || true; } | grep -v twenty-backup || true; echo "$CRON_LINE"; } | crontab -
+crontab -l | grep -q twenty-backup && echo "backup agendado e conferido ✓"
 
 echo
 echo "Pronto! Acompanhe a subida com: docker compose logs -f server"
