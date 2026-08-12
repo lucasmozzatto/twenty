@@ -116,21 +116,36 @@ const readSource = async (source) => {
 
 // ─────────────────────── CÉREBRO (regras + escrita) ───────────────────────
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const gql = async (query, variables = {}) => {
-  const response = await fetch(`${API_URL}/graphql`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` },
-    body: JSON.stringify({ query, variables }),
-  });
-  const body = await response.text();
-  let json;
-  try {
-    json = JSON.parse(body);
-  } catch {
-    throw new Error(`Resposta inesperada (HTTP ${response.status}): ${body.slice(0, 200)}`);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const response = await fetch(`${API_URL}/graphql`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` },
+        body: JSON.stringify({ query, variables }),
+      });
+      const body = await response.text();
+      let json;
+      try {
+        json = JSON.parse(body);
+      } catch {
+        throw new Error(`Resposta inesperada (HTTP ${response.status}): ${body.slice(0, 200)}`);
+      }
+      if (json.errors?.length) throw new Error(json.errors.map((e) => e.message).join(' | '));
+      return json.data;
+    } catch (error) {
+      // limite de velocidade da API não é erro de dado: espera e tenta de novo
+      const isRateLimit = /Limit reached|HTTP 429/i.test(error.message);
+      if (isRateLimit && attempt <= 20) {
+        if (attempt === 1) console.warn('  … limite de velocidade da API — aguardando para continuar');
+        await sleep(15_000);
+        continue;
+      }
+      throw error;
+    }
   }
-  if (json.errors?.length) throw new Error(json.errors.map((e) => e.message).join(' | '));
-  return json.data;
 };
 
 // Mapa anchor→uuid de um objeto do CRM, paginando
