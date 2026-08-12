@@ -1,48 +1,47 @@
 # Robô de sincronização Petbee → Twenty CRM
 
-Espelha o banco oficial da Petbee (MySQL na AWS) no Twenty, rodando **no
-próprio VPS** do CRM, a cada 30 minutos. Mão única (Petbee → CRM), ancorado
-nos campos "ID Petbee" — idempotente, nunca duplica.
+Espelha os dados da Petbee no Twenty, rodando **no próprio VPS** do CRM, de
+hora em hora. Mão única (Petbee → CRM), ancorado nos campos "ID Petbee" —
+idempotente, nunca duplica.
 
-## Pré-requisito (uma vez, com quem administra a AWS)
+**Fonte de leitura: a RÉPLICA read-only** (a cópia que a Petbee empurra via
+DMS — a mesma linha que alimenta o Retool), nunca o banco de produção. O
+leitor aceita **Postgres ou MySQL** (decidido pelo prefixo da URL); uma
+migração futura para BigQuery = reimplementar só as 5 consultas de
+`readSource()` — o cérebro (regras + escrita no CRM) não muda.
 
-O RDS `petbeedb` é privado (sem acesso público), então o VPS chega até ele
-por **túnel SSH via bastion**:
+## Pré-requisito (uma vez, com a infra)
 
-1. **No VPS**, gerar a chave do túnel e enviar a parte pública ao CTO:
-   `ssh-keygen -t ed25519 -f /root/.ssh/crm_tunnel -N '' -C crm-tunnel`
-   e `cat /root/.ssh/crm_tunnel.pub`
-2. **CTO**: criar no bastion um usuário para essa chave (ideal: sem shell,
-   só port-forward, ex.: `command="",restrict,port-forwarding` no
-   authorized_keys) e devolver `usuario@host` (e porta, se não for 22).
-3. **CTO**: criar o usuário somente-leitura no MySQL:
-
-```sql
-CREATE USER 'crm_sync'@'%' IDENTIFIED BY 'UMA_SENHA_FORTE';
-GRANT SELECT ON petbee.* TO 'crm_sync'@'%';
-```
+1. Uma **role/usuário somente-leitura** na réplica, escopada às tabelas
+   `humans`, `pets`, `pets_humans`, `subscriptions`, `plans`,
+   `pet_families`;
+2. **Allowlist do IP do VPS** (`2.25.103.17/32`) no acesso da réplica;
+3. Entrega de host/porta/banco/engine + credencial por **canal seguro**
+   (nunca em chat) — a credencial vai direto no `.env` do VPS.
 
 ## Instalação no VPS
 
 ```bash
 cd /opt/twenty-repo && git pull && cd petbee/sync
 
-# configuração (trocar SENHA, usuario@bastion e a API key)
+# configuração (preencher com os dados entregues pela infra)
 cat > .env << 'EOF'
-BASTION_SSH=usuario@host-do-bastion
-PETBEE_MYSQL_URL=mysql://crm_sync:SENHA@127.0.0.1:3307/petbee
+PETBEE_DB_URL=postgres://USUARIO:SENHA@HOST:5432/BANCO
+# PETBEE_DB_SCHEMA=petbee        # se as tabelas viverem num schema/prefixo
 TWENTY_API_URL=https://crm.petbeetools.com.br
 TWENTY_API_KEY=CHAVE_DA_API_DO_TWENTY
+# SYNC_CRON_SCHEDULE=0 * * * *   # padrão: de hora em hora
 EOF
 
-bash install-tunnel.sh        # sobe o túnel permanente (systemd + autossh)
-bash install-cron.sh          # dependências, teste de conexão, cron 30 em 30
+bash install-cron.sh              # dependências, teste de conexão, cron
+node sync-petbee-crm.mjs --test   # confere fonte e CRM sem gravar nada
 node sync-petbee-crm.mjs --full   # primeira carga completa (alguns minutos)
 ```
 
-> Sem bastion disponível? Alternativa: rodar este mesmo script numa
-> instância mínima dentro da VPC (t4g.nano) com o SG dela liberado no
-> `petbee-db-sg` — nada muda no código.
+> Plano B (se um dia for preciso ler o MySQL de origem direto): os scripts
+> de túnel SSH continuam nesta pasta (`install-tunnel.sh`) e o leitor
+> aceita `mysql://…@127.0.0.1:3307/petbee` via túnel — mas a réplica é o
+> caminho padrão e recomendado pela infra.
 
 Depois disso o cron roda sozinho a cada 30 min no modo incremental (só o que
 mudou desde a última rodada, com 1h de sobreposição de segurança). Logs em

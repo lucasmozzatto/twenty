@@ -1,16 +1,24 @@
 #!/usr/bin/env node
 // Robô de sincronização Petbee → Twenty CRM.
 //
-// Lê o MySQL da Petbee (humans, pets, pets_humans, plans, subscriptions) e
-// espelha no Twenty via API, ancorado nos campos "ID Petbee" — idempotente:
-// cria o que falta, atualiza o que mudou, nunca duplica.
+// Lê a RÉPLICA read-only do banco da Petbee (humans, pets, pets_humans,
+// plans, subscriptions) e espelha no Twenty via API, ancorado nos campos
+// "ID Petbee" — idempotente: cria o que falta, adota leads por e-mail,
+// deduplica pets clonados e atualiza o que mudou. Nunca duplica.
+//
+// Arquitetura em duas metades:
+//   LEITOR  — onde ler (MySQL ou Postgres, escolhido pela URL; BigQuery no
+//             futuro = implementar só as 5 consultas de leitura)
+//   CÉREBRO — regras de negócio + escrita no CRM (não muda com a fonte)
 //
 // Modos:
-//   node sync-petbee-crm.mjs --full     # primeira carga / recarga (cria o que falta)
-//   node sync-petbee-crm.mjs            # incremental: só o que mudou desde a última rodada
+//   node sync-petbee-crm.mjs --full     # primeira carga / recarga
+//   node sync-petbee-crm.mjs            # incremental desde a última rodada
+//   node sync-petbee-crm.mjs --test     # só testa conexões, não grava nada
 //
-// Config via variáveis de ambiente (arquivo .env ao lado, carregado sozinho):
-//   PETBEE_MYSQL_URL=mysql://usuario:senha@host:3306/petbee
+// Config via .env ao lado:
+//   PETBEE_DB_URL=postgres://usuario:senha@host:5432/banco   (ou mysql://...)
+//   PETBEE_DB_SCHEMA=petbee          # opcional: schema/prefixo das tabelas
 //   TWENTY_API_URL=https://crm.petbeetools.com.br
 //   TWENTY_API_KEY=...
 //
@@ -20,7 +28,6 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import mysql from 'mysql2/promise';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -32,17 +39,69 @@ if (existsSync(join(HERE, '.env'))) {
   }
 }
 
-const MYSQL_URL = process.env.PETBEE_MYSQL_URL;
+const DB_URL = process.env.PETBEE_DB_URL ?? process.env.PETBEE_MYSQL_URL;
+const DB_SCHEMA = process.env.PETBEE_DB_SCHEMA ?? '';
 const API_URL = (process.env.TWENTY_API_URL ?? '').replace(/\/+$/, '');
 const API_KEY = process.env.TWENTY_API_KEY;
 const FULL = process.argv.includes('--full');
+const TEST_ONLY = process.argv.includes('--test');
 const CURSOR_FILE = join(HERE, 'sync-cursor.txt');
 const BATCH = 60;
 
-if (!MYSQL_URL || !API_URL || !API_KEY) {
-  console.error('Config faltando: defina PETBEE_MYSQL_URL, TWENTY_API_URL e TWENTY_API_KEY (arquivo .env).');
+if (!DB_URL || !API_URL || !API_KEY) {
+  console.error('Config faltando: defina PETBEE_DB_URL, TWENTY_API_URL e TWENTY_API_KEY (arquivo .env).');
   process.exit(1);
 }
+
+// ─────────────────────────── LEITOR (fonte) ───────────────────────────────
+// Devolve { query(sql) -> linhas, end() }. Trocar de fonte = trocar aqui.
+
+const openSource = async () => {
+  const T = (table) => (DB_SCHEMA ? `${DB_SCHEMA}.${table}` : table);
+
+  if (DB_URL.startsWith('postgres')) {
+    const { default: pg } = await import('pg');
+    const client = new pg.Client({
+      connectionString: DB_URL,
+      ssl: DB_URL.includes('sslmode=disable') ? false : { rejectUnauthorized: false },
+    });
+    await client.connect();
+    return { T, query: async (sql) => (await client.query(sql)).rows, end: () => client.end() };
+  }
+
+  const { default: mysql } = await import('mysql2/promise');
+  // RDS/MySQL exige SSL; usa o CA da Amazon se baixado pelo install-cron.sh.
+  // Via túnel (127.0.0.1) o certificado é do host real, então a checagem de
+  // hostname é dispensada — a cadeia continua validada pelo CA.
+  const caPath = join(HERE, 'rds-global-bundle.pem');
+  const viaTunnel = /@(127\.0\.0\.1|localhost)[:/]/.test(DB_URL);
+  const ssl = existsSync(caPath)
+    ? { ca: readFileSync(caPath), ...(viaTunnel ? { checkServerIdentity: () => undefined } : {}) }
+    : { rejectUnauthorized: false };
+  const db = await mysql.createConnection({ uri: DB_URL, ssl });
+  return { T, query: async (sql) => (await db.query(sql))[0], end: () => db.end() };
+};
+
+// As 5 leituras que qualquer fonte precisa oferecer (contrato do leitor)
+const readSource = async (source) => {
+  const { T, query } = source;
+  const [plans, humans, pets, links, subs] = await Promise.all([
+    query(`SELECT id, name, value, blocked, updated_at FROM ${T('plans')} WHERE deleted_at IS NULL`),
+    query(`SELECT id, full_name, email, phone,
+             CASE WHEN document_type = 'cpf' THEN document END AS cpf, updated_at, created_at
+           FROM ${T('humans')} WHERE deleted_at IS NULL`),
+    query(`SELECT p.id, p.name, p.gender, p.breed, p.birthday, f.name AS especie, p.updated_at, p.created_at
+           FROM ${T('pets')} p LEFT JOIN ${T('pet_families')} f ON f.id = p.family_id
+           WHERE p.deleted_at IS NULL`),
+    query(`SELECT pet_id, human_id FROM ${T('pets_humans')} WHERE deleted_at IS NULL ORDER BY created_at ASC`),
+    query(`SELECT id, plan_id, pet_id, human_id, coupon, amount, frequency, start_date, canceled_at,
+             blocked, finished, next_recurrency, updated_at, created_at
+           FROM ${T('subscriptions')} WHERE deleted_at IS NULL`),
+  ]);
+  return { plans, humans, pets, links, subs };
+};
+
+// ─────────────────────── CÉREBRO (regras + escrita) ───────────────────────
 
 const gql = async (query, variables = {}) => {
   const response = await fetch(`${API_URL}/graphql`, {
@@ -167,40 +226,25 @@ const run = async () => {
     ? new Date(new Date(readFileSync(CURSOR_FILE, 'utf8').trim()).getTime() - 3600_000)
     : new Date(0);
 
-  console.log(`[${startedAt.toISOString()}] Sync ${FULL ? 'FULL' : `incremental desde ${cursor.toISOString()}`}`);
+  console.log(`[${startedAt.toISOString()}] Sync ${TEST_ONLY ? 'TESTE' : FULL ? 'FULL' : `incremental desde ${cursor.toISOString()}`}`);
 
-  // RDS exige SSL; usa o CA da Amazon se baixado pelo install-cron.sh.
-  // Via túnel (127.0.0.1) o certificado é do host real do RDS, então a
-  // checagem de hostname é dispensada — a cadeia continua validada pelo CA.
-  const caPath = join(HERE, 'rds-global-bundle.pem');
-  const viaTunnel = /@(127\.0\.0\.1|localhost)[:/]/.test(MYSQL_URL);
-  const ssl = existsSync(caPath)
-    ? { ca: readFileSync(caPath), ...(viaTunnel ? { checkServerIdentity: () => undefined } : {}) }
-    : { rejectUnauthorized: false };
-  const db = await mysql.createConnection({ uri: MYSQL_URL, ssl });
+  const source = await openSource();
 
-  const [plans] = await db.query('SELECT id, name, value, blocked, updated_at FROM plans WHERE deleted_at IS NULL');
-  const [humans] = await db.query(
-    `SELECT id, full_name, email, phone,
-            CASE WHEN document_type = 'cpf' THEN document END AS cpf, updated_at, created_at
-     FROM humans WHERE deleted_at IS NULL`,
-  );
-  const [pets] = await db.query(
-    `SELECT p.id, p.name, p.gender, p.breed, p.birthday, f.name AS especie, p.updated_at, p.created_at
-     FROM pets p LEFT JOIN pet_families f ON f.id = p.family_id
-     WHERE p.deleted_at IS NULL`,
-  );
-  const [links] = await db.query(
-    'SELECT pet_id, human_id FROM pets_humans WHERE deleted_at IS NULL ORDER BY created_at ASC',
-  );
-  const [subs] = await db.query(
-    `SELECT id, plan_id, pet_id, human_id, coupon, amount, frequency, start_date, canceled_at,
-            blocked, finished, next_recurrency, updated_at, created_at
-     FROM subscriptions WHERE deleted_at IS NULL`,
-  );
-  await db.end();
+  if (TEST_ONLY) {
+    const rows = await source.query(
+      `SELECT COUNT(*) AS n FROM ${source.T('humans')} WHERE deleted_at IS NULL`,
+    );
+    await source.end();
+    console.log(`Fonte OK — ${rows[0].n} tutores visíveis.`);
+    const ping = await gql(`query { people(first: 1) { totalCount } }`);
+    console.log(`CRM OK — ${ping.people.totalCount} pessoas no Twenty. Nada foi gravado.`);
+    return;
+  }
 
-  console.log(`MySQL: ${plans.length} planos, ${humans.length} tutores, ${pets.length} pets, ${subs.length} assinaturas`);
+  const { plans, humans, pets, links, subs } = await readSource(source);
+  await source.end();
+
+  console.log(`Fonte: ${plans.length} planos, ${humans.length} tutores, ${pets.length} pets, ${subs.length} assinaturas`);
 
   // tutor principal do pet: quem paga a assinatura mais recente; senão o vínculo mais antigo
   const petTutor = new Map();
@@ -209,9 +253,8 @@ const run = async () => {
 
   // Dedup na entrada: a origem tem pets clonados (mesmo tutor + nome +
   // espécie + sexo, ex.: 9 "Apollo" idênticos). Importa só o melhor
-  // representante de cada grupo (tem assinatura > mais recente); assinaturas
-  // que apontem para um clone são religadas ao representante. Pets sem tutor
-  // não são agrupados (não dá para afirmar que são o mesmo animal).
+  // representante de cada grupo; assinaturas que apontem para um clone são
+  // religadas ao representante. Pets sem tutor não são agrupados.
   const petsWithSub = new Set(subs.map((s) => s.pet_id));
   const petsWithActiveSub = new Set(
     subs.filter((s) => !s.canceled_at && !s.finished && !s.blocked).map((s) => s.pet_id),
