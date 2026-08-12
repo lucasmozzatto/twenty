@@ -100,18 +100,17 @@ const readSource = async (source) => {
   } catch {
     plansMissing = true;
   }
-  const [humans, pets, links, subs] = await Promise.all([
-    query(`SELECT id, full_name, email, phone,
+  // sequencial de propósito: uma conexão pg não executa consultas em paralelo
+  const humans = await query(`SELECT id, full_name, email, phone,
              CASE WHEN document_type = 'cpf' THEN document END AS cpf, updated_at, created_at
-           FROM ${T('humans')} WHERE deleted_at IS NULL`),
-    query(`SELECT p.id, p.name, p.gender, p.breed, p.birthday, f.name AS especie, p.updated_at, p.created_at
+           FROM ${T('humans')} WHERE deleted_at IS NULL`);
+  const pets = await query(`SELECT p.id, p.name, p.gender, p.breed, p.birthday, f.name AS especie, p.updated_at, p.created_at
            FROM ${T('pets')} p LEFT JOIN ${T('pet_families')} f ON f.id = p.family_id
-           WHERE p.deleted_at IS NULL`),
-    query(`SELECT pet_id, human_id FROM ${T('pets_humans')} WHERE deleted_at IS NULL ORDER BY created_at ASC`),
-    query(`SELECT id, plan_id, pet_id, human_id, coupon, amount, frequency, start_date, canceled_at,
+           WHERE p.deleted_at IS NULL`);
+  const links = await query(`SELECT pet_id, human_id FROM ${T('pets_humans')} WHERE deleted_at IS NULL ORDER BY created_at ASC`);
+  const subs = await query(`SELECT id, plan_id, pet_id, human_id, coupon, amount, frequency, start_date, canceled_at,
              blocked, finished, next_recurrency, updated_at, created_at
-           FROM ${T('subscriptions')} WHERE deleted_at IS NULL`),
-  ]);
+           FROM ${T('subscriptions')} WHERE deleted_at IS NULL`);
   return { plans, plansMissing, humans, pets, links, subs };
 };
 
@@ -193,27 +192,54 @@ const upsertAll = async ({ label, singular, createMany, anchorField, rows, chang
     adoptByEmail.delete(email);
   }
 
+  const skipped = [];
+  let created = 0;
+
   for (const batch of chunk(toCreate, BATCH)) {
-    const data = await gql(
-      `mutation C($data: [${cap}CreateInput!]!) { ${createMany}(data: $data) { id ${anchorField} } }`,
-      { data: batch },
-    );
-    for (const node of data[createMany]) anchorMap.set(String(node[anchorField]), node.id);
+    try {
+      const data = await gql(
+        `mutation C($data: [${cap}CreateInput!]!) { ${createMany}(data: $data) { id ${anchorField} } }`,
+        { data: batch },
+      );
+      for (const node of data[createMany]) anchorMap.set(String(node[anchorField]), node.id);
+      created += batch.length;
+    } catch {
+      // um registro podre derruba o lote inteiro — recria um a um e pula só o defeituoso
+      for (const row of batch) {
+        try {
+          const data = await gql(
+            `mutation C1($data: ${cap}CreateInput!) { create${cap}(data: $data) { id ${anchorField} } }`,
+            { data: row },
+          );
+          anchorMap.set(String(data[`create${cap}`][anchorField]), data[`create${cap}`].id);
+          created += 1;
+        } catch (rowError) {
+          skipped.push(`${anchorField}=${row[anchorField]}: ${rowError.message.slice(0, 90)}`);
+        }
+      }
+    }
   }
 
   for (const row of toUpdate) {
-    await gql(
-      `mutation U($id: UUID!, $data: ${cap}UpdateInput!) { update${cap}(id: $id, data: $data) { id } }`,
-      { id: anchorMap.get(row[anchorField]), data: row },
-    );
+    try {
+      await gql(
+        `mutation U($id: UUID!, $data: ${cap}UpdateInput!) { update${cap}(id: $id, data: $data) { id } }`,
+        { id: anchorMap.get(row[anchorField]), data: row },
+      );
+    } catch (rowError) {
+      skipped.push(`${anchorField}=${row[anchorField]} (update): ${rowError.message.slice(0, 90)}`);
+    }
   }
 
   const untouched = rows.length - toCreate.length - toUpdate.length - toAdopt.length;
   console.log(
-    `${label}: +${toCreate.length} criados` +
+    `${label}: +${created} criados` +
       (toAdopt.length ? `, ↷${toAdopt.length} adotados (lead existente por e-mail)` : '') +
-      `, ~${toUpdate.length} atualizados, ${untouched} sem mudança`,
+      `, ~${toUpdate.length} atualizados, ${untouched} sem mudança` +
+      (skipped.length ? `, ⚠ ${skipped.length} pulados por dados inválidos` : ''),
   );
+  for (const reason of skipped.slice(0, 5)) console.warn(`  ⚠ ${reason}`);
+  if (skipped.length > 5) console.warn(`  ⚠ … e mais ${skipped.length - 5} (detalhes acima são amostra)`);
 };
 
 const datePart = (value) => {
@@ -226,7 +252,13 @@ const parsePhone = (phone) => {
   if (!phone) return undefined;
   const digits = String(phone).replace(/[^\d+]/g, '');
   const national = digits.startsWith('+55') ? digits.slice(3) : digits.replace(/^\+/, '');
+  // telefone-lixo (curto/absurdo) entra sem telefone em vez de ser recusado pelo CRM
+  if (national.length < 8 || national.length > 12) return undefined;
   return { primaryPhoneCallingCode: '+55', primaryPhoneCountryCode: 'BR', primaryPhoneNumber: national };
+};
+const parseEmail = (email) => {
+  const trimmed = String(email || '').trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : undefined;
 };
 const splitName = (fullName) => {
   const parts = String(fullName || '').trim().split(/\s+/);
@@ -356,7 +388,7 @@ const run = async () => {
     rows: humans.map((h) => ({
       hIdPetbee: String(h.id),
       name: splitName(h.full_name),
-      emails: h.email ? { primaryEmail: h.email } : undefined,
+      emails: parseEmail(h.email) ? { primaryEmail: parseEmail(h.email) } : undefined,
       phones: parsePhone(h.phone),
       cpf: h.cpf || undefined,
       statusCliente: activeHumans.has(h.id) ? 'ATIVO' : 'INATIVO',
