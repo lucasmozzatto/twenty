@@ -50,6 +50,14 @@ mudou desde a última rodada, com 1h de sobreposição de segurança). Logs em
 
 ## Regras de negócio embutidas
 
+- **Adoção de leads por e-mail**: ao processar um tutor cujo ID Petbee ainda
+  não existe no CRM, o robô procura uma pessoa com o mesmo e-mail **sem** ID
+  Petbee (lead criado antes do cadastro no app, ex.: vindo do Bitrix). Se
+  achar, atualiza esse registro e carimba o ID nele — o histórico do lead
+  (anotações, tarefas, funil) é preservado e nada duplica. Telefone não é
+  usado como critério de propósito: formatos variam e um casamento errado é
+  pior que uma duplicata.
+
 - **Status da assinatura**: `canceled_at`/`finished` → Cancelada; `blocked` →
   Bloqueada; senão Ativa.
 - **Status do cliente** (Person): tem assinatura ativa → Ativo; senão Inativo.
