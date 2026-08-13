@@ -88,7 +88,11 @@ Memória viva do projeto. Atualizado em 2026-08-12.
   Bitrix no mesmo ato — uma maternidade por lead). Decisão: substituir
   o Make por estrutura própria open source (n8n), rodando no MESMO VPS
   (bloco a mais no `petbee/deploy/docker-compose.yml`, subdomínio próprio
-  via Caddy). Cada cenário reconstruído no n8n já aponta para o Twenty —
+  via Caddy). **Artefatos prontos (2026-08-13)**: serviço `n8n` no compose
+  (Postgres próprio no mesmo banco, timezone São Paulo, chave de cifra
+  gerada 1x), domínio `n8n.petbeetools.com.br` no Caddy, instalação via
+  `petbee/deploy/add-n8n.sh`, backup diário passou a incluir o banco do
+  n8n. Cada cenário reconstruído no n8n já aponta para o Twenty —
   aposenta o cenário do Make e a dependência do Bitrix de uma vez. Make e
   n8n rodam em paralelo até cada cenário provar.
 - **Fase 4 — Virada**: time vendendo no Twenty, Bitrix congelado, delta
