@@ -15,7 +15,9 @@ Memória viva do projeto. Atualizado em 2026-08-12.
 - **Base completa carregada e espelhada**: 7.731 tutores, 10.038 pets (992
   clones da origem deduplicados), 5.378 assinaturas (3.410 ativas), via robô
   em `petbee/sync` lendo a **réplica read-only** (Postgres do Retool DB,
-  empurrada por DMS — nunca a produção). Cron de 1h (`SYNC_CRON_SCHEDULE`).
+  empurrada por DMS — nunca a produção). Cron de 1h (`SYNC_CRON_SCHEDULE`),
+  **provado em produção**: tutora criada no app às 22h54 UTC de 12/08
+  apareceu no CRM às 23h00m08s pela ronda automática, sem toque humano.
 - **Enriquecimento**: aniversário e cidade/UF do tutor, falecido (227) e
   microchip do pet, addons/próxima cobrança/cortesia da assinatura.
 - **Regras do robô**: upsert por âncora; adoção de leads por e-mail; dedup de
@@ -38,8 +40,13 @@ Memória viva do projeto. Atualizado em 2026-08-12.
   para assinaturas offline). Em quarentena para validação com o time:
   Recuperação de Lost (12), Customers (2), Indicação (10), Corretores (16),
   Crédito (4), Parcerias (22), Brokers (24). Mortos (não migram): Upgrades
-  (14) e Clube Petbee (20). Pendências da fase: inventário dos cenários do
-  Make + nº de usuários do Bitrix + validação da quarentena.
+  (14) e Clube Petbee (20). **Time comercial: 3 usuários** (Lucas, Rodrigo e
+  Vitória). **Existe um agente de IA que qualifica leads e os move no
+  pipeline** — peça crítica: o time não pode perder esse fluxo na virada;
+  mapear onde ele roda (Make? ferramenta própria?), quais critérios usa e
+  quais etapas ele movimenta, para reconstruí-lo apontando para o Twenty
+  antes de desligar o Bitrix. Pendências da fase: inventário dos cenários do
+  Make + validação da quarentena + raio-X do agente de IA.
 - **Fase 1 — Modelo comercial no Twenty**: Opportunities (kanban nativo) com
   as etapas dos funis, campos custom equivalentes, âncora `idBitrix` em
   negócio/empresa (Person já tem).
@@ -67,6 +74,13 @@ Memória viva do projeto. Atualizado em 2026-08-12.
   final, cancelar **Bitrix e Make**.
 
 ### Camada de IA (futuro, pós-virada)
+- **Prioridade nº 1 desta camada: o agente qualificador de leads** que já
+  existe hoje no fluxo comercial (qualifica e move o lead no pipeline).
+  Ele precisa ser reconstruído apontando para o Twenty ANTES da virada —
+  é pré-requisito da Fase 4, não um "depois". Caminho provável: a parte de
+  encanamento (receber lead, chamar o LLM, mover etapa) vira fluxo n8n
+  passando pelo porteiro único; a inteligência (prompt/critérios) é portada
+  como está para não mudar o comportamento que o time conhece.
 - Candidato avaliado: **Sim (sim.ai)** — open source Apache 2.0,
   self-hostável, focado em agentes de IA (LLM + knowledge base). Decisão de
   2026-08: n8n é a espinha dorsal das automações (maturidade no
