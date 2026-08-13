@@ -45,8 +45,29 @@ Memória viva do projeto. Atualizado em 2026-08-12.
   pipeline** — peça crítica: o time não pode perder esse fluxo na virada;
   mapear onde ele roda (Make? ferramenta própria?), quais critérios usa e
   quais etapas ele movimenta, para reconstruí-lo apontando para o Twenty
-  antes de desligar o Bitrix. Pendências da fase: inventário dos cenários do
-  Make + validação da quarentena + raio-X do agente de IA.
+  antes de desligar o Bitrix. **Raio-X do agente (Lucas, 2026-08-13): roda
+  na infra própria da Petbee (app no Railway, fora do Make), falando direto
+  com a API do Bitrix** — migrar = trocar as chamadas Bitrix por chamadas à
+  API do Twenty no próprio código. Pendência restante da fase: validação da
+  quarentena com o time.
+- **Inventário do Make** (print de 2026-08-13, 17 cenários) — classificados
+  pelo destino na migração:
+  - **Morrem com o Bitrix, sem substituto** (o espelho da réplica já faz o
+    trabalho no Twenty): Customer Events (2,3 mil execuções), Pet Events
+    (3 mil), Subscription Events (234), Integration Checkout Events (39 mil)
+    — todos empurram dados do app para dentro do Bitrix. Get Info Fonte
+    api/petbee (parado).
+  - **Carregam lógica comercial → reconstruir no n8n/Twenty Workflows**:
+    webhook-createdealcrm-sales (4,9 mil), webhook-updatedealcrm-sales
+    (68 mil execuções — o maior de todos), webhook-deletedealcrm-sales
+    (parado desde jan/2025), Envio Contrato Venda Offline (180 — vira a
+    automação do funil 6). Precisa exportar os blueprints para ver a lógica
+    interna antes de reconstruir.
+  - **Independentes do CRM (migram no próprio ritmo)**: as 5 Integration
+    WPP cobrança (fup pix, limites, pix padrão, review payment, serasa —
+    todas marcando 0 execuções; conferir quais estão ligadas),
+    Digisac-bitrix (0 execuções, 68 módulos — conferir se está morto),
+    Face e Google Insights, Reports Investor.
 - **Fase 1 — Modelo comercial no Twenty**: Opportunities (kanban nativo) com
   as etapas dos funis, campos custom equivalentes, âncora `idBitrix` em
   negócio/empresa (Person já tem).
@@ -76,11 +97,12 @@ Memória viva do projeto. Atualizado em 2026-08-12.
 ### Camada de IA (futuro, pós-virada)
 - **Prioridade nº 1 desta camada: o agente qualificador de leads** que já
   existe hoje no fluxo comercial (qualifica e move o lead no pipeline).
-  Ele precisa ser reconstruído apontando para o Twenty ANTES da virada —
-  é pré-requisito da Fase 4, não um "depois". Caminho provável: a parte de
-  encanamento (receber lead, chamar o LLM, mover etapa) vira fluxo n8n
-  passando pelo porteiro único; a inteligência (prompt/critérios) é portada
-  como está para não mudar o comportamento que o time conhece.
+  Ele precisa ser reapontado para o Twenty ANTES da virada — é pré-requisito
+  da Fase 4, não um "depois". Como é código próprio da Petbee (Railway)
+  falando com a API do Bitrix, a migração é uma troca de integrações no
+  próprio app: chamadas Bitrix REST → GraphQL do Twenty, criação de lead
+  passando pelo porteiro único. A inteligência (prompt/critérios) fica
+  intacta para o comportamento que o time conhece não mudar.
 - Candidato avaliado: **Sim (sim.ai)** — open source Apache 2.0,
   self-hostável, focado em agentes de IA (LLM + knowledge base). Decisão de
   2026-08: n8n é a espinha dorsal das automações (maturidade no
