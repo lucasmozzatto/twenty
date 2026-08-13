@@ -92,7 +92,12 @@ Memória viva do projeto. Atualizado em 2026-08-12.
   (Postgres próprio no mesmo banco, timezone São Paulo, chave de cifra
   gerada 1x), domínio `n8n.petbeetools.com.br` no Caddy, instalação via
   `petbee/deploy/add-n8n.sh`, backup diário passou a incluir o banco do
-  n8n. Cada cenário reconstruído no n8n já aponta para o Twenty —
+  n8n. **n8n NO AR em `n8n.petbeetools.com.br` (2026-08-13)**, conta de
+  dono criada pelo Lucas. **Porteiro único v1 pronto** em `petbee/n8n/`
+  (porteiro-unico.json + teste-porteiro.json + README): escadinha e-mail →
+  telefone 1↔1 → cria com campo Origem (novo campo TEXT em Person);
+  descarte pela política selada. Consulta de busca validada contra o CRM
+  real antes de embarcar no fluxo. Cada cenário reconstruído no n8n já aponta para o Twenty —
   aposenta o cenário do Make e a dependência do Bitrix de uma vez. Make e
   n8n rodam em paralelo até cada cenário provar.
 - **Fase 4 — Virada**: time vendendo no Twenty, Bitrix congelado, delta
