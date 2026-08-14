@@ -70,7 +70,17 @@ Memória viva do projeto. Atualizado em 2026-08-12.
     Face e Google Insights, Reports Investor.
 - **Fase 1 — Modelo comercial no Twenty**: Opportunities (kanban nativo) com
   as etapas dos funis, campos custom equivalentes, âncora `idBitrix` em
-  negócio/empresa (Person já tem).
+  negócio/empresa (Person já tem). **Funil Vendas (0) PRONTO (2026-08-14,
+  `petbee/provision-funil-vendas.mjs`)**: objeto renomeado para
+  Negócio/Negócios, 12 etapas idênticas ao Bitrix (Novo Lead → Qualificação
+  → FUP 0–5 → FUP Break → Fechamento → Won/Lost), 11 campos (âncora
+  idBitrix + os 10 vivos por amostragem de 250 negócios: Canal, Origem,
+  WhatsApp, Motivo de Lost, Teste LP, ClientID GA4, Fechamento, Pagamento,
+  Ativação, Cidade — os outros 17 campos do Bitrix estão mortos e não
+  migram). Funil 0 tem 14.066 negócios; decisão do Lucas: migrar o
+  histórico COMPLETO (Won e Lost inclusos). Estratégia selada: espelho
+  em paralelo (time segue no Bitrix, cron importa, Lucas acompanha no
+  Twenty) até a virada.
 - **Fase 2 — Dados em lotes**: piloto de ~20 negócios → validação → base
   toda. **Política de contatos SELADA (Lucas, 2026-08-12)**: 1) casou por
   e-mail → adota o cliente existente (7.639); 2) casou por telefone em 1↔1
