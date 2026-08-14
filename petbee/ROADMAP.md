@@ -97,7 +97,13 @@ Memória viva do projeto. Atualizado em 2026-08-12.
   (porteiro-unico.json + teste-porteiro.json + README): escadinha e-mail →
   telefone 1↔1 → cria com campo Origem (novo campo TEXT em Person);
   descarte pela política selada. Consulta de busca validada contra o CRM
-  real antes de embarcar no fluxo. Cada cenário reconstruído no n8n já aponta para o Twenty —
+  real antes de embarcar no fluxo. **PROVADO em 2026-08-14**: importado na
+  instância, credencial "Twenty" (Header Auth) plugada, teste rodado 2× —
+  1ª execução criou o lead no CRM (telefone normalizado, origem
+  carimbada), 2ª adotou sem duplicar; lead de teste removido depois.
+  Acesso operacional do Claude ao n8n: MCP da instância
+  (`/mcp-server/http`) via chave de API — permite criar/editar/testar
+  fluxos direto. Cada cenário reconstruído no n8n já aponta para o Twenty —
   aposenta o cenário do Make e a dependência do Bitrix de uma vez. Make e
   n8n rodam em paralelo até cada cenário provar.
 - **Fase 4 — Virada**: time vendendo no Twenty, Bitrix congelado, delta
@@ -132,6 +138,8 @@ Memória viva do projeto. Atualizado em 2026-08-12.
   somente-leitura dedicada ao CRM.
 - **Trocar a API key do Twenty** usada pelo robô (passou por chat): criar
   nova → atualizar `.env` do VPS → revogar a antiga, nessa ordem.
+- **Trocar a chave do MCP do n8n** (passou por chat em 2026-08-14): no n8n,
+  Settings → Instance-level MCP → revogar a chave atual e gerar nova.
 - **Migrar este fork para `github.com/petbee`** (Settings → Transfer
   ownership; endereço antigo redireciona; ajustar remote no VPS).
 - Backup externo dos dumps (rclone → Google Drive) ou snapshots Hostinger.
