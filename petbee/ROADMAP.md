@@ -71,16 +71,30 @@ Memória viva do projeto. Atualizado em 2026-08-12.
 - **Fase 1 — Modelo comercial no Twenty**: Opportunities (kanban nativo) com
   as etapas dos funis, campos custom equivalentes, âncora `idBitrix` em
   negócio/empresa (Person já tem). **Funil Vendas (0) PRONTO (2026-08-14,
-  `petbee/provision-funil-vendas.mjs`)**: objeto renomeado para
-  Negócio/Negócios, 12 etapas idênticas ao Bitrix (Novo Lead → Qualificação
-  → FUP 0–5 → FUP Break → Fechamento → Won/Lost), 11 campos (âncora
-  idBitrix + os 10 vivos por amostragem de 250 negócios: Canal, Origem,
-  WhatsApp, Motivo de Lost, Teste LP, ClientID GA4, Fechamento, Pagamento,
-  Ativação, Cidade — os outros 17 campos do Bitrix estão mortos e não
-  migram). Funil 0 tem 14.066 negócios; decisão do Lucas: migrar o
-  histórico COMPLETO (Won e Lost inclusos). Estratégia selada: espelho
-  em paralelo (time segue no Bitrix, cron importa, Lucas acompanha no
-  Twenty) até a virada.
+  `petbee/provision-funil-vendas.mjs`)** — e no modelo "por tarefa", não no
+  espelho das 12 colunas (decisão do Lucas após discussão): objeto
+  renomeado Negócio/Negócios, **7 etapas que medem venda** (Novo Lead → Em
+  qualificação → Em negociação → Fechamento → Break → Won/Lost; pular
+  Fechamento é permitido), cadência de FUP vira **tarefa com vencimento** +
+  campos `fupNumero` e `proximoContato` no card. Break = estacionamento com
+  FUP de resgate automático após 60 dias antes do Lost. 13 campos no total
+  (âncora idBitrix + FUP nº + Próximo contato + os 10 vivos por amostragem
+  de 250 negócios: Canal, Origem, WhatsApp, Motivo de Lost, Teste LP,
+  ClientID GA4, Fechamento, Pagamento, Ativação, Cidade — os outros 17 do
+  Bitrix estão mortos, não migram). **Fluxo do agente de IA no modelo
+  novo**: trabalha em Em qualificação atualizando fupNumero; 6 FUPs sem
+  qualificar → Lost com motivo automático; qualificou → Em negociação +
+  tarefa "Primeiro contato" para a vendedora.
+- **Estratégia de virada REVISADA (Lucas, 2026-08-14) — fluxo novo
+  primeiro, histórico depois**: em vez de espelhar a base velha já, ligar
+  as MESMAS fontes de lead nos dois CRMs e acompanhar ao vivo. Desenho da
+  "maternidade dupla": LP/forms → webhook do n8n → porteiro único → cria
+  Negócio + tarefa no Twenty E repassa ao Bitrix igual hoje (virada futura
+  = apagar um nó). Objetivo: cadência negócio+tarefa rodando lisa para
+  treinar o time a operar no Twenty. Histórico dos 14.066 negócios do
+  funil 0 migra DEPOIS, completo (Won/Lost inclusos), mapeando FUP 0–5 →
+  Em negociação (fupNumero=N) e FUP Break → Break. Pendência: Lucas envia
+  a URL do webhook que a LP chama hoje + campos enviados pelo forms.
 - **Fase 2 — Dados em lotes**: piloto de ~20 negócios → validação → base
   toda. **Política de contatos SELADA (Lucas, 2026-08-12)**: 1) casou por
   e-mail → adota o cliente existente (7.639); 2) casou por telefone em 1↔1

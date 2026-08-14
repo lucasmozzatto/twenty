@@ -34,20 +34,26 @@ const toOptions = (labels, colorOf) =>
     position,
   }));
 
-// As 12 etapas do funil Vendas do Bitrix, na mesma ordem
-const ETAPAS = ['Novo Lead', 'Qualificação', 'FUP 0', 'FUP 1', 'FUP 2', 'FUP 3', 'FUP 4', 'FUP 5', 'FUP Break', 'Fechamento', 'Won', 'Lost'];
+// Funil "por tarefa" (decisão do Lucas, 2026-08-14): etapas medem venda;
+// a cadência de FUP vira tarefa com vencimento + contador no card.
+// Break = estacionamento com FUP de resgate após 60 dias, antes do Lost.
+// Na importação do histórico: FUP 0-5 → Em negociação (fupNumero = N),
+// FUP Break → Break, Qualificação → Em qualificação.
+const ETAPAS = ['Novo Lead', 'Em qualificação', 'Em negociação', 'Fechamento', 'Break', 'Won', 'Lost'];
 const corEtapa = (label) =>
   label === 'Won' ? 'green'
   : label === 'Lost' ? 'red'
   : label === 'Novo Lead' ? 'blue'
-  : label === 'Qualificação' ? 'sky'
-  : label === 'FUP Break' ? 'yellow'
+  : label === 'Em qualificação' ? 'sky'
+  : label === 'Break' ? 'yellow'
   : label === 'Fechamento' ? 'orange'
   : 'turquoise';
 
 // Campos vivos do Bitrix (medidos por amostragem) + âncora
 const CAMPOS = [
   { name: 'idBitrix', label: 'ID Bitrix', type: 'TEXT', icon: 'IconLink' },
+  { name: 'fupNumero', label: 'FUP nº', type: 'NUMBER', icon: 'IconRepeat' },
+  { name: 'proximoContato', label: 'Próximo contato', type: 'DATE_TIME', icon: 'IconCalendarTime' },
   { name: 'canal', label: 'Canal', type: 'SELECT', icon: 'IconRoute', options: toOptions(['WhatsApp', 'WhatsApp Clientes', 'Onboarding', 'Indicação', 'Formulário', 'Instagram', 'Outbound', 'Outros']) },
   { name: 'origem', label: 'Origem', type: 'SELECT', icon: 'IconDoorEnter', options: toOptions(['Indicação - Clínica', 'Indicação - Cliente', 'Google Ads', 'Facebook Ads', 'Instagram Ads', 'Cliente', 'Cadastro Direto', 'Influencer', 'Corretor', 'Roleta da Sorte', 'Organic Search', 'Organic Social', 'Tour', 'Parceiros', 'FUP_auto', 'Outros', 'PV']) },
   { name: 'whatsapp', label: 'WhatsApp', type: 'TEXT', icon: 'IconBrandWhatsapp' },
