@@ -11,14 +11,14 @@ const FIM_DE_TARDE_SP = new Date('2026-08-19T20:00:00.000Z');
 test('FUP 1 vence no instante da qualificação', () => {
   const [toque] = proximas('Luc Test', 0, MANHA_SP);
 
-  assert.equal(toque.titulo, 'FUP 1 (abordar agora) — Luc Test');
+  assert.equal(toque.titulo, 'FUP 1 (mensagem, abordar agora) — Luc Test');
   assert.equal(toque.dueAt, MANHA_SP.toISOString());
 });
 
 test('FUP 2 vence 1h30 depois da conclusão da FUP 1', () => {
   const [toque] = proximas('Luc Test', 1, MANHA_SP);
 
-  assert.equal(toque.titulo, 'FUP 2 (mensagem, ~1h30 depois) — Luc Test');
+  assert.equal(toque.titulo, 'FUP 2 (ligação, ~1h30 depois) — Luc Test');
   assert.equal(toque.dueAt, '2026-08-19T14:30:00.000Z');
 });
 

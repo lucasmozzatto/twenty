@@ -44,7 +44,7 @@ test('negócio novo em Em Negociação ganha a FUP 1 imediata, da Vitória, com 
   const criadas = criacoes(ops);
 
   assert.equal(criadas.length, 1);
-  assert.equal(criadas[0].data.title, 'FUP 1 (abordar agora) — Luc Test');
+  assert.equal(criadas[0].data.title, 'FUP 1 (mensagem, abordar agora) — Luc Test');
   assert.equal(criadas[0].data.dueAt, AGORA.toISOString());
   assert.equal(criadas[0].data.assigneeId, '69572821-c2f4-4923-9c68-23381b665a49');
   assert.equal(criadas[0].data.whatsapp?.primaryLinkUrl, 'https://inbox.petbeetools.com.br/');
@@ -110,8 +110,8 @@ test('mover pro Break apaga decisão e FUPs abertas e agenda a FUP final (+25d, 
 test('duplicata aberta da mesma FUP (corrida) é removida', () => {
   const opp = oppDe({
     tarefas: [
-      { id: 'a', title: 'FUP 1 (abordar agora) — Luc Test', status: 'TODO' },
-      { id: 'b', title: 'FUP 1 (abordar agora) — Luc Test', status: 'TODO' },
+      { id: 'a', title: 'FUP 1 (mensagem, abordar agora) — Luc Test', status: 'TODO' },
+      { id: 'b', title: 'FUP 1 (mensagem, abordar agora) — Luc Test', status: 'TODO' },
     ],
   });
   const ops = computePlan(entrada({ funil: [opp] }));
@@ -128,7 +128,7 @@ test('task manual (título fora dos padrões) nunca é tocada', () => {
     fupNumero: 1,
     tarefas: [
       { id: 'm', title: 'Ligar pro veterinário parceiro', status: 'TODO' },
-      { id: 't2', title: 'FUP 2 (mensagem, ~1h30 depois) — Luc Test', status: 'TODO' },
+      { id: 't2', title: 'FUP 2 (ligação, ~1h30 depois) — Luc Test', status: 'TODO' },
     ],
   });
   const ops = computePlan(entrada({ funil: [opp] }));
@@ -143,7 +143,7 @@ test('vencimento editado à mão é respeitado (sem updateTask de dueAt)', () =>
     tarefas: [
       {
         id: 't2',
-        title: 'FUP 2 (mensagem, ~1h30 depois) — Luc Test',
+        title: 'FUP 2 (ligação, ~1h30 depois) — Luc Test',
         status: 'TODO',
         dueAt: '2026-08-25T12:00:00.000Z',
         whatsapp: { primaryLinkUrl: 'https://inbox.petbeetools.com.br/' },
@@ -161,7 +161,7 @@ test('link wa.me antigo ganha self-heal para o inbox', () => {
     tarefas: [
       {
         id: 't2',
-        title: 'FUP 2 (mensagem, ~1h30 depois) — Luc Test',
+        title: 'FUP 2 (ligação, ~1h30 depois) — Luc Test',
         status: 'TODO',
         whatsapp: { primaryLinkUrl: 'https://wa.me/5541999998888' },
       },
@@ -177,7 +177,7 @@ test('task gerenciada de negócio que saiu do funil (Ganhou/Perdido) é apagada'
   const ops = computePlan(
     entrada({
       abertas: [
-        { id: 'x', title: 'FUP 3 (ligação + mensagem, manhã) — Fulano', targetOpportunityId: 'opp-won' },
+        { id: 'x', title: 'FUP 3 (mensagem + ligação, manhã) — Fulano', targetOpportunityId: 'opp-won' },
         { id: 'y', title: 'Decidir: Break ou Perdido? — Fulano', targetOpportunityId: 'opp-won' },
         { id: 'z', title: 'Task manual solta', targetOpportunityId: 'opp-won' },
       ],
@@ -264,9 +264,9 @@ test('concluir várias FUPs de uma vez agenda só a próxima certa', () => {
   const opp = oppDe({
     fupNumero: 0,
     tarefas: [
-      { id: 't1', title: 'FUP 1 (abordar agora) — Luc Test', status: 'DONE' },
-      { id: 't2', title: 'FUP 2 (mensagem, ~1h30 depois) — Luc Test', status: 'DONE' },
-      { id: 't3', title: 'FUP 3 (ligação + mensagem, manhã) — Luc Test', status: 'DONE' },
+      { id: 't1', title: 'FUP 1 (mensagem, abordar agora) — Luc Test', status: 'DONE' },
+      { id: 't2', title: 'FUP 2 (ligação, ~1h30 depois) — Luc Test', status: 'DONE' },
+      { id: 't3', title: 'FUP 3 (mensagem + ligação, manhã) — Luc Test', status: 'DONE' },
     ],
   });
   const ops = computePlan(entrada({ funil: [opp] }));

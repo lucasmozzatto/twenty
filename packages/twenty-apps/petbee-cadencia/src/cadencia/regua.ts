@@ -9,15 +9,16 @@ export const VITORIA_WORKSPACE_MEMBER_ID =
   '69572821-c2f4-4923-9c68-23381b665a49';
 export const INBOX_URL = 'https://inbox.petbeetools.com.br/';
 
+// Canais oficiais (19/08): 1 msg · 2 ligação · 3-4 msg+ligação · 5-9 só msg.
 export const TOQUES: Record<number, string> = {
-  1: 'FUP 1 (abordar agora)',
-  2: 'FUP 2 (mensagem, ~1h30 depois)',
-  3: 'FUP 3 (ligação + mensagem, manhã)',
-  4: 'FUP 4 (ligação + mensagem, tarde)',
-  5: 'FUP 5 (ligação + mensagem, manhã)',
-  6: 'FUP 6 (ligação + mensagem, tarde)',
+  1: 'FUP 1 (mensagem, abordar agora)',
+  2: 'FUP 2 (ligação, ~1h30 depois)',
+  3: 'FUP 3 (mensagem + ligação, manhã)',
+  4: 'FUP 4 (mensagem + ligação, tarde)',
+  5: 'FUP 5 (mensagem, manhã)',
+  6: 'FUP 6 (mensagem, tarde)',
   7: 'FUP 7 (mensagem, manhã)',
-  8: 'FUP 8 (ligação, tarde)',
+  8: 'FUP 8 (mensagem, tarde)',
   9: 'FUP 9 (mensagem, manhã)',
 };
 
