@@ -1,7 +1,9 @@
 // Lê a fotografia do CRM, calcula o plano (plan.ts) e — fora do modo sombra — executa.
 // Toda entrada do motor (cron ou evento) passa por aqui; falhas disparam o alerta.
-import { CoreApiClient } from 'twenty-client-sdk/core';
-
+//
+// As chamadas usam GraphQL cru (fetch + token do app) em vez do cliente tipado:
+// o validador do twenty-client-sdk não enxerga o campo custom `whatsapp` da Task
+// aninhada via taskTargets, e estas queries são as mesmas já provadas no motor n8n.
 import { PADRAO_DECISAO, PADRAO_FUP, PADRAO_MOTIVO } from './regua.ts';
 import {
   computePlan,
@@ -19,42 +21,40 @@ function nodesDe<T>(conexao: Conexao<T>): T[] {
   return (conexao?.edges ?? []).map((edge) => edge.node);
 }
 
+async function gql<TData>(
+  query: string,
+  variables?: Record<string, unknown>,
+): Promise<TData> {
+  const url = `${process.env.TWENTY_API_URL}/graphql`;
+  const resposta = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  const corpo = (await resposta.json()) as {
+    data?: TData;
+    errors?: { message: string }[];
+  };
+
+  if (corpo.errors?.length) {
+    throw new Error(`GraphQL: ${corpo.errors[0].message}`);
+  }
+  if (!corpo.data) {
+    throw new Error(`GraphQL sem data (HTTP ${resposta.status})`);
+  }
+
+  return corpo.data;
+}
+
 const GERENCIADA = (titulo: string): boolean =>
   PADRAO_FUP.test(titulo) || PADRAO_DECISAO.test(titulo) || PADRAO_MOTIVO.test(titulo);
 
-async function carregarFunil(client: CoreApiClient): Promise<OppDoFunil[]> {
-  const resposta = (await client.query({
-    opportunities: {
-      __args: {
-        filter: {
-          or: [{ stage: { eq: 'EM_NEGOCIACAO' } }, { stage: { eq: 'BREAK' } }],
-        },
-        first: 200,
-      },
-      edges: {
-        node: {
-          id: true,
-          name: true,
-          stage: true,
-          fupNumero: true,
-          whatsapp: true,
-          taskTargets: {
-            edges: {
-              node: {
-                task: {
-                  id: true,
-                  title: true,
-                  status: true,
-                  dueAt: true,
-                  whatsapp: { primaryLinkUrl: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  })) as {
+async function carregarFunil(): Promise<OppDoFunil[]> {
+  const dados = await gql<{
     opportunities: Conexao<{
       id: string;
       name: string;
@@ -63,9 +63,11 @@ async function carregarFunil(client: CoreApiClient): Promise<OppDoFunil[]> {
       whatsapp?: string | null;
       taskTargets: Conexao<{ task: TaskDoFunil | null }>;
     }>;
-  };
+  }>(
+    'query { opportunities(filter: {or: [{stage: {eq: "EM_NEGOCIACAO"}}, {stage: {eq: "BREAK"}}]}, first: 200) { edges { node { id name stage fupNumero whatsapp taskTargets { edges { node { task { id title status dueAt whatsapp { primaryLinkUrl } } } } } } } } }',
+  );
 
-  return nodesDe(resposta.opportunities).map((opp) => ({
+  return nodesDe(dados.opportunities).map((opp) => ({
     id: opp.id,
     name: opp.name,
     stage: opp.stage,
@@ -77,27 +79,18 @@ async function carregarFunil(client: CoreApiClient): Promise<OppDoFunil[]> {
   }));
 }
 
-async function carregarAbertas(client: CoreApiClient): Promise<TaskAberta[]> {
-  const resposta = (await client.query({
-    tasks: {
-      __args: { filter: { status: { eq: 'TODO' } }, first: 300 },
-      edges: {
-        node: {
-          id: true,
-          title: true,
-          taskTargets: { edges: { node: { targetOpportunityId: true } } },
-        },
-      },
-    },
-  })) as {
+async function carregarAbertas(): Promise<TaskAberta[]> {
+  const dados = await gql<{
     tasks: Conexao<{
       id: string;
       title: string;
       taskTargets: Conexao<{ targetOpportunityId: string | null }>;
     }>;
-  };
+  }>(
+    'query { tasks(filter: {status: {eq: "TODO"}}, first: 300) { edges { node { id title taskTargets { edges { node { targetOpportunityId } } } } } } }',
+  );
 
-  return nodesDe(resposta.tasks).map((task) => ({
+  return nodesDe(dados.tasks).map((task) => ({
     id: task.id,
     title: task.title,
     targetOpportunityId:
@@ -105,24 +98,19 @@ async function carregarAbertas(client: CoreApiClient): Promise<TaskAberta[]> {
   }));
 }
 
-async function carregarPerdidasSemMotivo(
-  client: CoreApiClient,
-): Promise<{ id: string; name: string }[]> {
-  const resposta = (await client.query({
-    opportunities: {
-      __args: {
-        filter: { stage: { eq: 'LOST' }, motivoLost: { is: 'NULL' } },
-        first: 50,
-      },
-      edges: { node: { id: true, name: true } },
-    },
-  })) as { opportunities: Conexao<{ id: string; name: string }> };
+async function carregarPerdidasSemMotivo(): Promise<
+  { id: string; name: string }[]
+> {
+  const dados = await gql<{
+    opportunities: Conexao<{ id: string; name: string }>;
+  }>(
+    'query { opportunities(filter: {stage: {eq: "LOST"}, motivoLost: {is: NULL}}, first: 50) { edges { node { id name } } } }',
+  );
 
-  return nodesDe(resposta.opportunities);
+  return nodesDe(dados.opportunities);
 }
 
 async function carregarForaDoFunil(
-  client: CoreApiClient,
   abertas: TaskAberta[],
   idsDoFunil: Set<string>,
 ): Promise<Record<string, OppForaDoFunil>> {
@@ -139,55 +127,52 @@ async function carregarForaDoFunil(
 
   if (!ids.length) return {};
 
-  const resposta = (await client.query({
-    opportunities: {
-      __args: { filter: { id: { in: ids } }, first: 100 },
-      edges: { node: { id: true, stage: true, motivoLost: true } },
-    },
-  })) as { opportunities: Conexao<OppForaDoFunil> };
+  const dados = await gql<{ opportunities: Conexao<OppForaDoFunil> }>(
+    'query L($f: OpportunityFilterInput) { opportunities(filter: $f, first: 100) { edges { node { id stage motivoLost } } } }',
+    { f: { id: { in: ids } } },
+  );
 
   const mapa: Record<string, OppForaDoFunil> = {};
 
-  for (const opp of nodesDe(resposta.opportunities)) mapa[opp.id] = opp;
+  for (const opp of nodesDe(dados.opportunities)) mapa[opp.id] = opp;
 
   return mapa;
 }
 
-async function executarOp(client: CoreApiClient, op: PlanOp): Promise<void> {
+async function executarOp(op: PlanOp): Promise<void> {
   if (op.kind === 'createTask') {
-    const criada = (await client.mutation({
-      createTask: { __args: { data: op.data }, id: true },
-    })) as { createTask: { id: string } };
+    const criada = await gql<{ createTask: { id: string } }>(
+      'mutation C($data: TaskCreateInput!) { createTask(data: $data) { id } }',
+      { data: op.data },
+    );
 
-    await client.mutation({
-      createTaskTarget: {
-        __args: {
-          data: { taskId: criada.createTask.id, targetOpportunityId: op.oppId },
-        },
-        id: true,
-      },
-    });
+    await gql(
+      'mutation V($data: TaskTargetCreateInput!) { createTaskTarget(data: $data) { id } }',
+      { data: { taskId: criada.createTask.id, targetOpportunityId: op.oppId } },
+    );
 
     return;
   }
 
   if (op.kind === 'updateTask') {
-    await client.mutation({
-      updateTask: { __args: { id: op.taskId, data: op.data }, id: true },
-    });
+    await gql(
+      `mutation A($data: TaskUpdateInput!) { updateTask(id: "${op.taskId}", data: $data) { id } }`,
+      { data: op.data },
+    );
 
     return;
   }
 
   if (op.kind === 'deleteTask') {
-    await client.mutation({ deleteTask: { __args: { id: op.taskId }, id: true } });
+    await gql(`mutation { deleteTask(id: "${op.taskId}") { id } }`);
 
     return;
   }
 
-  await client.mutation({
-    updateOpportunity: { __args: { id: op.oppId, data: op.data }, id: true },
-  });
+  await gql(
+    `mutation O($data: OpportunityUpdateInput!) { updateOpportunity(id: "${op.oppId}", data: $data) { id } }`,
+    { data: op.data },
+  );
 }
 
 function resumoDe(op: PlanOp): string {
@@ -231,13 +216,10 @@ export async function reconcile(gatilho: string): Promise<ResultadoReconcile> {
   const dryRun = (process.env.CADENCIA_DRY_RUN ?? 'true').trim() !== 'false';
 
   try {
-    const client = new CoreApiClient();
-
-    const funil = await carregarFunil(client);
-    const abertas = await carregarAbertas(client);
-    const perdidasSemMotivo = await carregarPerdidasSemMotivo(client);
+    const funil = await carregarFunil();
+    const abertas = await carregarAbertas();
+    const perdidasSemMotivo = await carregarPerdidasSemMotivo();
     const foraDoFunil = await carregarForaDoFunil(
-      client,
       abertas,
       new Set(funil.map((opp) => opp.id)),
     );
@@ -254,7 +236,7 @@ export async function reconcile(gatilho: string): Promise<ResultadoReconcile> {
 
     if (!dryRun) {
       for (const op of ops) {
-        await executarOp(client, op);
+        await executarOp(op);
         executadas += 1;
       }
     }
