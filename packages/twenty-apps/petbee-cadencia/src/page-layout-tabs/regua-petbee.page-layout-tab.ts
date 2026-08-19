@@ -17,7 +17,8 @@ export default definePageLayoutTab({
     OPPORTUNITY_RECORD_PAGE_LAYOUT_UNIVERSAL_IDENTIFIER,
   title: 'Régua',
   icon: 'IconChecklist',
-  position: 50,
+  // Abas padrão: Home=10, Timeline=20, Tasks=30... — 15 = logo depois da Home.
+  position: 15,
   layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
   widgets: [
     {
