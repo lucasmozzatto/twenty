@@ -1,4 +1,7 @@
-import { definePageLayoutTab } from 'twenty-sdk/define';
+import {
+  definePageLayoutTab,
+  PageLayoutTabLayoutMode,
+} from 'twenty-sdk/define';
 
 import {
   OPPORTUNITY_RECORD_PAGE_LAYOUT_UNIVERSAL_IDENTIFIER,
@@ -15,7 +18,7 @@ export default definePageLayoutTab({
   title: 'Régua',
   icon: 'IconChecklist',
   position: 50,
-  layoutMode: 'VERTICAL_LIST',
+  layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
   widgets: [
     {
       universalIdentifier: REGUA_WIDGET_UNIVERSAL_IDENTIFIER,
