@@ -31,3 +31,11 @@ export const REGUA_WIDGET_UNIVERSAL_IDENTIFIER =
 // Layout padrão da página do negócio (constante do Twenty) — a aba Régua entra nele.
 export const OPPORTUNITY_RECORD_PAGE_LAYOUT_UNIVERSAL_IDENTIFIER =
   '20202020-a103-4003-8003-0aa0b1ca1003';
+
+// Layout padrão da página da task — mesma aba Régua, resolvendo o negócio dono.
+export const TASK_RECORD_PAGE_LAYOUT_UNIVERSAL_IDENTIFIER =
+  '20202020-a105-4005-8005-ba5ca11a1005';
+export const REGUA_TASK_TAB_UNIVERSAL_IDENTIFIER =
+  'e9e59a28-2936-4473-aae0-05f815793df5';
+export const REGUA_TASK_WIDGET_UNIVERSAL_IDENTIFIER =
+  '2dd65a53-facf-490e-a488-6e65ebed184d';
