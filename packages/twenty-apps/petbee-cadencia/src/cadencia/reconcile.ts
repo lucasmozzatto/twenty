@@ -203,6 +203,14 @@ async function avisarFalha(erro: unknown): Promise<void> {
   }
 }
 
+// Trava do Perdido: restaura a etapa anterior do negócio (arrasto humano sem motivo).
+export async function devolverEtapa(oppId: string, etapa: string): Promise<void> {
+  await gql(
+    `mutation O($data: OpportunityUpdateInput!) { updateOpportunity(id: "${oppId}", data: $data) { id } }`,
+    { data: { stage: etapa } },
+  );
+}
+
 export type ResultadoReconcile = {
   gatilho: string;
   dryRun: boolean;

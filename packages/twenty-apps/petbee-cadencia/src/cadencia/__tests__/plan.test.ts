@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { computePlan, type OppDoFunil, type PlanInput, type PlanOp } from '../plan.ts';
+import {
+  computePlan,
+  etapaParaDevolver,
+  type EventoOportunidade,
+  type OppDoFunil,
+  type PlanInput,
+  type PlanOp,
+} from '../plan.ts';
 
 const AGORA = new Date('2026-08-19T13:00:00.000Z');
 
@@ -208,6 +215,49 @@ test('Perdido sem motivo ganha a guarda; com motivo preenchido a guarda cai', ()
     limpando.filter((op) => op.kind === 'deleteTask').map((op) => op.taskId),
     ['g'],
   );
+});
+
+function eventoDe(parcial: {
+  humano?: boolean;
+  antes?: string | null;
+  depois?: string | null;
+  motivo?: string | null;
+}): EventoOportunidade {
+  return {
+    workspaceMemberId: parcial.humano === false ? null : 'membro-vitoria',
+    recordId: 'opp-1',
+    properties: {
+      before: { stage: parcial.antes ?? 'EM_NEGOCIACAO' },
+      after: {
+        id: 'opp-1',
+        stage: parcial.depois ?? 'LOST',
+        motivoLost: parcial.motivo ?? null,
+      },
+    },
+  };
+}
+
+test('trava: humano arrasta pro Perdido sem motivo → devolve pra etapa anterior', () => {
+  assert.deepEqual(etapaParaDevolver(eventoDe({})), {
+    oppId: 'opp-1',
+    etapa: 'EM_NEGOCIACAO',
+  });
+});
+
+test('trava: com motivo preenchido, o Perdido passa', () => {
+  assert.equal(etapaParaDevolver(eventoDe({ motivo: 'SEM_ORCAMENTO' })), null);
+});
+
+test('trava: máquina (API/inbox) sem motivo passa direto — a guarda cobra', () => {
+  assert.equal(etapaParaDevolver(eventoDe({ humano: false })), null);
+});
+
+test('trava: edição dentro do Perdido (antes já era LOST) não devolve', () => {
+  assert.equal(etapaParaDevolver(eventoDe({ antes: 'LOST' })), null);
+});
+
+test('trava: mudança para etapa que não é Perdido passa', () => {
+  assert.equal(etapaParaDevolver(eventoDe({ depois: 'BREAK' })), null);
 });
 
 test('concluir várias FUPs de uma vez agenda só a próxima certa', () => {

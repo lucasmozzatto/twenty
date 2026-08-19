@@ -69,6 +69,42 @@ export type PlanOp =
   | { kind: 'deleteTask'; taskId: string }
   | { kind: 'updateOpportunity'; oppId: string; data: { fupNumero: number } };
 
+export type EventoOportunidade = {
+  workspaceMemberId?: string | null;
+  recordId?: string | null;
+  properties?: {
+    before?: { stage?: string | null } | null;
+    after?: {
+      id?: string | null;
+      stage?: string | null;
+      motivoLost?: string | null;
+    } | null;
+  } | null;
+};
+
+// Trava do Perdido: humano arrastou pro LOST sem motivo → devolve pra etapa anterior.
+// Só vale para gente (workspaceMemberId presente) — API/inbox passa direto e a
+// guarda "Preencher motivo" cobra. Retorna o que restaurar, ou null pra deixar passar.
+export function etapaParaDevolver(
+  evento: EventoOportunidade,
+): { oppId: string; etapa: string } | null {
+  if (!evento?.workspaceMemberId) return null;
+
+  const antes = evento.properties?.before;
+  const depois = evento.properties?.after;
+  const oppId = depois?.id ?? evento.recordId ?? null;
+
+  if (!oppId) return null;
+  if (depois?.stage !== 'LOST') return null;
+  if (depois?.motivoLost) return null;
+
+  const etapaAnterior = antes?.stage;
+
+  if (!etapaAnterior || etapaAnterior === 'LOST') return null;
+
+  return { oppId, etapa: etapaAnterior };
+}
+
 function camposZap(zap: Zap): {
   whatsapp: { primaryLinkLabel: string; primaryLinkUrl: string };
   bodyV2: { markdown: string };
