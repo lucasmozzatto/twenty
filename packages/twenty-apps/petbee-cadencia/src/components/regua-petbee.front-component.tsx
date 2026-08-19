@@ -83,6 +83,23 @@ async function gql<TData>(
   return corpo.data;
 }
 
+// Montado na página da task, o recordId é da TASK: resolve o negócio vinculado.
+async function negocioIdDaTask(taskId: string): Promise<string | null> {
+  const dados = await gql<{
+    task: {
+      taskTargets?: {
+        edges?: { node?: { targetOpportunityId?: string | null } | null }[];
+      } | null;
+    } | null;
+  }>(
+    `query { task(filter: {id: {eq: "${taskId}"}}) { taskTargets { edges { node { targetOpportunityId } } } } }`,
+  );
+
+  const alvos = dados.task?.taskTargets?.edges ?? [];
+
+  return alvos.map((edge) => edge?.node?.targetOpportunityId).find(Boolean) ?? null;
+}
+
 async function carregarNegocio(id: string): Promise<Negocio | null> {
   const dados = await gql<{
     opportunity: {
@@ -162,7 +179,22 @@ const ReguaPetbee = () => {
     }
     try {
       setErro(null);
-      setNegocio(await carregarNegocio(recordId));
+
+      // Na página do negócio o recordId é a opportunity; na da task, resolve o dono.
+      let alvo: Negocio | null = null;
+
+      try {
+        alvo = await carregarNegocio(recordId);
+      } catch {
+        alvo = null;
+      }
+      if (!alvo) {
+        const oppId = await negocioIdDaTask(recordId);
+
+        alvo = oppId ? await carregarNegocio(oppId) : null;
+      }
+      setNegocio(alvo);
+      if (!alvo) setErro('sem negócio vinculado');
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : String(falha));
     } finally {
@@ -180,9 +212,10 @@ const ReguaPetbee = () => {
     setTimeout(recarregar, 7000);
   }, [recarregar]);
 
+  const negocioId = negocio?.id ?? null;
   const decidir = useCallback(
     async (etapa: 'BREAK' | 'LOST' | 'WON', motivoEscolhido?: string) => {
-      if (!recordId) return;
+      if (!negocioId) return;
       setSalvando(true);
       try {
         const data: Record<string, unknown> = { stage: etapa };
@@ -190,7 +223,7 @@ const ReguaPetbee = () => {
         if (etapa === 'LOST' && motivoEscolhido) data.motivoLost = motivoEscolhido;
 
         await gql(
-          `mutation D($data: OpportunityUpdateInput!) { updateOpportunity(id: "${recordId}", data: $data) { id } }`,
+          `mutation D($data: OpportunityUpdateInput!) { updateOpportunity(id: "${negocioId}", data: $data) { id } }`,
           { data },
         );
         await enqueueSnackbar({
@@ -215,7 +248,7 @@ const ReguaPetbee = () => {
         setSalvando(false);
       }
     },
-    [recordId, recarregar, recarregarAposMotor],
+    [negocioId, recarregar, recarregarAposMotor],
   );
 
   const botao = (rotulo: string, cor: string, aoClicar: () => void) => (
