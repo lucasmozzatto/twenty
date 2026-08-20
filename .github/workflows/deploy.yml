@@ -1,0 +1,29 @@
+name: deploy-prod
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aplicar main na VPS
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh -i ~/.ssh/key -o StrictHostKeyChecking=accept-new root@srv1897290.hstgr.cloud '
+            set -e
+            cd /opt/twenty-repo
+            git fetch origin main
+            git checkout main
+            git pull --ff-only origin main
+            cd petbee/deploy
+            docker compose up -d --remove-orphans
+            docker compose ps
+          '
