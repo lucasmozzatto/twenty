@@ -83,36 +83,6 @@ services:
         condition: service_healthy
     restart: always
 
-  # Automações da Petbee (substituto do Make). Sobe com: bash add-n8n.sh
-  n8n:
-    image: docker.n8n.io/n8nio/n8n:${N8N_TAG:-stable}
-    volumes:
-      - n8n-data:/home/node/.n8n
-    environment:
-      N8N_HOST: ${N8N_DOMAIN:-n8n.petbeetools.com.br}
-      N8N_PROTOCOL: https
-      N8N_PORT: 5678
-      # URL pública que os webhooks (LPs, WhatsApp…) vão chamar
-      WEBHOOK_URL: https://${N8N_DOMAIN:-n8n.petbeetools.com.br}/
-      # Cifra as credenciais salvas no n8n — perder a chave = recadastrar todas
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-}
-      GENERIC_TIMEZONE: America/Sao_Paulo
-      TZ: America/Sao_Paulo
-      # Banco próprio ("n8n") no mesmo Postgres do Twenty
-      DB_TYPE: postgresdb
-      DB_POSTGRESDB_HOST: db
-      DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: n8n
-      DB_POSTGRESDB_USER: postgres
-      DB_POSTGRESDB_PASSWORD: ${PG_DATABASE_PASSWORD}
-      N8N_RUNNERS_ENABLED: "true"
-      N8N_PROXY_HOPS: 1
-      N8N_DIAGNOSTICS_ENABLED: "false"
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: always
-
   db:
     image: postgres:16
     volumes:
@@ -146,7 +116,6 @@ volumes:
   server-local-data:
   caddy-data:
   caddy-config:
-  n8n-data:
 
 networks:
   default:
