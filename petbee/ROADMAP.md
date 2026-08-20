@@ -70,7 +70,31 @@ Memória viva do projeto. Atualizado em 2026-08-12.
     Face e Google Insights, Reports Investor.
 - **Fase 1 — Modelo comercial no Twenty**: Opportunities (kanban nativo) com
   as etapas dos funis, campos custom equivalentes, âncora `idBitrix` em
-  negócio/empresa (Person já tem).
+  negócio/empresa (Person já tem). **Funil Vendas (0) PRONTO (2026-08-14,
+  `petbee/provision-funil-vendas.mjs`)** — e no modelo "por tarefa", não no
+  espelho das 12 colunas (decisão do Lucas após discussão): objeto
+  renomeado Negócio/Negócios, **7 etapas que medem venda** (Novo Lead → Em
+  qualificação → Em negociação → Fechamento → Break → Won/Lost; pular
+  Fechamento é permitido), cadência de FUP vira **tarefa com vencimento** +
+  campos `fupNumero` e `proximoContato` no card. Break = estacionamento com
+  FUP de resgate automático após 60 dias antes do Lost. 13 campos no total
+  (âncora idBitrix + FUP nº + Próximo contato + os 10 vivos por amostragem
+  de 250 negócios: Canal, Origem, WhatsApp, Motivo de Lost, Teste LP,
+  ClientID GA4, Fechamento, Pagamento, Ativação, Cidade — os outros 17 do
+  Bitrix estão mortos, não migram). **Fluxo do agente de IA no modelo
+  novo**: trabalha em Em qualificação atualizando fupNumero; 6 FUPs sem
+  qualificar → Lost com motivo automático; qualificou → Em negociação +
+  tarefa "Primeiro contato" para a vendedora.
+- **Estratégia de virada REVISADA (Lucas, 2026-08-14) — fluxo novo
+  primeiro, histórico depois**: em vez de espelhar a base velha já, ligar
+  as MESMAS fontes de lead nos dois CRMs e acompanhar ao vivo. Desenho da
+  "maternidade dupla": LP/forms → webhook do n8n → porteiro único → cria
+  Negócio + tarefa no Twenty E repassa ao Bitrix igual hoje (virada futura
+  = apagar um nó). Objetivo: cadência negócio+tarefa rodando lisa para
+  treinar o time a operar no Twenty. Histórico dos 14.066 negócios do
+  funil 0 migra DEPOIS, completo (Won/Lost inclusos), mapeando FUP 0–5 →
+  Em negociação (fupNumero=N) e FUP Break → Break. Pendência: Lucas envia
+  a URL do webhook que a LP chama hoje + campos enviados pelo forms.
 - **Fase 2 — Dados em lotes**: piloto de ~20 negócios → validação → base
   toda. **Política de contatos SELADA (Lucas, 2026-08-12)**: 1) casou por
   e-mail → adota o cliente existente (7.639); 2) casou por telefone em 1↔1
@@ -92,7 +116,18 @@ Memória viva do projeto. Atualizado em 2026-08-12.
   (Postgres próprio no mesmo banco, timezone São Paulo, chave de cifra
   gerada 1x), domínio `n8n.petbeetools.com.br` no Caddy, instalação via
   `petbee/deploy/add-n8n.sh`, backup diário passou a incluir o banco do
-  n8n. Cada cenário reconstruído no n8n já aponta para o Twenty —
+  n8n. **n8n NO AR em `n8n.petbeetools.com.br` (2026-08-13)**, conta de
+  dono criada pelo Lucas. **Porteiro único v1 pronto** em `petbee/n8n/`
+  (porteiro-unico.json + teste-porteiro.json + README): escadinha e-mail →
+  telefone 1↔1 → cria com campo Origem (novo campo TEXT em Person);
+  descarte pela política selada. Consulta de busca validada contra o CRM
+  real antes de embarcar no fluxo. **PROVADO em 2026-08-14**: importado na
+  instância, credencial "Twenty" (Header Auth) plugada, teste rodado 2× —
+  1ª execução criou o lead no CRM (telefone normalizado, origem
+  carimbada), 2ª adotou sem duplicar; lead de teste removido depois.
+  Acesso operacional do Claude ao n8n: MCP da instância
+  (`/mcp-server/http`) via chave de API — permite criar/editar/testar
+  fluxos direto. Cada cenário reconstruído no n8n já aponta para o Twenty —
   aposenta o cenário do Make e a dependência do Bitrix de uma vez. Make e
   n8n rodam em paralelo até cada cenário provar.
 - **Fase 4 — Virada**: time vendendo no Twenty, Bitrix congelado, delta
@@ -127,6 +162,8 @@ Memória viva do projeto. Atualizado em 2026-08-12.
   somente-leitura dedicada ao CRM.
 - **Trocar a API key do Twenty** usada pelo robô (passou por chat): criar
   nova → atualizar `.env` do VPS → revogar a antiga, nessa ordem.
+- **Trocar a chave do MCP do n8n** (passou por chat em 2026-08-14): no n8n,
+  Settings → Instance-level MCP → revogar a chave atual e gerar nova.
 - **Migrar este fork para `github.com/petbee`** (Settings → Transfer
   ownership; endereço antigo redireciona; ajustar remote no VPS).
 - Backup externo dos dumps (rclone → Google Drive) ou snapshots Hostinger.

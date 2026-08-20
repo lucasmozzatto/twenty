@@ -1,0 +1,61 @@
+{
+  "name": "Teste do Porteiro (rodar na mão)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Começar teste",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-400, 0]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            { "name": "nome", "value": "Lead Teste Porteiro" },
+            { "name": "email", "value": "teste-porteiro@petbee.com.br" },
+            { "name": "telefone", "value": "(11) 90000-0001" },
+            { "name": "origem", "value": "teste-manual" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "lead-teste",
+      "name": "Lead de teste",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [-180, 0]
+    },
+    {
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "Porteiro Único — entrada de leads"
+        },
+        "options": {}
+      },
+      "id": "chamar-porteiro",
+      "name": "Chamar o porteiro",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [40, 0]
+    }
+  ],
+  "connections": {
+    "Começar teste": {
+      "main": [[{ "node": "Lead de teste", "type": "main", "index": 0 }]]
+    },
+    "Lead de teste": {
+      "main": [[{ "node": "Chamar o porteiro", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
