@@ -1,0 +1,9 @@
+{$CRM_DOMAIN} {
+	reverse_proxy server:3000
+	encode gzip
+}
+
+{$N8N_DOMAIN:n8n.petbeetools.com.br} {
+	reverse_proxy n8n:5678
+	encode gzip
+}

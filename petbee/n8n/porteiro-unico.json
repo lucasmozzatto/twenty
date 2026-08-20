@@ -1,0 +1,205 @@
+{
+  "name": "Porteiro Único — entrada de leads",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "entrada-porteiro",
+      "name": "Entrada (chamado por outro fluxo)",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [-780, 40]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Porteiro Único — etapa 1: limpar e validar os dados que chegaram.\n// Entrada esperada: { nome, email, telefone, origem }\nconst saida = [];\nfor (const item of $input.all()) {\n  const d = item.json;\n  const nome = String(d.nome || '').trim().replace(/\\s+/g, ' ');\n  // e-mail: minúsculo e validado; inválido = como se não existisse\n  let email = String(d.email || '').trim().toLowerCase();\n  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(email)) email = null;\n  // telefone: só dígitos, tira o 55 do país; válido com 10 ou 11 dígitos\n  let fone = String(d.telefone || '').replace(/\\D/g, '');\n  if (fone.startsWith('55') && fone.length > 11) fone = fone.slice(2);\n  if (fone.length < 10 || fone.length > 11) fone = null;\n  // chave imune ao nono dígito: DDD + 8 últimos\n  const foneChave = fone ? fone.slice(0, 2) + fone.slice(-8) : null;\n  // política selada: sem e-mail E sem telefone válidos → não é lead\n  const descartar = !email && !fone;\n  const partes = nome.split(' ');\n  saida.push({ json: {\n    nome,\n    primeiroNome: partes[0] || 'Sem nome',\n    sobrenome: partes.slice(1).join(' '),\n    email, fone, foneChave,\n    origem: String(d.origem || '').trim() || 'desconhecida',\n    descartar,\n  } });\n}\nreturn saida;"
+      },
+      "id": "normalizar",
+      "name": "Normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 40]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.descartar }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-descartar",
+      "name": "Descartar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-340, 40]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            { "name": "resultado", "value": "descartado" },
+            { "name": "motivo", "value": "sem e-mail e sem telefone válidos" },
+            { "name": "nome", "value": "={{ $json.nome }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "res-descartado",
+      "name": "Resultado: descartado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [-120, -140]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Monta a busca no CRM: e-mail exato OU telefone com os mesmos 8 últimos dígitos\nconst itens = [];\nfor (const item of $input.all()) {\n  const d = item.json;\n  const cond = [];\n  if (d.email) cond.push({ emails: { primaryEmail: { eq: d.email } } });\n  if (d.fone) cond.push({ phones: { primaryPhoneNumber: { ilike: '%' + d.fone.slice(-8) } } });\n  itens.push({ json: { ...d, gqlBusca: {\n    query: 'query Buscar($filter: PersonFilterInput) { people(filter: $filter, first: 10) { edges { node { id name { firstName lastName } emails { primaryEmail } phones { primaryPhoneNumber } } } } }',\n    variables: { filter: cond.length === 1 ? cond[0] : { or: cond } },\n  } } });\n}\nreturn itens;"
+      },
+      "id": "montar-busca",
+      "name": "Montar busca",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-120, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://crm.petbeetools.com.br/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.gqlBusca }}",
+        "options": {}
+      },
+      "id": "http-buscar",
+      "name": "Buscar no CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [100, 160],
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Twenty API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Cruza o resultado da busca com o lead e decide: adotar quem já existe ou criar\nconst buscas = $('Montar busca').all();\nconst respostas = $input.all();\nconst chave = (tel) => {\n  let t = String(tel || '').replace(/\\D/g, '');\n  if (t.startsWith('55') && t.length > 11) t = t.slice(2);\n  return t ? t.slice(0, 2) + t.slice(-8) : null;\n};\nconst saida = [];\nfor (let i = 0; i < respostas.length; i++) {\n  const lead = buscas[i].json;\n  const encontrados = (respostas[i].json.data?.people?.edges || []).map((e) => e.node);\n  // 1º degrau: e-mail exato\n  let alvo = lead.email\n    ? encontrados.find((p) => (p.emails?.primaryEmail || '').toLowerCase() === lead.email)\n    : null;\n  let via = alvo ? 'e-mail' : null;\n  // 2º degrau: telefone, só em casamento 1↔1 perfeito\n  if (!alvo && lead.foneChave) {\n    const porFone = encontrados.filter((p) => chave(p.phones?.primaryPhoneNumber) === lead.foneChave);\n    if (porFone.length === 1) { alvo = porFone[0]; via = 'telefone'; }\n  }\n  if (alvo) {\n    saida.push({ json: { ...lead, acao: 'adotar', personId: alvo.id, via,\n      nomeNoCrm: [alvo.name?.firstName, alvo.name?.lastName].filter(Boolean).join(' ') } });\n  } else {\n    const data = { name: { firstName: lead.primeiroNome, lastName: lead.sobrenome }, origem: lead.origem };\n    if (lead.email) data.emails = { primaryEmail: lead.email };\n    if (lead.fone) data.phones = { primaryPhoneNumber: lead.fone, primaryPhoneCallingCode: '+55', primaryPhoneCountryCode: 'BR' };\n    saida.push({ json: { ...lead, acao: 'criar', gqlCriar: {\n      query: 'mutation Criar($data: PersonCreateInput!) { createPerson(data: $data) { id } }',\n      variables: { data },\n    } } });\n  }\n}\nreturn saida;"
+      },
+      "id": "decidir",
+      "name": "Decidir",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [320, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.acao === 'criar' }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-criar",
+      "name": "Criar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [540, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://crm.petbeetools.com.br/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.gqlCriar }}",
+        "options": {}
+      },
+      "id": "http-criar",
+      "name": "Criar lead no CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 40],
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Twenty API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Relata o que foi criado (ou o erro, sem travar o fluxo)\nconst pedidos = $('Decidir').all().filter((p) => p.json.acao === 'criar');\nconst respostas = $input.all();\nconst saida = [];\nfor (let i = 0; i < respostas.length; i++) {\n  const lead = pedidos[i].json;\n  const erros = respostas[i].json.errors;\n  saida.push({ json: erros?.length\n    ? { resultado: 'erro', nome: lead.nome, detalhe: erros.map((e) => e.message).join(' | ') }\n    : { resultado: 'criado', personId: respostas[i].json.data.createPerson.id, nome: lead.nome, origem: lead.origem } });\n}\nreturn saida;"
+      },
+      "id": "res-criado",
+      "name": "Resultado: criado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 40]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            { "name": "resultado", "value": "adotado" },
+            { "name": "personId", "value": "={{ $json.personId }}" },
+            { "name": "via", "value": "={{ $json.via }}" },
+            { "name": "nome", "value": "={{ $json.nome }}" },
+            { "name": "nomeNoCrm", "value": "={{ $json.nomeNoCrm }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "res-adotado",
+      "name": "Resultado: adotado",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Entrada (chamado por outro fluxo)": {
+      "main": [[{ "node": "Normalizar", "type": "main", "index": 0 }]]
+    },
+    "Normalizar": {
+      "main": [[{ "node": "Descartar?", "type": "main", "index": 0 }]]
+    },
+    "Descartar?": {
+      "main": [
+        [{ "node": "Resultado: descartado", "type": "main", "index": 0 }],
+        [{ "node": "Montar busca", "type": "main", "index": 0 }]
+      ]
+    },
+    "Montar busca": {
+      "main": [[{ "node": "Buscar no CRM", "type": "main", "index": 0 }]]
+    },
+    "Buscar no CRM": {
+      "main": [[{ "node": "Decidir", "type": "main", "index": 0 }]]
+    },
+    "Decidir": {
+      "main": [[{ "node": "Criar?", "type": "main", "index": 0 }]]
+    },
+    "Criar?": {
+      "main": [
+        [{ "node": "Criar lead no CRM", "type": "main", "index": 0 }],
+        [{ "node": "Resultado: adotado", "type": "main", "index": 0 }]
+      ]
+    },
+    "Criar lead no CRM": {
+      "main": [[{ "node": "Resultado: criado", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
