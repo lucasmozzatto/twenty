@@ -144,7 +144,14 @@ function numDe(titulo: string): number | null {
 function linkDesatualizado(task: TaskDoFunil): boolean {
   const url = task.whatsapp?.primaryLinkUrl;
 
-  return !url || url.indexOf('wa.me') !== -1;
+  // Velho = sem link, wa.me, a inbox V1 (aposentada) ou sem o `?tel=` que abre
+  // direto na conversa. Assim as tasks antigas se curam sozinhas na reconciliação.
+  return (
+    !url ||
+    url.indexOf('wa.me') !== -1 ||
+    url.indexOf('inbox.petbeetools') !== -1 ||
+    url.indexOf('?tel=') === -1
+  );
 }
 
 export function computePlan(input: PlanInput): PlanOp[] {

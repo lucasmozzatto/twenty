@@ -47,7 +47,7 @@ test('negócio novo em Em Negociação ganha a FUP 1 imediata, da Vitória, com 
   assert.equal(criadas[0].data.title, 'FUP 1 (mensagem, abordar agora) — Luc Test');
   assert.equal(criadas[0].data.dueAt, AGORA.toISOString());
   assert.equal(criadas[0].data.assigneeId, '69572821-c2f4-4923-9c68-23381b665a49');
-  assert.equal(criadas[0].data.whatsapp?.primaryLinkUrl, 'https://inbox.petbeetools.com.br/');
+  assert.equal(criadas[0].data.whatsapp?.primaryLinkUrl, 'https://wpp.petbeetools.com.br/?tel=5541999998888');
 });
 
 test('FUP 9 concluída sem mover o card cobra a decisão (guarda pós-régua)', () => {
@@ -146,7 +146,7 @@ test('vencimento editado à mão é respeitado (sem updateTask de dueAt)', () =>
         title: 'FUP 2 (ligação, ~1h30 depois) — Luc Test',
         status: 'TODO',
         dueAt: '2026-08-25T12:00:00.000Z',
-        whatsapp: { primaryLinkUrl: 'https://inbox.petbeetools.com.br/' },
+        whatsapp: { primaryLinkUrl: 'https://wpp.petbeetools.com.br/?tel=5541999998888' },
       },
     ],
   });
@@ -155,7 +155,7 @@ test('vencimento editado à mão é respeitado (sem updateTask de dueAt)', () =>
   assert.deepEqual(ops, []);
 });
 
-test('link wa.me antigo ganha self-heal para o inbox', () => {
+test('link wa.me antigo ganha self-heal para a conversa', () => {
   const opp = oppDe({
     fupNumero: 1,
     tarefas: [
@@ -171,6 +171,28 @@ test('link wa.me antigo ganha self-heal para o inbox', () => {
 
   assert.equal(ops.length, 1);
   assert.equal(ops[0].kind, 'updateTask');
+});
+
+test('link da inbox V1 (sem ?tel=) é curado para o endereço novo', () => {
+  const opp = oppDe({
+    fupNumero: 1,
+    tarefas: [
+      {
+        id: 't2',
+        title: 'FUP 2 (ligação, ~1h30 depois) — Luc Test',
+        status: 'TODO',
+        whatsapp: { primaryLinkUrl: 'https://inbox.petbeetools.com.br/' },
+      },
+    ],
+  });
+  const ops = computePlan(entrada({ funil: [opp] }));
+
+  assert.equal(ops.length, 1);
+  assert.equal(ops[0].kind, 'updateTask');
+  assert.equal(
+    (ops[0] as Extract<PlanOp, { kind: 'updateTask' }>).data.whatsapp?.primaryLinkUrl,
+    'https://wpp.petbeetools.com.br/?tel=5541999998888',
+  );
 });
 
 test('task gerenciada de negócio que saiu do funil (Ganhou/Perdido) é apagada', () => {

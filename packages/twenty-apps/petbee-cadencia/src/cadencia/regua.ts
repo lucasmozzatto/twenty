@@ -7,7 +7,8 @@
 
 export const VITORIA_WORKSPACE_MEMBER_ID =
   '69572821-c2f4-4923-9c68-23381b665a49';
-export const INBOX_URL = 'https://inbox.petbeetools.com.br/';
+// A inbox mudou de casa: inbox.petbeetools.com.br (V1, aposentada) → wpp.petbeetools.com.br.
+export const WPP_URL = 'https://wpp.petbeetools.com.br/';
 
 // Canais oficiais (19/08): 1 msg · 2 ligação · 3-4 msg+ligação · 5-9 só msg.
 export const TOQUES: Record<number, string> = {
@@ -99,10 +100,15 @@ export function zapDe(whatsappBruto: string | null | undefined): Zap | null {
 
   if (digitos.length < 10) return null;
 
+  // Link FUNDO: abre a inbox JÁ na conversa do lead, em vez da tela inicial. O
+  // resolvedor do wpp tolera com/sem DDI e com/sem o 9º dígito, então o número
+  // cru do CRM serve como está.
+  const url = `${WPP_URL}?tel=${digitos}`;
+
   return {
     label: bruto,
-    url: INBOX_URL,
-    markdown: `**WhatsApp:** ${bruto} — [abrir inbox](${INBOX_URL})`,
+    url,
+    markdown: `**WhatsApp:** ${bruto} — [abrir conversa](${url})`,
   };
 }
 

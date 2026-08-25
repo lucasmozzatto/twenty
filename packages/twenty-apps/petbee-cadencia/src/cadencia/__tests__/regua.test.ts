@@ -63,8 +63,9 @@ test('zapDe aceita número real e rejeita vazio ou lixo', () => {
 
   assert.ok(zap);
   assert.equal(zap.label, '+55 41 99999-8888');
-  assert.equal(zap.url, 'https://inbox.petbeetools.com.br/');
-  assert.ok(zap.markdown.includes('abrir inbox'));
+  // Link fundo: leva o telefone no `?tel=` pra abrir direto na conversa.
+  assert.equal(zap.url, 'https://wpp.petbeetools.com.br/?tel=5541999998888');
+  assert.ok(zap.markdown.includes('abrir conversa'));
   assert.equal(zapDe(''), null);
   assert.equal(zapDe('abc'), null);
   assert.equal(zapDe(null), null);

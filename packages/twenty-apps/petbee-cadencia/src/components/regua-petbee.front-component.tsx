@@ -12,7 +12,11 @@ import {
 
 import { REGUA_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/constants/universal-identifiers';
 
-const INBOX_URL = 'https://inbox.petbeetools.com.br/';
+const WPP_URL = 'https://wpp.petbeetools.com.br/';
+
+// Abre a inbox já na conversa do lead (mesmo link que vai nas tasks).
+const linkDaConversa = (whatsapp: string) =>
+  `${WPP_URL}?tel=${whatsapp.replace(/\D/g, '')}`;
 
 const MOTIVOS: { valor: string; rotulo: string }[] = [
   { valor: 'PAROU_DE_RESPONDER', rotulo: 'Parou de responder' },
@@ -312,12 +316,12 @@ const ReguaPetbee = () => {
         </span>
         {negocio.whatsapp ? (
           <a
-            href={INBOX_URL}
+            href={linkDaConversa(negocio.whatsapp)}
             target="_blank"
             rel="noreferrer"
             style={{ fontSize: '12px', color: cores.mel, textDecoration: 'none', fontWeight: 600 }}
           >
-            💬 {negocio.whatsapp} — abrir inbox
+            💬 {negocio.whatsapp} — abrir conversa
           </a>
         ) : null}
         <a onClick={recarregar} style={{ marginLeft: 'auto', cursor: 'pointer', color: cores.suave, fontSize: '12px' }}>
