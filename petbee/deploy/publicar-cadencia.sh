@@ -53,7 +53,10 @@ docker run --rm \
 
     if [ "$ACAO" = "apply" ]; then
       echo "→ PUBLICANDO no CRM…"
-      yarn twenty apply --auto-approve
+      # Sem flag: mudanca nao-destrutiva aplica direto. O `-f` do CLI serve so
+      # pra autorizar REMOCOES sem perguntar — de proposito nao usamos, pra que
+      # um plano com "to destroy" pare e apareca em vez de passar batido.
+      yarn twenty apply
     else
       echo "→ plano (nada será escrito):"
       yarn twenty plan
