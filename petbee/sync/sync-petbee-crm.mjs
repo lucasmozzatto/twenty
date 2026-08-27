@@ -479,7 +479,10 @@ const run = async () => {
       periodicidade: s.frequency === 'yearly' ? 'ANUAL' : 'MENSAL',
       valorMensal: { amountMicros: centsToMicros(s.amount), currencyCode: 'BRL' },
       diaVencimento: s.next_recurrency ? new Date(s.next_recurrency).getUTCDate() : undefined,
-      dataInicio: datePart(s.start_date),
+      // Início ORIGINAL da assinatura (created_at) — o start_date é a vigência do
+      // plano ATUAL e é remarcado em renegociação (caso real: sub 3322/Chester,
+      // criada em 2025-04-05, aparecia no CRM como iniciando em 2026-09-05).
+      dataInicio: datePart(s.created_at),
       dataCancelamento: datePart(s.canceled_at),
       proximaCobranca: datePart(s.next_recurrency),
       cortesia: !!s.freeware,
