@@ -5,23 +5,10 @@ name: twenty
 # Baseado no docker-compose oficial do Twenty (packages/twenty-docker).
 
 services:
-  caddy:
-    networks: [default, proxy]
-    image: caddy:2
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    environment:
-      CRM_DOMAIN: ${CRM_DOMAIN}
-      N8N_DOMAIN: ${N8N_DOMAIN:-n8n.petbeetools.com.br}
-    depends_on:
-      - server
-    restart: always
-
+  # O proxy saiu daqui em 02/09/2026 e virou projeto proprio em /opt/proxy (com
+  # sites/*.caddy, um arquivo por dominio). Motivo: `compose down` aqui derrubava
+  # o ingress do n8n junto, e o Caddyfile versionado neste repo podia ser revertido
+  # por um apply de checkout velho. NAO volte a declarar caddy aqui.
   server:
     image: twentycrm/twenty:${TAG}
     # Sem "ports": só o Caddy fala com o mundo; o server fica na rede interna.
@@ -114,8 +101,6 @@ volumes:
   db-data:
   redis-data:
   server-local-data:
-  caddy-data:
-  caddy-config:
 
 networks:
   default:
