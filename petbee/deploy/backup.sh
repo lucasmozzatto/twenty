@@ -14,7 +14,10 @@ docker compose exec -T db pg_dump -U postgres -d default | gzip > "$BACKUP_DIR/t
 
 # Banco do n8n — stack própria em /opt/n8n desde 2026-08-20 (Postgres separado)
 if docker ps --format '{{.Names}}' | grep -q '^n8n-db-1$'; then
-  docker exec n8n-db-1 pg_dump -U n8n -d n8n | gzip > "$BACKUP_DIR/n8n-$STAMP.sql.gz"
+  # Sem a carga das execucoes (execution_*): sao recibos de rodadas ja concluidas,
+  # 100x o tamanho do resto e sem valor num restore (o que volta sao os fluxos,
+  # credenciais e config). O n8n guarda 30 dias delas no banco vivo pra investigar.
+  docker exec n8n-db-1 pg_dump -U n8n -d n8n --exclude-table-data='execution_*' | gzip > "$BACKUP_DIR/n8n-$STAMP.sql.gz"
 fi
 
 # Remove backups com mais de 14 dias
