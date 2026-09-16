@@ -13,6 +13,13 @@ export const TAB_COMERCIAL_UNIVERSAL_IDENTIFIER =
   '4e33f75a-47ae-441a-94e0-0bacaf10a408';
 export const TAB_VENDEDORES_UNIVERSAL_IDENTIFIER =
   'e261ad38-b846-4d13-8f75-af2be4c4931e';
+export const TAB_PERIODO_UNIVERSAL_IDENTIFIER =
+  '824e03ec-6afa-4746-9632-229bdeeea5b8';
+
+// --- Aba Por período (quadro próprio, com seletor de datas) ---
+export const PAINEL_PERIODO_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER =
+  '2f101399-a270-4c7d-9793-19020e80773f';
+export const W_PAINEL_PERIODO = 'e3309836-5560-49ef-8b2d-6a99238a515c';
 
 // --- Aba Comercial ---
 export const W_NEGOCIOS_CRIADOS = '9e4c3924-ce7a-44f5-85b4-4236eb4381c6';
