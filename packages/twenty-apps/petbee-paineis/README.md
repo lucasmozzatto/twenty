@@ -110,9 +110,39 @@ Quatro cuidados:
   a etapa". Mas o processo da Petbee é a automação delegar o lead ao vendedor **no mesmo
   instante** em que o passa para negociação (o histórico mostra `owner` e `stage`
   mudando na mesma linha), e o dono fica com o negócio até o fim. Por isso a tabela por
-  vendedor usa o **dono atual** da safra, e isso responde "quantos a Vitoria vendeu
+  vendedor usa o **dono atual** do negócio, e isso responde "quantos a Vitoria vendeu
   depois da qualificação". A ressalva vai na tela: negócio repassado conta para quem
   está com ele hoje, e quem está em aberto ainda não é veredito.
+
+### A tabela por vendedor
+
+É a pergunta principal do painel, e as colunas seguem regras diferentes de propósito,
+combinadas com o dono do painel em 16/09/2026:
+
+| Coluna | Regra | De onde vem |
+|---|---|---|
+| Recebidos | entraram em negociação **no período** | safra (`funil.ts`) |
+| Em aberto | recebidos que hoje ainda não são Ganho nem Perdido | safra (`funil.ts`) |
+| Ganhos | viraram Ganho no período (data de fechamento), **tendo passado por negociação em qualquer data** | desfechos (`desfechos.ts`) |
+| Perdidos | viraram Perdido no período (evento do histórico), idem | desfechos (`desfechos.ts`) |
+| Taxa | ganhos ÷ (ganhos + perdidos) | conta na tela |
+| Receita | soma do valor dos ganhos | desfechos |
+| Ticket médio | média do valor dos ganhos (sem valor não entra); no Total é receita ÷ ganhos | desfechos |
+
+O ponto que muda tudo: **Ganhos e Perdidos não se limitam aos recebidos do período**.
+Um lead delegado em agosto e vendido em setembro conta em setembro. É por isso que
+Recebidos − Ganhos − Perdidos **não** dá Em aberto, e a tela diz isso na nota do quadro.
+
+O filtro "passou por negociação" é o que separa venda de vendedor de venda direta: a
+tabela pergunta ao histórico, para cada venda e perda do período, se aquele negócio
+entrou alguma vez em "Em negociação" ou "Fechamento". Uma venda que foi de "Novo Lead"
+direto para Ganho não aparece aqui (aparece em "Vendas por vendedor", logo abaixo, que
+é por data de fechamento sem essa exigência). O que fazer com essas vendas diretas no
+processo é decisão adiada pelo dono do painel.
+
+Perda tem uma ressalva: o negócio não guarda data de perda, então "perdeu no período"
+sai do evento "virou Perdido" no histórico, e por isso obedece ao início do histórico
+(18/08/2026). Um negócio perdido e reaberto e vendido no mesmo período conta nos dois.
 
 ### A comparação com o período anterior
 
@@ -169,10 +199,11 @@ busca os dados. O resto está em `src/painel/`:
 |---|---|
 | `periodo.ts` | contas de data e a regra do período anterior |
 | `crm.ts` | as consultas ao GraphQL |
-| `dados.ts`, `comparacao.ts`, `funil.ts` | as perguntas e as contas derivadas |
+| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts` | as perguntas e as contas derivadas |
+| `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `safra-por-vendedor.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx` | as partes da tela |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.
 
@@ -342,17 +373,33 @@ Eventos de mudança de etapa em setembro/2026, medidos pela API em 16/09:
 A tela conta **negócios distintos**, então mostra número igual ou um pouco menor que
 estes: quem entrou duas vezes na mesma etapa conta uma vez.
 
-Um teste para a tabela por vendedor: "Vendas por vendedor" (pela data de fechamento)
-mostrava Lucas 13 e Vitoria 12 em setembro. Na tabela, os ganhos do Lucas devem cair
-para poucos e os da Vitoria ficar parecidos — a maior parte das vendas do Lucas é
-direta, nunca passa por negociação, e por isso não está na safra.
+## Conferência da tabela por vendedor
+
+Prova real feita pela API em 16/09/2026, com "Este mês" (01 a 16/09), negócio por
+negócio, sem olhar nome de cliente:
+
+| | Vendas em setembro (data de fechamento) | Entraram em negociação em setembro | Entraram em negociação em agosto | Nunca passaram por negociação |
+|---|---|---|---|---|
+| Vitoria | 13 | 6 | 1 (em 31/08) | 6 |
+| Lucas | 15 | 0 | 0 | 15 |
+
+Então, com "Este mês", a coluna **Ganhos** deve mostrar **Vitoria 7** (6 + 1) e
+**Lucas 0**, enquanto "Vendas por vendedor" segue mostrando 13 e 15. A versão anterior
+da tabela (só safra) mostrava Vitoria 6, porque deixava de fora a venda delegada em
+agosto — foi exatamente o caso que o dono do painel pediu para entrar.
+
+As 15 vendas do Lucas são venda direta: foram de "Novo Lead" a Ganho sem passar por
+negociação, e por isso ficam fora desta tabela de propósito.
 
 ## O que ainda não está aqui
 
 - **Quem clicou em cada mudança de etapa.** A maioria é a automação; o campo de pessoa
-  não serve. O recorte por vendedor existe, mas pelo dono atual da safra (ver acima).
+  não serve. O recorte por vendedor existe, mas pelo dono atual do negócio (ver acima).
 - **Tempo até fechar** (dias entre entrar em negociação e virar Ganho). Dá para tirar do
   mesmo histórico; ainda não foi pedido.
+- **Vendas diretas, que não passam por negociação.** Hoje ficam fora da tabela por
+  vendedor e só aparecem em "Vendas por vendedor". Se um dia devem entrar, e como, é
+  decisão de processo que o dono do painel adiou.
 - **"Sem origem" como categoria de verdade.** São ~70 negócios por mês sem origem
   preenchida. Depende de mexer no rastreamento, que está congelado até 22/09/2026.
 

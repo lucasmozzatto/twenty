@@ -28,6 +28,9 @@ export const consultar = async <TDados,>(
   return corpo.data;
 };
 
+export const deMicros = (micros: number | null | undefined): number | null =>
+  micros === null || micros === undefined ? null : micros / 1_000_000;
+
 export type Agregados = {
   totalCount: number;
   sumAmountAmountMicros?: number | null;
@@ -54,6 +57,8 @@ export type Grupo = {
   chaves: (string | null)[];
   contagem: number;
   somaReais: number;
+  // Média do valor, ignorando os sem valor — igual ao "Ticket médio" nativo.
+  mediaReais: number | null;
 };
 
 export const agrupar = async (
@@ -65,11 +70,12 @@ export const agrupar = async (
       groupByDimensionValues: (string | null)[];
       totalCount: number;
       sumAmountAmountMicros: number | null;
+      avgAmountAmountMicros: number | null;
     }[];
   }>(
     `query Agrupar($groupBy: [OpportunityGroupByInput!]!, $filter: OpportunityFilterInput) {
       opportunitiesGroupBy(groupBy: $groupBy, filter: $filter) {
-        groupByDimensionValues totalCount sumAmountAmountMicros
+        groupByDimensionValues totalCount sumAmountAmountMicros avgAmountAmountMicros
       }
     }`,
     { groupBy, filter },
@@ -79,7 +85,46 @@ export const agrupar = async (
     chaves: grupo.groupByDimensionValues,
     contagem: grupo.totalCount,
     somaReais: (grupo.sumAmountAmountMicros ?? 0) / 1_000_000,
+    mediaReais: deMicros(grupo.avgAmountAmountMicros),
   }));
+};
+
+// Lista negócios de 200 em 200 (teto do servidor) por `offset` com ordem fixa,
+// e diz se leu tudo comparando com o total. Só os campos pedidos em `campos`.
+export const listarNegocios = async <TNo,>(
+  filter: Filtro,
+  campos: string,
+): Promise<{ nos: TNo[]; truncado: boolean }> => {
+  const POR_PAGINA = 200;
+  const MAXIMO_DE_PAGINAS = 40;
+  const nos: TNo[] = [];
+  let total = 0;
+
+  for (let pagina = 0; pagina < MAXIMO_DE_PAGINAS; pagina += 1) {
+    const dados = await consultar<{
+      opportunities: { totalCount: number; edges: { node: TNo }[] };
+    }>(
+      `query Negocios($filter: OpportunityFilterInput, $offset: Int) {
+        opportunities(
+          filter: $filter
+          first: ${POR_PAGINA}
+          offset: $offset
+          orderBy: [{ createdAt: AscNullsLast }]
+        ) {
+          totalCount
+          edges { node { ${campos} } }
+        }
+      }`,
+      { filter, offset: nos.length },
+    );
+
+    total = dados.opportunities.totalCount;
+    for (const borda of dados.opportunities.edges) nos.push(borda.node);
+
+    if (dados.opportunities.edges.length < POR_PAGINA) break;
+  }
+
+  return { nos, truncado: nos.length < total };
 };
 
 // Vendedor vem como id de membro do workspace; o nome é buscado uma vez só.
@@ -101,5 +146,3 @@ export const buscarNomes = async (): Promise<Record<string, string>> => {
   );
 };
 
-export const deMicros = (micros: number | null | undefined): number | null =>
-  micros === null || micros === undefined ? null : micros / 1_000_000;

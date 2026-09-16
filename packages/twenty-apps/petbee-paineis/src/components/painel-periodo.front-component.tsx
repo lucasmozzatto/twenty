@@ -19,6 +19,7 @@ import { PAINEL_PERIODO_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/constan
 import { buscarNomes } from 'src/painel/crm';
 import { buscarComparacao, type Comparacao } from 'src/painel/comparacao';
 import { buscarDados, type Dados } from 'src/painel/dados';
+import { buscarDesfechos, type Desfechos } from 'src/painel/desfechos';
 import { buscarFunil, type Funil } from 'src/painel/funil';
 import {
   hojeEmBrasilia,
@@ -56,6 +57,7 @@ const PainelPeriodo = () => {
   const [comparar, setComparar] = useState(false);
   const [comparacao, setComparacao] = useState<Comparacao | null>(null);
   const [funil, setFunil] = useState<Funil | null>(null);
+  const [desfechos, setDesfechos] = useState<Desfechos | null>(null);
   const [visao, setVisao] = useState<Visao>('geral');
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
@@ -72,15 +74,18 @@ const PainelPeriodo = () => {
     try {
       // As duas buscas vão juntas: o painel aparece de uma vez, sem os
       // rodapés de comparação chegando depois e empurrando a tela.
-      const [novosDados, novaComparacao, novoFunil] = await Promise.all([
-        buscarDados(periodo),
-        comparar ? buscarComparacao(anterior) : Promise.resolve(null),
-        buscarFunil(periodo),
-      ]);
+      const [novosDados, novaComparacao, novoFunil, novosDesfechos] =
+        await Promise.all([
+          buscarDados(periodo),
+          comparar ? buscarComparacao(anterior) : Promise.resolve(null),
+          buscarFunil(periodo),
+          buscarDesfechos(periodo),
+        ]);
 
       setDados(novosDados);
       setComparacao(novaComparacao);
       setFunil(novoFunil);
+      setDesfechos(novosDesfechos);
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : String(falha));
     } finally {
@@ -111,6 +116,13 @@ const PainelPeriodo = () => {
     setPredefinido('personalizado');
     setPeriodo((atual) => ({ ...atual, [campo]: valor }));
   };
+
+  const falhas = [
+    ...(dados?.falhas ?? []),
+    ...(comparacao?.falhas ?? []),
+    ...(funil?.falhas ?? []),
+    ...(desfechos?.falhas ?? []),
+  ];
 
   return (
     <div
@@ -153,9 +165,7 @@ const PainelPeriodo = () => {
 
       {/* Um quadro que falhou aparece zerado, então o aviso é obrigatório:
           sem ele um zero por erro pareceria um zero de verdade. */}
-      {dados &&
-      [...dados.falhas, ...(comparacao?.falhas ?? []), ...(funil?.falhas ?? [])]
-        .length > 0 ? (
+      {falhas.length > 0 ? (
         <div
           style={{
             padding: '8px 10px',
@@ -166,21 +176,8 @@ const PainelPeriodo = () => {
           }}
         >
           <b>Atenção:</b> estes quadros não carregaram e estão zerados —{' '}
-          {[
-            ...dados.falhas,
-            ...(comparacao?.falhas ?? []),
-            ...(funil?.falhas ?? []),
-          ]
-            .map((falha) => falha.onde)
-            .join(', ')}
-          . Motivo do primeiro:{' '}
-          {
-            [
-              ...dados.falhas,
-              ...(comparacao?.falhas ?? []),
-              ...(funil?.falhas ?? []),
-            ][0].motivo
-          }
+          {falhas.map((falha) => falha.onde).join(', ')}. Motivo do primeiro:{' '}
+          {falhas[0].motivo}
         </div>
       ) : null}
 
@@ -250,6 +247,7 @@ const PainelPeriodo = () => {
             dados={dados}
             comparacao={comparacao}
             funil={funil}
+            desfechos={desfechos}
             nomes={nomes}
             tema={tema}
           />
