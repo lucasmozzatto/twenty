@@ -431,70 +431,84 @@ const Linha = ({
   const porDia = new Map(grupos.map((grupo) => [grupo.chave, grupo.contagem]));
   const valores = dias.map((dia) => porDia.get(dia) ?? 0);
   const total = valores.reduce((soma, valor) => soma + valor, 0);
-
-  const largura = 600;
-  const altura = 180;
-  const margem = { esquerda: 14, direita: 14, topo: 24, base: 24 };
   const maximo = Math.max(...valores, 1);
-  const larguraUtil = largura - margem.esquerda - margem.direita;
-  const alturaUtil = altura - margem.topo - margem.base;
 
-  const x = (indice: number) =>
-    dias.length === 1
-      ? margem.esquerda + larguraUtil / 2
-      : margem.esquerda + (indice * larguraUtil) / (dias.length - 1);
-  const y = (valor: number) => margem.topo + (1 - valor / maximo) * alturaUtil;
+  // O gráfico precisa esticar na largura e manter a altura. Um SVG que estica
+  // deforma texto e bolinhas, então o SVG desenha só o traço (em percentual,
+  // com traço de espessura fixa) e pontos e rótulos são HTML posicionado por
+  // cima, que não deforma. Os dias ficam numa fileira de colunas iguais.
+  const xPorcento = (indice: number) => ((indice + 0.5) * 100) / dias.length;
+  // Sobra em cima para o número e embaixo para o ponto não encostar na linha.
+  const yPorcento = (valor: number) => 12 + (1 - valor / maximo) * 82;
 
   const caminho = valores
-    .map((valor, indice) => `${indice === 0 ? 'M' : 'L'}${x(indice).toFixed(1)},${y(valor).toFixed(1)}`)
+    .map(
+      (valor, indice) =>
+        `${indice === 0 ? 'M' : 'L'}${xPorcento(indice).toFixed(2)},${yPorcento(valor).toFixed(2)}`,
+    )
     .join(' ');
 
   // Com muitos dias os rótulos se atropelam: mostra um a cada N.
-  const passoRotulo = Math.max(1, Math.ceil(dias.length / 16));
+  const passoRotulo = Math.max(1, Math.ceil(dias.length / 31));
   const mostrarValores = dias.length <= 31;
 
   return (
     <Cartao titulo={`${titulo} · ${formatarInteiro(total)} no período`} tema={tema}>
-      <svg
-        viewBox={`0 0 ${largura} ${altura}`}
-        preserveAspectRatio="xMidYMid meet"
-        style={{ width: '100%', height: 'auto', display: 'block' }}
-      >
-        <path
-          d={`M${margem.esquerda},${(altura - margem.base).toFixed(1)} L${(largura - margem.direita).toFixed(1)},${(altura - margem.base).toFixed(1)}`}
-          stroke={tema.borda}
-          strokeWidth="1"
-          fill="none"
-        />
-        <path d={caminho} fill="none" stroke={cor} strokeWidth="2" strokeLinejoin="round" />
+      <div style={{ position: 'relative', height: '150px', borderBottom: `1px solid ${tema.borda}` }}>
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', display: 'block', overflow: 'visible' }}
+        >
+          <path
+            d={caminho}
+            fill="none"
+            stroke={cor}
+            strokeWidth="2"
+            strokeLinejoin="round"
+            style={{ vectorEffect: 'non-scaling-stroke' }}
+          />
+        </svg>
         {valores.map((valor, indice) => (
-          <g key={dias[indice]}>
-            <circle cx={x(indice).toFixed(1)} cy={y(valor).toFixed(1)} r="3" fill={cor} />
+          <div key={dias[indice]}>
+            <div
+              style={{
+                position: 'absolute',
+                left: `${xPorcento(indice)}%`,
+                top: `${yPorcento(valor)}%`,
+                width: '7px',
+                height: '7px',
+                marginLeft: '-3.5px',
+                marginTop: '-3.5px',
+                borderRadius: '50%',
+                background: cor,
+              }}
+            />
             {mostrarValores && valor > 0 ? (
-              <text
-                x={x(indice).toFixed(1)}
-                y={(y(valor) - 8).toFixed(1)}
-                textAnchor="middle"
-                fill={tema.texto}
-                style={{ fontSize: '11px' }}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${xPorcento(indice)}%`,
+                  top: `calc(${yPorcento(valor)}% - 20px)`,
+                  transform: 'translateX(-50%)',
+                  fontSize: '11px',
+                  color: tema.texto,
+                  whiteSpace: 'nowrap',
+                }}
               >
                 {valor}
-              </text>
+              </div>
             ) : null}
-            {indice % passoRotulo === 0 ? (
-              <text
-                x={x(indice).toFixed(1)}
-                y={(altura - 7).toFixed(1)}
-                textAnchor="middle"
-                fill={tema.suave}
-                style={{ fontSize: '10px' }}
-              >
-                {dias[indice].slice(8, 10)}
-              </text>
-            ) : null}
-          </g>
+          </div>
         ))}
-      </svg>
+      </div>
+      <div style={{ display: 'flex', marginTop: '4px' }}>
+        {dias.map((dia, indice) => (
+          <div key={dia} style={{ flex: '1 1 0', textAlign: 'center', fontSize: '10px', color: tema.suave }}>
+            {indice % passoRotulo === 0 ? dia.slice(8, 10) : ''}
+          </div>
+        ))}
+      </div>
     </Cartao>
   );
 };
@@ -694,23 +708,18 @@ const PainelPeriodo = () => {
       </div>
 
       {dados && !periodoInvalido ? (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '10px',
-            marginTop: '12px',
-            opacity: carregando ? 0.6 : 1,
-          }}
-        >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '12px', opacity: carregando ? 0.6 : 1 }}>
+          {/* As linhas por dia ocupam a largura toda, uma abaixo da outra. */}
           <Linha titulo="Negócios criados por dia" grupos={dados.criadosPorDia} periodo={periodo} cor={tema.rosa} tema={tema} />
           <Linha titulo="Vendas por dia" grupos={dados.vendasPorDia} periodo={periodo} cor={tema.verde} tema={tema} />
-          <Barras titulo="Negócios por origem" barras={contagens(dados.negociosPorOrigem)} rotulo={rotuloOrigem} cor={tema.rosa} tema={tema} />
-          <Barras titulo="Vendas por origem" barras={contagens(dados.vendasPorOrigem)} rotulo={rotuloOrigem} cor={tema.verde} tema={tema} />
-          <Barras titulo="Negócios por canal" barras={contagens(dados.negociosPorCanal)} rotulo={rotuloCanal} cor={tema.rosa} tema={tema} />
-          <Barras titulo="Vendas por canal" barras={contagens(dados.vendasPorCanal)} rotulo={rotuloCanal} cor={tema.verde} tema={tema} />
-          <Barras titulo="Receita por origem" barras={somas(dados.vendasPorOrigem)} rotulo={rotuloOrigem} cor={tema.verde} formatar={formatarReais} tema={tema} />
-          <Barras titulo="Vendas por vendedor" barras={contagens(dados.vendasPorVendedor)} rotulo={rotuloVendedor} cor={tema.azul} tema={tema} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '10px' }}>
+            <Barras titulo="Negócios por origem" barras={contagens(dados.negociosPorOrigem)} rotulo={rotuloOrigem} cor={tema.rosa} tema={tema} />
+            <Barras titulo="Vendas por origem" barras={contagens(dados.vendasPorOrigem)} rotulo={rotuloOrigem} cor={tema.verde} tema={tema} />
+            <Barras titulo="Negócios por canal" barras={contagens(dados.negociosPorCanal)} rotulo={rotuloCanal} cor={tema.rosa} tema={tema} />
+            <Barras titulo="Vendas por canal" barras={contagens(dados.vendasPorCanal)} rotulo={rotuloCanal} cor={tema.verde} tema={tema} />
+            <Barras titulo="Receita por origem" barras={somas(dados.vendasPorOrigem)} rotulo={rotuloOrigem} cor={tema.verde} formatar={formatarReais} tema={tema} />
+            <Barras titulo="Vendas por vendedor" barras={contagens(dados.vendasPorVendedor)} rotulo={rotuloVendedor} cor={tema.azul} tema={tema} />
+          </div>
         </div>
       ) : null}
     </div>
