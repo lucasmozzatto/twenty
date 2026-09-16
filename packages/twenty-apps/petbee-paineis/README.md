@@ -22,7 +22,7 @@ Um dashboard chamado **Painel Comercial**, com duas abas:
 | Aba | Conteúdo |
 |---|---|
 | **Comercial** | 6 números (criados, vendas, receita, ticket, conversão, sem origem), 2 linhas do tempo por dia, 6 barras por origem / canal / vendedor |
-| **Por período** | Quadro próprio com seletor de datas (este mês, mês passado, 7 dias, 30 dias, desde 01/09, ou De/Até livre). v0: negócios criados e vendas |
+| **Por período** | Quadro próprio com seletor de datas (este mês, mês passado, 7 dias, 30 dias, desde 01/09, ou De/Até livre). v1: os seis números da aba Comercial obedecendo ao período |
 | **Vendedores** | 4 números de pipeline, pipeline por dono, vendas por vendedor, pipeline por etapa e dono (empilhado), motivos de perda |
 
 ### Por que a aba "Por período" é um componente e não gráfico nativo
@@ -36,6 +36,17 @@ cadência faz.
 
 Cresce em fatias: v0 dois números → v1 os seis números → v2 barras → v3 funil por
 histórico de etapa (a linha do tempo, que gráfico nativo não abre).
+
+Duas regras do servidor que custaram um deploy cada:
+
+- **O mesmo campo raiz não pode aparecer duas vezes na mesma consulta**, nem com
+  apelido ("Duplicate root resolver"). Uma consulta por filtro, disparadas em paralelo.
+- **Dentro de uma consulta, vários agregados são permitidos**: `totalCount`,
+  `sumAmountAmountMicros`, `avgAmountAmountMicros` saem juntos para o mesmo filtro.
+
+Números de agosto/2026 pela API, para conferir o seletor em "Mês passado": 622 criados,
+128 vendas, R$ 20.154,90 de receita, ticket R$ 157,46, conversão 17,2% (107 ganhos entre
+os 622 criados), 195 sem origem.
 
 ## As três regras de filtro
 
