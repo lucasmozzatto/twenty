@@ -39,7 +39,7 @@ import {
 } from 'src/constants/universal-identifiers';
 import {
   buildFilter,
-  dateIsAfter,
+  dateEsteMes,
   FUSO,
   isEmpty,
   selectIs,
@@ -47,8 +47,8 @@ import {
 } from 'src/utils/chart-filters';
 
 // --- Os três conjuntos de filtro do painel ---------------------------------
-// Toda pergunta sobre LEAD conta pela data de criação.
-// Toda pergunta sobre VENDA conta pela data de fechamento.
+// Toda pergunta sobre LEAD conta pela data de criação, só o mês atual.
+// Toda pergunta sobre VENDA conta pela data de fechamento, só o mês atual.
 // Toda pergunta sobre PIPELINE não leva data: é foto de agora.
 
 const funilVendas = selectIs({
@@ -60,13 +60,13 @@ const funilVendas = selectIs({
 
 const filtroLead = [
   funilVendas,
-  dateIsAfter({ field: FIELD.createdAt, label: 'Data de criação' }),
+  dateEsteMes({ field: FIELD.createdAt, label: 'Data de criação' }),
 ];
 
 const filtroVenda = [
   funilVendas,
   selectIs({ field: FIELD.stage, label: 'Etapa', values: ['WON'] }),
-  dateIsAfter({ field: FIELD.closeDate, label: 'Data de fechamento' }),
+  dateEsteMes({ field: FIELD.closeDate, label: 'Data de fechamento' }),
 ];
 
 const filtroPipeline = [
@@ -514,7 +514,7 @@ export default definePageLayout({
             filter: buildFilter(FG.perdasConversa, [
               funilVendas,
               selectIs({ field: FIELD.stage, label: 'Etapa', values: ['LOST'] }),
-              dateIsAfter({ field: FIELD.createdAt, label: 'Data de criação' }),
+              dateEsteMes({ field: FIELD.createdAt, label: 'Data de criação' }),
               selectIs({
                 field: FIELD.motivoLost,
                 label: 'Motivo de Lost',
@@ -578,7 +578,7 @@ export default definePageLayout({
                 '',
                 'As vendas com vendedor de verdade, que comissionam, são as das outras pessoas.',
                 '',
-                'Os gráficos de pipeline são foto de **agora**, sem corte de data. Os de venda contam de 01/09/2026 em diante, pela data de fechamento.',
+                'Os gráficos de pipeline são foto de **agora**, sem corte de data. Os de venda e de lead mostram **só o mês atual** (horário de Brasília): venda pela data de fechamento, lead pela data de criação. No dia 1 o painel zera e começa o mês novo.',
               ].join('\n'),
             },
           },
@@ -620,7 +620,7 @@ export default definePageLayout({
             filter: buildFilter(FG.motivosPerda, [
               funilVendas,
               selectIs({ field: FIELD.stage, label: 'Etapa', values: ['LOST'] }),
-              dateIsAfter({ field: FIELD.createdAt, label: 'Data de criação' }),
+              dateEsteMes({ field: FIELD.createdAt, label: 'Data de criação' }),
             ]),
             cor: 'orange',
           }),

@@ -28,9 +28,13 @@ Um dashboard chamado **Painel Comercial**, com duas abas:
 
 Estão em `src/page-layouts/comercial.page-layout.ts`, no topo, e valem para tudo:
 
-- **Lead** → `Funil = Vendas` + `Data de criação` a partir de 01/09/2026
-- **Venda** → `Funil = Vendas` + `Etapa = Won` + `Data de fechamento` a partir de 01/09/2026
+- **Lead** → `Funil = Vendas` + `Data de criação` é **este mês**
+- **Venda** → `Funil = Vendas` + `Etapa = Won` + `Data de fechamento` é **este mês**
 - **Pipeline** → `Funil = Vendas` + `Etapa ≠ Won, Lost` — **sem data**, porque pipeline é foto de agora
+
+"Este mês" é relativo: no dia 1 o painel zera sozinho e passa a mostrar o mês novo.
+Ninguém precisa editar corte. Para olhar mês passado ou um intervalo qualquer, é o
+seletor de período do quadro próprio (front component), que está sendo construído.
 
 Contou lead, usa data de criação. Contou venda, usa data de fechamento. Trocar os dois
 é o erro mais fácil de cometer e o mais difícil de perceber: os totais continuam
@@ -39,7 +43,9 @@ plausíveis. Já aconteceu três vezes durante a montagem manual.
 ## Detalhes que custaram para descobrir
 
 - **Filtro de lista** grava o valor como array JSON em texto: `'["WON"]'`.
-- **Filtro de data** grava ISO puro: `'2026-09-01T03:00:00.000Z'` — 01/09 00:00 de Brasília.
+- **Filtro de data relativo** grava texto no formato `THIS_1_MONTH;;America/Sao_Paulo;;MONDAY;;`
+  com operando `IS_RELATIVE`. O fuso dentro do texto é o que define onde o mês começa.
+  (Data fixa, se um dia voltar, é operando `IS_AFTER` e ISO puro: `'2026-09-01T03:00:00.000Z'`.)
 - **`timezone` fixo em `America/Sao_Paulo`** em todo gráfico. Sem isso o CRM agrupa pelo
   fuso de quem está olhando e duas pessoas veem dias diferentes.
 - **"Contar todos" ignora o campo escolhido** — conta registros. O campo `name` é usado
@@ -86,7 +92,8 @@ yarn twenty apply
 
 ## Conferência
 
-Números medidos pela API em 16/09/2026, corte 01/09:
+Números medidos pela API em 16/09/2026. Em setembro "este mês" e "a partir de 01/09"
+dão o mesmo resultado, então servem para conferir a versão relativa:
 
 | | |
 |---|---|
