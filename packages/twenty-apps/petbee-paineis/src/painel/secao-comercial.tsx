@@ -133,10 +133,12 @@ export const NumerosComerciais = ({
 
 export const GraficosComerciais = ({
   dados,
+  comparacao,
   periodo,
   tema,
 }: {
   dados: Dados;
+  comparacao: Comparacao | null;
   periodo: Periodo;
   tema: Tema;
 }) => (
@@ -146,6 +148,11 @@ export const GraficosComerciais = ({
       grupos={dados.criadosPorDia}
       periodo={periodo}
       cor={tema.rosa}
+      anterior={
+        comparacao
+          ? { grupos: comparacao.criadosPorDia, periodo: comparacao.periodo }
+          : undefined
+      }
       tema={tema}
     />
     <Linha
@@ -153,6 +160,11 @@ export const GraficosComerciais = ({
       grupos={dados.vendasPorDia}
       periodo={periodo}
       cor={tema.verde}
+      anterior={
+        comparacao
+          ? { grupos: comparacao.vendasPorDia, periodo: comparacao.periodo }
+          : undefined
+      }
       tema={tema}
     />
 

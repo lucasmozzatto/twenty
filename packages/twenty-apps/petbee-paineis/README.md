@@ -71,6 +71,15 @@ Três decisões que parecem detalhe e não são:
   distingue verde de vermelho.
 - **Antes zero não vira "infinito por cento"**: mostra só "antes 0", sem variação.
 
+**Nas duas linhas do tempo** o período anterior é desenhado por cima, em cinza
+tracejado, e o rodapé do cartão traz o total de antes e a variação. Dois cuidados:
+
+- **Uma escala de altura só para as duas linhas.** Com escalas separadas, uma queda
+  pela metade desenharia igual à outra e a comparação não diria nada.
+- **Elas alinham pelo dia da sequência, não pela data**: dia 1 sobre dia 1. Quando o
+  mês anterior é mais curto, a linha cinza acaba antes em vez de ser esticada —
+  esticar inventaria dias que não existiram.
+
 Pipeline não entra na comparação, pelo mesmo motivo de não seguir o período.
 
 ### Estrutura dos arquivos
@@ -211,6 +220,10 @@ origem mostra 299 de 369, canal mostra 364 de 369.
 | Conversão | 7,0% | 16,0% | −9,0 p.p. |
 | Sem origem | 71 | 98 | −28% |
 | Perdas com conversa | 44 | 102 | −57% |
+
+As linhas por dia de 01 a 16/08, para conferir a linha cinza: criados
+10, 16, 28, 28, 26, 18, 16, 10, 8, 21, 25, 24, 20, 10, 12, 9 (soma 281); vendas
+0, 7, 1, 4, 1, 9, 0, 0, 11, 4, 5, 4, 6, 1, 1, 2 (soma 56).
 
 ## Conferência da seção Vendedores
 
