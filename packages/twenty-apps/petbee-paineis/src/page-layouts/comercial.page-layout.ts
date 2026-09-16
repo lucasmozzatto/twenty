@@ -1,4 +1,10 @@
-import { definePageLayout, PageLayoutTabLayoutMode } from 'twenty-sdk/define';
+import {
+  AggregateOperations,
+  definePageLayout,
+  ObjectRecordGroupByDateGranularity,
+  PageLayoutTabLayoutMode,
+  PageLayoutType,
+} from 'twenty-sdk/define';
 
 import {
   COMERCIAL_PAGE_LAYOUT_UNIVERSAL_IDENTIFIER,
@@ -75,10 +81,32 @@ const filtroPipeline = [
 
 // --- Atalhos de configuração ----------------------------------------------
 
-const contagem = {
+type Medida = {
+  aggregateFieldMetadataUniversalIdentifier: string;
+  aggregateOperation: AggregateOperations;
+};
+
+// "Contar todos" ignora o campo escolhido e conta registros. O `name` está
+// aqui só porque a configuração exige algum campo.
+const contagem: Medida = {
   aggregateFieldMetadataUniversalIdentifier: FIELD.name,
-  aggregateOperation: 'COUNT',
-} as const;
+  aggregateOperation: AggregateOperations.COUNT,
+};
+
+const somaValor: Medida = {
+  aggregateFieldMetadataUniversalIdentifier: FIELD.amount,
+  aggregateOperation: AggregateOperations.SUM,
+};
+
+const mediaValor: Medida = {
+  aggregateFieldMetadataUniversalIdentifier: FIELD.amount,
+  aggregateOperation: AggregateOperations.AVG,
+};
+
+const contagemEtapa: Medida = {
+  aggregateFieldMetadataUniversalIdentifier: FIELD.stage,
+  aggregateOperation: AggregateOperations.COUNT,
+};
 
 const numero = ({
   filter,
@@ -87,7 +115,7 @@ const numero = ({
 }: {
   filter: ReturnType<typeof buildFilter>;
   prefix?: string;
-  campo?: { [key: string]: string };
+  campo?: Medida;
 }) => ({
   configurationType: 'AGGREGATE_CHART' as const,
   ...campo,
@@ -109,7 +137,7 @@ const barra = ({
   subCampo?: string;
   filter: ReturnType<typeof buildFilter>;
   cor: string;
-  medida?: { [key: string]: string };
+  medida?: Medida;
   ordem?: string;
 }) => ({
   configurationType: 'BAR_CHART' as const,
@@ -141,7 +169,7 @@ const linha = ({
   configurationType: 'LINE_CHART' as const,
   ...contagem,
   primaryAxisGroupByFieldMetadataUniversalIdentifier: campoData,
-  primaryAxisDateGranularity: 'DAY',
+  primaryAxisDateGranularity: ObjectRecordGroupByDateGranularity.DAY,
   primaryAxisOrderBy: 'FIELD_ASC',
   axisNameDisplay: 'NONE',
   displayDataLabel: true,
@@ -153,7 +181,7 @@ const linha = ({
   filter,
 });
 
-const grafico = ({
+const grafico = <TConfig,>({
   universalIdentifier,
   title,
   row,
@@ -168,13 +196,19 @@ const grafico = ({
   column: number;
   rowSpan: number;
   columnSpan: number;
-  configuration: object;
+  configuration: TConfig;
 }) => ({
   universalIdentifier,
   title,
-  type: 'GRAPH',
+  type: 'GRAPH' as const,
   objectUniversalIdentifier: OBJ.opportunity,
-  gridPosition: { row, column, rowSpan, columnSpan },
+  position: {
+    layoutMode: PageLayoutTabLayoutMode.GRID as const,
+    row,
+    column,
+    rowSpan,
+    columnSpan,
+  },
   configuration,
 });
 
@@ -183,7 +217,7 @@ const grafico = ({
 export default definePageLayout({
   universalIdentifier: COMERCIAL_PAGE_LAYOUT_UNIVERSAL_IDENTIFIER,
   name: 'Painel Comercial',
-  type: 'DASHBOARD',
+  type: PageLayoutType.DASHBOARD,
   tabs: [
     {
       universalIdentifier: TAB_COMERCIAL_UNIVERSAL_IDENTIFIER,
@@ -225,10 +259,7 @@ export default definePageLayout({
           configuration: numero({
             filter: buildFilter(FG.receita, filtroVenda),
             prefix: 'R$ ',
-            campo: {
-              aggregateFieldMetadataUniversalIdentifier: FIELD.amount,
-              aggregateOperation: 'SUM',
-            },
+            campo: somaValor,
           }),
         }),
         grafico({
@@ -241,10 +272,7 @@ export default definePageLayout({
           configuration: numero({
             filter: buildFilter(FG.ticket, filtroVenda),
             prefix: 'R$ ',
-            campo: {
-              aggregateFieldMetadataUniversalIdentifier: FIELD.amount,
-              aggregateOperation: 'AVG',
-            },
+            campo: mediaValor,
           }),
         }),
         grafico({
@@ -257,10 +285,7 @@ export default definePageLayout({
           configuration: {
             ...numero({
               filter: buildFilter(FG.conversao, filtroLead),
-              campo: {
-                aggregateFieldMetadataUniversalIdentifier: FIELD.stage,
-                aggregateOperation: 'COUNT',
-              },
+              campo: contagemEtapa,
             }),
             // Proporção de Ganho dentro da própria safra: numerador e
             // denominador saem do mesmo grupo de negócios.
@@ -381,10 +406,7 @@ export default definePageLayout({
             eixo: FIELD.origem,
             filter: buildFilter(FG.receitaOrigem, filtroVenda),
             cor: 'green',
-            medida: {
-              aggregateFieldMetadataUniversalIdentifier: FIELD.amount,
-              aggregateOperation: 'SUM',
-            },
+            medida: somaValor,
           }),
         }),
         grafico({
@@ -525,7 +547,13 @@ export default definePageLayout({
           universalIdentifier: W_NOTA_VENDEDOR,
           title: 'Como ler',
           type: 'STANDALONE_RICH_TEXT',
-          gridPosition: { row: 8, column: 0, rowSpan: 3, columnSpan: 12 },
+          position: {
+            layoutMode: PageLayoutTabLayoutMode.GRID,
+            row: 8,
+            column: 0,
+            rowSpan: 3,
+            columnSpan: 12,
+          },
           configuration: {
             configurationType: 'STANDALONE_RICH_TEXT',
             body: {
