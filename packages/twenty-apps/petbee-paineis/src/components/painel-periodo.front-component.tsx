@@ -104,58 +104,61 @@ const contarDias = ({ de, ate }: Periodo): number => {
 
 // --- Dados -------------------------------------------------------------------
 
-const CONSULTA = `
-  query PainelPeriodo($lead: OpportunityFilterInput, $venda: OpportunityFilterInput) {
-    criados: opportunities(filter: $lead) { totalCount }
-    vendas: opportunities(filter: $venda) { totalCount }
+// O servidor recusa o mesmo campo raiz duas vezes na mesma consulta, mesmo com
+// apelidos ("Duplicate root resolver"). Então é uma consulta por número, todas
+// disparadas ao mesmo tempo.
+const CONSULTA_CONTAGEM = `
+  query Contar($filter: OpportunityFilterInput) {
+    opportunities(filter: $filter) { totalCount }
   }
 `;
 
-const buscarNumeros = async (periodo: Periodo): Promise<Numeros> => {
-  const { inicio, fim } = limitesIso(periodo);
-  const funilVendas = { funnel: { eq: 'VENDAS' } };
+type Filtro = Record<string, unknown>;
 
+const contar = async (filter: Filtro): Promise<number> => {
   const resposta = await fetch(`${process.env.TWENTY_API_URL}/graphql`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
     },
-    body: JSON.stringify({
-      query: CONSULTA,
-      variables: {
-        // Lead conta pela data de criação; venda, pela de fechamento.
-        lead: {
-          and: [
-            funilVendas,
-            { createdAt: { gte: inicio } },
-            { createdAt: { lt: fim } },
-          ],
-        },
-        venda: {
-          and: [
-            funilVendas,
-            { stage: { eq: 'WON' } },
-            { closeDate: { gte: inicio } },
-            { closeDate: { lt: fim } },
-          ],
-        },
-      },
-    }),
+    body: JSON.stringify({ query: CONSULTA_CONTAGEM, variables: { filter } }),
   });
 
   const corpo = (await resposta.json()) as {
-    data?: { criados: { totalCount: number }; vendas: { totalCount: number } };
+    data?: { opportunities: { totalCount: number } };
     errors?: { message: string }[];
   };
 
   if (corpo.errors?.length) throw new Error(corpo.errors[0].message);
   if (!corpo.data) throw new Error(`HTTP ${resposta.status}`);
 
-  return {
-    criados: corpo.data.criados.totalCount,
-    vendas: corpo.data.vendas.totalCount,
+  return corpo.data.opportunities.totalCount;
+};
+
+const buscarNumeros = async (periodo: Periodo): Promise<Numeros> => {
+  const { inicio, fim } = limitesIso(periodo);
+  const funilVendas = { funnel: { eq: 'VENDAS' } };
+
+  // Lead conta pela data de criação; venda, pela de fechamento.
+  const filtroLead: Filtro = {
+    and: [funilVendas, { createdAt: { gte: inicio } }, { createdAt: { lt: fim } }],
   };
+  const filtroVenda: Filtro = {
+    and: [
+      funilVendas,
+      { stage: { eq: 'WON' } },
+      { closeDate: { gte: inicio } },
+      { closeDate: { lt: fim } },
+    ],
+  };
+
+  const [criados, vendas] = await Promise.all([
+    contar(filtroLead),
+    contar(filtroVenda),
+  ]);
+
+  return { criados, vendas };
 };
 
 // --- Tela --------------------------------------------------------------------
