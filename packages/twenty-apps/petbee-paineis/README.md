@@ -22,7 +22,7 @@ Um dashboard chamado **Painel Comercial**, com duas abas:
 | Aba | Conteúdo |
 |---|---|
 | **Comercial** | 6 números (criados, vendas, receita, ticket, conversão, sem origem), 2 linhas do tempo por dia, 6 barras por origem / canal / vendedor |
-| **Por período** | Quadro próprio com seletor de datas (este mês, mês passado, 7 dias, 30 dias, desde 01/09, ou De/Até livre). v2: os seis números, as duas linhas por dia e as seis barras da aba Comercial, tudo obedecendo ao período. Diferente do nativo, o vazio aparece como barra ("Sem origem", "Sem canal", "Sem dono") |
+| **Por período** | Quadro próprio com seletor de datas (este mês, mês passado, 7 dias, 30 dias, desde 01/09, ou De/Até livre). Reúne **as duas abas**: em cima a visão comercial, embaixo a seção Vendedores inteira. Diferente do nativo, o vazio aparece como barra ("Sem origem", "Sem canal", "Sem dono") |
 | **Vendedores** | 4 números de pipeline, pipeline por dono, vendas por vendedor, pipeline por etapa e dono (empilhado), motivos de perda |
 
 ### Por que a aba "Por período" é um componente e não gráfico nativo
@@ -34,8 +34,34 @@ com o período que a pessoa escolheu. Ele roda no navegador, dentro de um worker
 o token do app (somente leitura) injetado pelo runtime, do mesmo jeito que a régua da
 cadência faz.
 
-Cresce em fatias: v0 dois números → v1 os seis números → v2 barras → v3 funil por
-histórico de etapa (a linha do tempo, que gráfico nativo não abre).
+### Os dois tempos dentro da aba
+
+Está escrito na tela de propósito, porque é o erro mais fácil de cometer lendo:
+
+- **Segue o período**: negócios criados, vendas, receita, ticket, conversão, sem origem,
+  as linhas por dia, as barras de origem e canal, vendas por vendedor, perdas com
+  conversa e motivos de perda.
+- **Foto de agora, ignora o período**: negócios em aberto, sem dono, em negociação,
+  pipeline por dono e pipeline por etapa e dono. "Quantos estavam em aberto em agosto"
+  não se responde olhando o estado atual do CRM — o campo guarda só a etapa de hoje.
+
+O dono contado é sempre o dono **atual** do negócio.
+
+### Estrutura dos arquivos
+
+O componente (`src/components/painel-periodo.front-component.tsx`) cuida só do seletor
+e de buscar os dados. O resto está em `src/painel/`: `periodo.ts` (contas de data),
+`crm.ts` (as consultas), `dados.ts` (as perguntas e as contas derivadas), `rotulos.ts`,
+`formato.ts`, `tema.ts`, `cartoes.tsx`, `barras.tsx`, `linha.tsx` e as duas seções.
+
+**Um quadro que falha não derruba a página.** Cada consulta é embrulhada: quem falhar
+aparece zerado e um aviso laranja no topo diz o nome do quadro e o motivo. Sem isso uma
+consulta recusada apagava o painel inteiro — e um zero por erro não se distingue de um
+zero de verdade.
+
+Cresce em fatias: v0 dois números → v1 os seis números → v2 barras → v3 a seção
+Vendedores → em seguida o funil por histórico de etapa (a linha do tempo, que gráfico
+nativo não abre).
 
 Duas regras do servidor que custaram um deploy cada:
 
@@ -47,6 +73,10 @@ Duas regras do servidor que custaram um deploy cada:
   `[{ createdAt: { granularity: DAY, timeZone } }]`. Cada grupo traz
   `groupByDimensionValues` (a chave, `null` para vazio) e os mesmos agregados.
   Dono vem como `ownerId`; o nome sai de uma consulta a `workspaceMembers`.
+- **Duas dimensões** no mesmo agrupamento funcionam: `[{ stage: true }, { ownerId: true }]`
+  devolve `groupByDimensionValues` com duas chaves, na ordem pedida. É o que alimenta o
+  gráfico empilhado, e de um só agrupamento saem quatro quadros (total em aberto, sem
+  dono, em negociação e o empilhado).
 - **SVG no componente**: o renderizador só deixa passar atributos de uma lista fixa.
   `line` não aceita coordenadas, então toda linha é um `path`. Tamanho de fonte de
   `text` vai por `style`, não por atributo.
@@ -141,6 +171,17 @@ dão o mesmo resultado, então servem para conferir a versão relativa:
 
 As barras de origem e canal somam **menos** que o total, porque o vazio não desenha:
 origem mostra 299 de 369, canal mostra 364 de 369.
+
+## Conferência da seção Vendedores
+
+Números medidos pela API em 16/09/2026 (pipeline é foto do momento e muda sozinho):
+
+| | |
+|---|---|
+| Negócios em aberto | 248 |
+| Sem dono | 32 |
+| Em negociação | 70 |
+| Pipeline por dono | Vitoria 115, Lucas 89, Sem dono 32, Rodrigo 12 |
 
 ## O que ainda não está aqui
 
