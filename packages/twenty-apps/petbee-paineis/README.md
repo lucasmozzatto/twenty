@@ -22,7 +22,7 @@ Um dashboard chamado **Painel Comercial**, com duas abas:
 | Aba | Conteúdo |
 |---|---|
 | **Comercial** | 6 números (criados, vendas, receita, ticket, conversão, sem origem), 2 linhas do tempo por dia, 6 barras por origem / canal / vendedor |
-| **Por período** | Quadro próprio com seletor de datas (este mês, mês passado, 7 dias, 30 dias, desde 01/09, ou De/Até livre). Reúne **as duas abas**: em cima a visão comercial, embaixo a seção Vendedores inteira. Diferente do nativo, o vazio aparece como barra ("Sem origem", "Sem canal", "Sem dono") |
+| **Por período** | Quadro próprio com seletor de datas (este mês, mês passado, 7 dias, 30 dias, desde 01/09, ou De/Até livre) e botão de comparar com o período anterior. Reúne **as duas abas**: em cima a visão comercial, embaixo a seção Vendedores inteira. Diferente do nativo, o vazio aparece como barra ("Sem origem", "Sem canal", "Sem dono") |
 | **Vendedores** | 4 números de pipeline, pipeline por dono, vendas por vendedor, pipeline por etapa e dono (empilhado), motivos de perda |
 
 ### Por que a aba "Por período" é um componente e não gráfico nativo
@@ -46,6 +46,32 @@ Está escrito na tela de propósito, porque é o erro mais fácil de cometer len
   não se responde olhando o estado atual do CRM — o campo guarda só a etapa de hoje.
 
 O dono contado é sempre o dono **atual** do negócio.
+
+### A comparação com o período anterior
+
+Ligada pelo botão, cada número ganha um rodapé com o valor de antes e a variação.
+"Anterior" quer dizer coisas diferentes por botão, e a regra está em
+`periodoAnterior` (`src/painel/periodo.ts`):
+
+| Escolha | Compara com |
+|---|---|
+| Este mês | o mesmo trecho do mês passado (01 a 16/08 para 01 a 16/09) |
+| Mês passado | o mês anterior a ele, inteiro |
+| Últimos 7 / 30 dias | o bloco de mesmo tamanho imediatamente antes |
+| Desde 01/09 e De/Até livre | o mesmo número de dias imediatamente antes |
+
+Três decisões que parecem detalhe e não são:
+
+- **Mês compara trecho com trecho.** 16 dias de setembro contra 31 de agosto daria
+  uma queda falsa de metade. Fevereiro, sendo mais curto, corta no fim do mês.
+- **Taxa varia em pontos percentuais.** Conversão de 7% para 8% subiu 1 ponto; chamar
+  isso de "+14%" confunde. Só a Conversão usa `p.p.`, o resto usa porcentagem.
+- **Sobe nem sempre é bom.** "Sem origem" e "Perdas com conversa" ficam vermelhos
+  quando crescem (`sentido: 'negativo'`). A variação também leva sinal, para quem não
+  distingue verde de vermelho.
+- **Antes zero não vira "infinito por cento"**: mostra só "antes 0", sem variação.
+
+Pipeline não entra na comparação, pelo mesmo motivo de não seguir o período.
 
 ### Estrutura dos arquivos
 
@@ -171,6 +197,20 @@ dão o mesmo resultado, então servem para conferir a versão relativa:
 
 As barras de origem e canal somam **menos** que o total, porque o vazio não desenha:
 origem mostra 299 de 369, canal mostra 364 de 369.
+
+## Conferência da comparação
+
+"Este mês" (01 a 16/09) contra "01 a 16/08", medido pela API em 16/09/2026:
+
+| | Setembro (16 dias) | Agosto (16 dias) | Variação |
+|---|---|---|---|
+| Negócios criados | 387 | 281 | +38% |
+| Vendas | 27 | 56 | −52% |
+| Receita | R$ 4.062,20 | R$ 8.113,90 | −50% |
+| Ticket médio | R$ 150,45 | R$ 144,89 | +3,8% |
+| Conversão | 7,0% | 16,0% | −9,0 p.p. |
+| Sem origem | 71 | 98 | −28% |
+| Perdas com conversa | 44 | 102 | −57% |
 
 ## Conferência da seção Vendedores
 
