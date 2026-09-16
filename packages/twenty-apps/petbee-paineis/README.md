@@ -52,14 +52,30 @@ plausíveis. Já aconteceu três vezes durante a montagem manual.
 
 ## Como publicar
 
+Na mesma máquina de onde o `petbee-cadencia` é publicado. A credencial do CRM fica em
+`~/.twenty/config.json`, global por máquina — se o remote `petbee` já existe ali, não
+precisa informar chave nenhuma de novo.
+
 ```bash
 cd packages/twenty-apps/petbee-paineis
 yarn install
-yarn twenty dev --once
+yarn typecheck    # confere o código antes de falar com o CRM
+
+yarn twenty plan  # mostra o que SERIA criado, sem aplicar nada
+yarn twenty apply # cria de verdade
+```
+
+Se o remote ainda não existir nesta máquina:
+
+```bash
+yarn twenty remote:add --url https://crm.petbeetools.com.br --api-key $TWENTY_API_KEY --as petbee
 ```
 
 Ele cria um dashboard **novo**, com nome diferente do "Comercial" montado à mão. Os dois
 convivem: compare lado a lado e apague o manual só quando estiver satisfeito.
+
+Para desfazer: `yarn twenty apply` depois de remover o arquivo do page layout, ou apague
+o dashboard pela tela. Nada aqui altera negócio — o papel do app é somente leitura.
 
 ## Conferência
 
