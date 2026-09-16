@@ -17,13 +17,23 @@ tem permissão de escrita nenhuma, então não consegue alterar um negócio nem 
 
 ## O que ele cria
 
-Um dashboard chamado **Painel Comercial**, com duas abas:
+Uma página chamada **Painel Comercial** no menu lateral, com uma aba só,
+**Por período**: um quadro com seletor de datas (este mês, mês passado, 7 dias,
+30 dias, desde 01/09, ou De/Até livre) e botão de comparar com o período anterior.
 
-| Aba | Conteúdo |
-|---|---|
-| **Comercial** | 6 números (criados, vendas, receita, ticket, conversão, sem origem), 2 linhas do tempo por dia, 6 barras por origem / canal / vendedor |
-| **Por período** | Quadro próprio com seletor de datas (este mês, mês passado, 7 dias, 30 dias, desde 01/09, ou De/Até livre) e botão de comparar com o período anterior. Reúne **as duas abas**: em cima a visão comercial, embaixo a seção Vendedores inteira. Diferente do nativo, o vazio aparece como barra ("Sem origem", "Sem canal", "Sem dono") |
-| **Vendedores** | 4 números de pipeline, pipeline por dono, vendas por vendedor, pipeline por etapa e dono (empilhado), motivos de perda |
+Em cima a visão comercial: seis números, duas linhas do tempo por dia e as barras
+por origem e canal. Embaixo a seção **Vendedores**: pipeline em aberto, sem dono, em
+negociação, perdas com conversa, pipeline por dono, vendas por vendedor, pipeline por
+etapa e dono, e motivos de perda. Diferente do gráfico nativo, o vazio aparece como
+barra própria ("Sem origem", "Sem canal", "Sem dono").
+
+### As abas "Comercial" e "Vendedores" foram apagadas
+
+Existiram até 16/09/2026, feitas de 23 gráficos nativos. Mostravam o mesmo que a aba
+"Por período" travado em "este mês", e toda melhoria passou a entrar só nela — duas
+telas contando a mesma coisa acabam divergindo, e a que ninguém mantém vira a errada.
+
+Estão no git, com os mesmos identificadores, se um dia precisarem voltar.
 
 ### Por que a aba "Por período" é um componente e não gráfico nativo
 
@@ -97,8 +107,9 @@ espremida entre os números.
 
 O componente (`src/components/painel-periodo.front-component.tsx`) cuida só do seletor
 e de buscar os dados. O resto está em `src/painel/`: `periodo.ts` (contas de data),
-`crm.ts` (as consultas), `dados.ts` (as perguntas e as contas derivadas), `rotulos.ts`,
-`formato.ts`, `tema.ts`, `cartoes.tsx`, `barras.tsx`, `linha.tsx` e as duas seções.
+`crm.ts` (as consultas), `dados.ts` e `comparacao.ts` (as perguntas e as contas
+derivadas), `rotulos.ts`, `formato.ts`, `tema.ts`, `cartoes.tsx`, `barras.tsx`,
+`barras-empilhadas.tsx`, `linha.tsx`, `grade.ts` e as duas seções.
 
 **Um quadro que falha não derruba a página.** Cada consulta é embrulhada: quem falhar
 aparece zerado e um aviso laranja no topo diz o nome do quadro e o motivo. Sem isso uma
@@ -133,15 +144,11 @@ os 622 criados), 195 sem origem.
 
 ## As três regras de filtro
 
-Estão em `src/page-layouts/comercial.page-layout.ts`, no topo, e valem para tudo:
+Estão em `src/painel/dados.ts`, no topo de `buscarDados`, e valem para tudo:
 
-- **Lead** → `Funil = Vendas` + `Data de criação` é **este mês**
-- **Venda** → `Funil = Vendas` + `Etapa = Won` + `Data de fechamento` é **este mês**
-- **Pipeline** → `Funil = Vendas` + `Etapa ≠ Won, Lost` — **sem data**, porque pipeline é foto de agora
-
-"Este mês" é relativo: no dia 1 o painel zera sozinho e passa a mostrar o mês novo.
-Ninguém precisa editar corte. Para olhar mês passado ou um intervalo qualquer, é o
-seletor de período do quadro próprio (front component), que está sendo construído.
+- **Lead** → `Funil = Vendas` + `Data de criação` dentro do período
+- **Venda** → `Funil = Vendas` + `Etapa = Won` + `Data de fechamento` dentro do período
+- **Pipeline** → `Funil = Vendas` + etapa em aberto — **sem data**, porque é foto de agora
 
 Contou lead, usa data de criação. Contou venda, usa data de fechamento. Trocar os dois
 é o erro mais fácil de cometer e o mais difícil de perceber: os totais continuam
@@ -149,19 +156,25 @@ plausíveis. Já aconteceu três vezes durante a montagem manual.
 
 ## Detalhes que custaram para descobrir
 
+- **`timeZone` fixo em `America/Sao_Paulo`** em todo agrupamento por data. Sem isso o
+  CRM agrupa pelo fuso de quem está olhando e duas pessoas veem dias diferentes.
+- **Brasília não tem horário de verão desde 2019**, então o deslocamento `-03:00` é fixo
+  e fica num lugar só, em `periodo.ts`.
+- **Data em texto `AAAA-MM-DD`, nunca objeto `Date`** nas contas de período: `Date` usa o
+  fuso de quem está olhando e erra o dia.
+
+### Do tempo dos gráficos nativos
+
+Não valem mais para este app, que não usa nenhum, mas valem para quem montar gráfico
+pela tela do CRM:
+
 - **Filtro de lista** grava o valor como array JSON em texto: `'["WON"]'`.
 - **Filtro de data relativo** grava texto no formato `THIS_1_MONTH;;America/Sao_Paulo;;MONDAY;;`
-  com operando `IS_RELATIVE`. O fuso dentro do texto é o que define onde o mês começa.
-  (Data fixa, se um dia voltar, é operando `IS_AFTER` e ISO puro: `'2026-09-01T03:00:00.000Z'`.)
-- **`timezone` fixo em `America/Sao_Paulo`** em todo gráfico. Sem isso o CRM agrupa pelo
-  fuso de quem está olhando e duas pessoas veem dias diferentes.
-- **"Contar todos" ignora o campo escolhido** — conta registros. O campo `name` é usado
-  só porque precisa de algum.
-- **Gráfico de campo de lista não desenha o vazio.** Por isso existe o número
-  "Sem origem" ao lado: são ~70 negócios que nenhuma barra de origem mostra.
-- **Gráfico de campo de relação desenha o vazio** como "Not Set" — o `Owner` aparece.
-- Cada widget com filtro tem um **id de grupo fixo** em `FG`. Se fosse gerado a cada
-  build, toda sincronização duplicaria os filtros.
+  com operando `IS_RELATIVE`. Data fixa é `IS_AFTER` e ISO puro.
+- **"Contar todos" ignora o campo escolhido** — conta registros.
+- **Gráfico de campo de lista não desenha o vazio**; o de campo de relação desenha, como
+  "Not Set". Foi o motivo de existir um número "Sem origem" separado, que aqui virou
+  barra própria.
 
 ## Como publicar
 
@@ -171,18 +184,21 @@ script roda tudo num container `node:22` descartável e lê a chave de
 
 ```bash
 cd /opt/twenty-repo/petbee/deploy
-./publicar-paineis.sh          # PLANO: mostra o que mudaria, não escreve nada
-./publicar-paineis.sh apply    # publica de verdade
+./publicar-paineis.sh            # PLANO: mostra o que mudaria, não escreve nada
+./publicar-paineis.sh apply      # publica de verdade, sem apagar nada
+./publicar-paineis.sh remover    # publica APAGANDO o que saiu do código
 ```
+
+O `apply` de propósito **não apaga**: um plano com "to destroy" para e aparece, em vez
+de passar batido. Quando a remoção é intencional, `remover` passa o `-f` do CLI e pede
+que você digite `APAGAR` antes. O container não tem terminal interativo, então sem o
+`-f` o CLI travaria na própria pergunta de confirmação.
 
 O código chega na VPS pelo `deploy.yml`, que roda a cada push na `main`. Como a produção
 usa imagem pronta (`twentycrm/twenty:${TAG}`) e não compila do fonte, um merge que só
 adiciona pasta de app é praticamente no-op para os contêineres.
 
-Ele cria um dashboard **novo**, com nome diferente do "Comercial" montado à mão. Os dois
-convivem: compare lado a lado e apague o manual só quando estiver satisfeito.
-
-Para desfazer, apague o dashboard pela tela. Nada aqui altera negócio — o papel do app
+Para desfazer, apague a página pela tela. Nada aqui altera negócio — o papel do app
 não tem permissão de escrita.
 
 ### Rodar da máquina local, se preferir
@@ -196,27 +212,6 @@ yarn install && yarn typecheck
 yarn twenty plan
 yarn twenty apply
 ```
-
-## Conferência
-
-Números medidos pela API em 16/09/2026. Em setembro "este mês" e "a partir de 01/09"
-dão o mesmo resultado, então servem para conferir a versão relativa:
-
-| | |
-|---|---|
-| Negócios criados | 369 |
-| Vendas | 27 |
-| Receita | R$ 4.062,20 |
-| Ticket médio | R$ 150,45 |
-| Conversão | 7,3% |
-| Sem origem | 70 |
-| Negócios em aberto | 256 |
-| Sem dono | 32 |
-| Em negociação | 75 |
-| Perdas com conversa | 39 |
-
-As barras de origem e canal somam **menos** que o total, porque o vazio não desenha:
-origem mostra 299 de 369, canal mostra 364 de 369.
 
 ## Conferência da comparação
 
