@@ -465,7 +465,7 @@ export default definePageLayout({
           type: 'FRONT_COMPONENT',
           // Cada linha da grade tem 55px. O quadro tem seis números, duas
           // linhas por dia, as barras comerciais e a secao inteira de Vendedores.
-          ...posicao({ row: 0, column: 0, rowSpan: 38, columnSpan: 12 }),
+          ...posicao({ row: 0, column: 0, rowSpan: 42, columnSpan: 12 }),
           configuration: {
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:
