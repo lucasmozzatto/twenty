@@ -22,7 +22,8 @@ Uma página chamada **Painel Comercial** no menu lateral, com uma aba só,
 30 dias, desde 01/09, ou De/Até livre) e botão de comparar com o período anterior.
 
 Em cima a visão comercial: seis números, duas linhas do tempo por dia e as barras
-por origem e canal. Embaixo a seção **Vendedores**: pipeline em aberto, sem dono, em
+por origem e canal. No meio o **Funil por etapa**, lido do histórico. Embaixo a seção
+**Vendedores**: pipeline em aberto, sem dono, em
 negociação, perdas com conversa, pipeline por dono, vendas por vendedor, pipeline por
 etapa e dono, e motivos de perda. Diferente do gráfico nativo, o vazio aparece como
 barra própria ("Sem origem", "Sem canal", "Sem dono").
@@ -56,6 +57,34 @@ Está escrito na tela de propósito, porque é o erro mais fácil de cometer len
   não se responde olhando o estado atual do CRM — o campo guarda só a etapa de hoje.
 
 O dono contado é sempre o dono **atual** do negócio.
+
+### O funil por etapa, e as duas medidas que não se misturam
+
+O campo Etapa guarda só o estado de hoje: um negócio que passou por "Em negociação" e
+virou Ganho aparece apenas como Ganho. Quem guarda o caminho é a linha do tempo, uma
+linha por mudança, com a etapa de antes e a de depois em JSON. Gráfico nativo não abre
+JSON; `src/painel/funil.ts` lê e conta.
+
+São **duas medidas diferentes**, separadas na tela de propósito:
+
+- **Fluxo** ("O que aconteceu no período"): negócios que passaram por cada degrau
+  DENTRO do período. A razão entre um degrau e outro **não é conversão** — um negócio
+  ganho em setembro pode ter entrado em negociação em agosto.
+- **Safra** ("Dos que entraram em negociação no período, como estão hoje"): essa sim é
+  conversão. Mesmo grupo de negócios, olhado agora: ganhos, perdidos, ainda em aberto.
+
+Quatro cuidados:
+
+- **Conta negócio distinto, não evento.** Um negócio que volta para negociação depois
+  de um Break geraria duas linhas no histórico; contar as duas inflaria o funil.
+- **O histórico começa em 18/08/2026.** Antes disso o CRM não gravava. Período que
+  comece antes mostra um aviso laranja, porque os números sairiam por baixo.
+- **Teto de 4.000 mudanças lidas** (40 páginas de 100). Hoje são ~900 por mês, então
+  sobra folga; se bater no teto, avisa em vez de mostrar número menor calado.
+- **Não dá para dizer quem fez o movimento.** Das 901 mudanças de setembro, 689 não têm
+  pessoa: foram feitas pela automação do n8n via API, não por alguém clicando. Por isso
+  o funil não tem recorte por vendedor — seria um número sobre gente com dado pela
+  metade.
 
 ### A comparação com o período anterior
 
@@ -105,20 +134,27 @@ espremida entre os números.
 
 ### Estrutura dos arquivos
 
-O componente (`src/components/painel-periodo.front-component.tsx`) cuida só do seletor
-e de buscar os dados. O resto está em `src/painel/`: `periodo.ts` (contas de data),
-`crm.ts` (as consultas), `dados.ts` e `comparacao.ts` (as perguntas e as contas
-derivadas), `rotulos.ts`, `formato.ts`, `tema.ts`, `cartoes.tsx`, `barras.tsx`,
-`barras-empilhadas.tsx`, `linha.tsx`, `grade.ts` e as duas seções.
+O componente (`src/components/painel-periodo.front-component.tsx`) só junta as peças e
+busca os dados. O resto está em `src/painel/`:
+
+| Arquivo | O que faz |
+|---|---|
+| `periodo.ts` | contas de data e a regra do período anterior |
+| `crm.ts` | as consultas ao GraphQL |
+| `dados.ts`, `comparacao.ts`, `funil.ts` | as perguntas e as contas derivadas |
+| `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
+| `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx` | as partes da tela |
+
+Todos abaixo das 300 linhas que o guia do projeto pede.
 
 **Um quadro que falha não derruba a página.** Cada consulta é embrulhada: quem falhar
 aparece zerado e um aviso laranja no topo diz o nome do quadro e o motivo. Sem isso uma
 consulta recusada apagava o painel inteiro — e um zero por erro não se distingue de um
 zero de verdade.
 
-Cresce em fatias: v0 dois números → v1 os seis números → v2 barras → v3 a seção
-Vendedores → em seguida o funil por histórico de etapa (a linha do tempo, que gráfico
-nativo não abre).
+Cresceu em fatias: v0 dois números → v1 os seis números → v2 barras → v3 a seção
+Vendedores → v4 a comparação com o período anterior → v5 o funil por histórico de etapa.
 
 Duas regras do servidor que custaram um deploy cada:
 
@@ -137,6 +173,12 @@ Duas regras do servidor que custaram um deploy cada:
 - **SVG no componente**: o renderizador só deixa passar atributos de uma lista fixa.
   `line` não aceita coordenadas, então toda linha é um `path`. Tamanho de fonte de
   `text` vai por `style`, não por atributo.
+- **A linha do tempo é `timelineActivities`**, com `properties` em JSON. A busca roda
+  contra o texto do JSON, e é assim que ele sai: `{"diff": {"stage": {"after": "WON",
+  "before": "EM_NEGOCIACAO"}}}` — com espaço depois dos dois-pontos, o que importa para
+  o `like` casar. Paginação por `pageInfo.endCursor`.
+- **`id: { in: [...] }` funciona** no filtro de negócio: é assim que a safra pergunta
+  "como estão hoje" para uma lista de identificadores.
 
 Números de agosto/2026 pela API, para conferir o seletor em "Mês passado": 622 criados,
 128 vendas, R$ 20.154,90 de receita, ticket R$ 157,46, conversão 17,2% (107 ganhos entre
@@ -257,11 +299,31 @@ Números medidos pela API em 16/09/2026 (pipeline é foto do momento e muda sozi
 | Em negociação | 70 |
 | Pipeline por dono | Vitoria 115, Lucas 89, Sem dono 32, Rodrigo 12 |
 
+## Conferência do funil
+
+Eventos de mudança de etapa em setembro/2026, medidos pela API em 16/09:
+
+| Entrou em | Eventos |
+|---|---|
+| Em qualificação | 329 |
+| Em negociação | 145 |
+| Fechamento | 6 |
+| Ganho | 36 |
+| Perdido | 313 |
+
+A tela conta **negócios distintos**, então mostra número igual ou um pouco menor que
+estes: quem entrou duas vezes na mesma etapa conta uma vez.
+
 ## O que ainda não está aqui
 
-O funil por histórico de etapa. A linha do tempo do CRM guarda cada mudança em
-`properties` (JSON), mas gráfico nativo não abre JSON. Isso pede um front component
-com uma logic function agregando no servidor — próxima etapa, não esta.
+- **Recorte do funil por vendedor.** Só seria possível pelo dono atual do negócio, que
+  mede "de quem é hoje" e não "quem trabalhou". Decidido não fazer: número sobre gente
+  com dado pela metade vira decisão errada sobre gente.
+- **Tempo até fechar** (dias entre entrar em negociação e virar Ganho). Dá para tirar do
+  mesmo histórico; ainda não foi pedido.
+- **"Sem origem" como categoria de verdade.** São ~70 negócios por mês sem origem
+  preenchida. Depende de mexer no rastreamento, que está congelado até 22/09/2026.
 
-Dado levantado pela API: das 35 transições para Ganho em setembro, **23 vieram direto
-de "Novo Lead"** e só 7 de "Em negociação". A maior parte das vendas não passa pelo funil.
+Dado levantado pela API: das 36 transições para Ganho em setembro, a maior parte veio
+direto de "Novo Lead", sem passar pelo funil. É o que o quadro "O que aconteceu no
+período" mostra de cara — os degraus não afunilam.
