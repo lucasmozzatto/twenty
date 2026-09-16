@@ -181,6 +181,27 @@ const linha = ({
   filter,
 });
 
+const posicao = ({
+  row,
+  column,
+  rowSpan,
+  columnSpan,
+}: {
+  row: number;
+  column: number;
+  rowSpan: number;
+  columnSpan: number;
+}) => ({
+  gridPosition: { row, column, rowSpan, columnSpan },
+  position: {
+    layoutMode: PageLayoutTabLayoutMode.GRID as const,
+    row,
+    column,
+    rowSpan,
+    columnSpan,
+  },
+});
+
 const grafico = <TConfig,>({
   universalIdentifier,
   title,
@@ -202,13 +223,10 @@ const grafico = <TConfig,>({
   title,
   type: 'GRAPH' as const,
   objectUniversalIdentifier: OBJ.opportunity,
-  position: {
-    layoutMode: PageLayoutTabLayoutMode.GRID as const,
-    row,
-    column,
-    rowSpan,
-    columnSpan,
-  },
+  // Os dois campos de propósito. O servidor desta instância lê `gridPosition`
+  // (e zera `position`); o tipo do SDK 2.40 declara só `position`. Enquanto
+  // discordarem, mandar os dois é o que funciona nos dois lados.
+  ...posicao({ row, column, rowSpan, columnSpan }),
   configuration,
 });
 
@@ -547,13 +565,7 @@ export default definePageLayout({
           universalIdentifier: W_NOTA_VENDEDOR,
           title: 'Como ler',
           type: 'STANDALONE_RICH_TEXT',
-          position: {
-            layoutMode: PageLayoutTabLayoutMode.GRID,
-            row: 8,
-            column: 0,
-            rowSpan: 3,
-            columnSpan: 12,
-          },
+          ...posicao({ row: 8, column: 0, rowSpan: 3, columnSpan: 12 }),
           configuration: {
             configurationType: 'STANDALONE_RICH_TEXT',
             body: {
