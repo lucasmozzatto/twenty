@@ -1,9 +1,8 @@
 // Quadro com seletor de período: a única forma de ter filtro de data global no
 // painel, porque os gráficos nativos só leem o filtro gravado em cada um.
 //
-// v1: seletor + os seis números da aba Comercial (criados, vendas, receita,
-// ticket médio, conversão, sem origem). Versões seguintes acrescentam barras
-// e o funil por histórico de etapa.
+// v2: seletor + os seis números + linhas por dia + barras por origem, canal e
+// vendedor. Próxima fatia: funil por histórico de etapa.
 //
 // Busca os dados direto do GraphQL do CRM, como a régua da cadência faz: o
 // runtime do componente injeta TWENTY_API_URL e o token do app. O papel do app
@@ -20,6 +19,43 @@ const DESLOCAMENTO_BRASILIA = '-03:00';
 const FUSO = 'America/Sao_Paulo';
 const INICIO_HISTORICO = '2026-09-01';
 
+// Rótulos copiados dos metadados do workspace em 16/09/2026. Opção nova que
+// não estiver aqui aparece com o valor "legível" (CHATGPT → Chatgpt).
+const ROTULO_ORIGEM: Record<string, string> = {
+  INDICACAO_CLINICA: 'Indicação - Clínica',
+  INDICACAO_CLIENTE: 'Indicação - Cliente',
+  GOOGLE_ADS: 'Google Ads',
+  FACEBOOK_ADS: 'Facebook Ads',
+  INSTAGRAM_ADS: 'Instagram Ads',
+  CLIENTE: 'Cliente',
+  CADASTRO_DIRETO: 'Cadastro Direto',
+  INFLUENCER: 'Influencer',
+  CORRETOR: 'Corretor',
+  ROLETA_DA_SORTE: 'Roleta da Sorte',
+  ORGANIC_SEARCH: 'Organic Search',
+  ORGANIC_SOCIAL: 'Organic Social',
+  TOUR: 'Tour',
+  PARCEIROS: 'Parceiros',
+  FUP_AUTO: 'FUP_auto',
+  OUTROS: 'Outros',
+  PV: 'PV',
+  CHATGPT: 'ChatGPT',
+};
+
+const ROTULO_CANAL: Record<string, string> = {
+  WHATSAPP: 'WhatsApp',
+  WHATSAPP_CLIENTES: 'WhatsApp Clientes',
+  ONBOARDING: 'Onboarding',
+  INDICACAO: 'Indicação',
+  FORMULARIO: 'Formulário',
+  INSTAGRAM: 'Instagram',
+  OUTBOUND: 'Outbound',
+  OUTROS: 'Outros',
+};
+
+const legivel = (valor: string): string =>
+  valor.toLowerCase().replace(/_/g, ' ').replace(/^\w/, (letra) => letra.toUpperCase());
+
 type Predefinido =
   | 'este-mes'
   | 'mes-passado'
@@ -29,18 +65,6 @@ type Predefinido =
   | 'personalizado';
 
 type Periodo = { de: string; ate: string };
-
-type Numeros = {
-  criados: number;
-  vendas: number;
-  // Em reais, já convertido de micros.
-  receita: number;
-  ticketMedio: number | null;
-  // Ganhos dentro da própria safra: negócios criados no período que viraram
-  // Ganho, sobre os criados no período. É a mesma conta do quadro nativo.
-  ganhosDaSafra: number;
-  semOrigem: number;
-};
 
 // --- Datas (tudo em texto AAAA-MM-DD, sem objeto Date com fuso local) --------
 
@@ -113,13 +137,44 @@ const contarDias = ({ de, ate }: Periodo): number => {
   );
 };
 
+// Um ano é o teto: acima disso a linha por dia vira ruído e o SVG fica pesado.
+const listarDias = (periodo: Periodo): string[] => {
+  const total = Math.min(contarDias(periodo), 366);
+
+  return Array.from({ length: total }, (_, indice) => somarDias(periodo.de, indice));
+};
+
 // --- Dados -------------------------------------------------------------------
+
+type Filtro = Record<string, unknown>;
 
 // O servidor recusa o mesmo campo raiz duas vezes na mesma consulta, mesmo com
 // apelidos ("Duplicate root resolver"). Então é uma consulta por filtro, todas
 // disparadas ao mesmo tempo. Dentro de uma consulta pode pedir vários
 // agregados (contagem, soma, média), porque o campo raiz aparece uma vez só.
-type Filtro = Record<string, unknown>;
+const consultar = async <TDados,>(
+  query: string,
+  variables: Record<string, unknown>,
+): Promise<TDados> => {
+  const resposta = await fetch(`${process.env.TWENTY_API_URL}/graphql`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  const corpo = (await resposta.json()) as {
+    data?: TDados;
+    errors?: { message: string }[];
+  };
+
+  if (corpo.errors?.length) throw new Error(corpo.errors[0].message);
+  if (!corpo.data) throw new Error(`HTTP ${resposta.status}`);
+
+  return corpo.data;
+};
 
 type Agregados = {
   totalCount: number;
@@ -127,37 +182,78 @@ type Agregados = {
   avgAmountAmountMicros?: number | null;
 };
 
-const agregar = async (
-  filter: Filtro,
-  campos = 'totalCount',
-): Promise<Agregados> => {
-  const resposta = await fetch(`${process.env.TWENTY_API_URL}/graphql`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${process.env.TWENTY_APP_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({
-      query: `query Agregar($filter: OpportunityFilterInput) { opportunities(filter: $filter) { ${campos} } }`,
-      variables: { filter },
-    }),
-  });
+const agregar = async (filter: Filtro, campos = 'totalCount'): Promise<Agregados> => {
+  const dados = await consultar<{ opportunities: Agregados }>(
+    `query Agregar($filter: OpportunityFilterInput) { opportunities(filter: $filter) { ${campos} } }`,
+    { filter },
+  );
 
-  const corpo = (await resposta.json()) as {
-    data?: { opportunities: Agregados };
-    errors?: { message: string }[];
-  };
+  return dados.opportunities;
+};
 
-  if (corpo.errors?.length) throw new Error(corpo.errors[0].message);
-  if (!corpo.data) throw new Error(`HTTP ${resposta.status}`);
+type Grupo = { chave: string | null; contagem: number; somaReais: number };
 
-  return corpo.data.opportunities;
+const agrupar = async (filter: Filtro, groupBy: Record<string, unknown>): Promise<Grupo[]> => {
+  const dados = await consultar<{
+    opportunitiesGroupBy: {
+      groupByDimensionValues: (string | null)[];
+      totalCount: number;
+      sumAmountAmountMicros: number | null;
+    }[];
+  }>(
+    `query Agrupar($groupBy: [OpportunityGroupByInput!]!, $filter: OpportunityFilterInput) {
+      opportunitiesGroupBy(groupBy: $groupBy, filter: $filter) {
+        groupByDimensionValues totalCount sumAmountAmountMicros
+      }
+    }`,
+    { groupBy: [groupBy], filter },
+  );
+
+  return dados.opportunitiesGroupBy.map((grupo) => ({
+    chave: grupo.groupByDimensionValues[0] ?? null,
+    contagem: grupo.totalCount,
+    somaReais: (grupo.sumAmountAmountMicros ?? 0) / 1_000_000,
+  }));
+};
+
+// Vendedor vem como id de membro do workspace; o nome é buscado uma vez só.
+const buscarNomes = async (): Promise<Record<string, string>> => {
+  const dados = await consultar<{
+    workspaceMembers: { edges: { node: { id: string; name: { firstName: string } } }[] };
+  }>('query Membros { workspaceMembers { edges { node { id name { firstName } } } } }', {});
+
+  return Object.fromEntries(
+    dados.workspaceMembers.edges.map(({ node }) => [node.id, node.name.firstName]),
+  );
 };
 
 const deMicros = (micros: number | null | undefined): number | null =>
   micros === null || micros === undefined ? null : micros / 1_000_000;
 
-const buscarNumeros = async (periodo: Periodo): Promise<Numeros> => {
+type Numeros = {
+  criados: number;
+  vendas: number;
+  // Em reais, já convertido de micros.
+  receita: number;
+  ticketMedio: number | null;
+  // Ganhos dentro da própria safra: negócios criados no período que viraram
+  // Ganho, sobre os criados no período. É a mesma conta do quadro nativo.
+  ganhosDaSafra: number;
+  semOrigem: number;
+};
+
+type Dados = {
+  numeros: Numeros;
+  negociosPorOrigem: Grupo[];
+  vendasPorOrigem: Grupo[];
+  negociosPorCanal: Grupo[];
+  vendasPorCanal: Grupo[];
+  vendasPorVendedor: Grupo[];
+  criadosPorDia: Grupo[];
+  vendasPorDia: Grupo[];
+};
+
+const buscarDados = async (periodo: Periodo): Promise<Dados> => {
   const { inicio, fim } = limitesIso(periodo);
   const funilVendas = { funnel: { eq: 'VENDAS' } };
   const ganho = { stage: { eq: 'WON' } };
@@ -170,36 +266,237 @@ const buscarNumeros = async (periodo: Periodo): Promise<Numeros> => {
   ];
   const filtroLead: Filtro = { and: criadoNoPeriodo };
   const filtroVenda: Filtro = {
-    and: [
-      funilVendas,
-      ganho,
-      { closeDate: { gte: inicio } },
-      { closeDate: { lt: fim } },
-    ],
+    and: [funilVendas, ganho, { closeDate: { gte: inicio } }, { closeDate: { lt: fim } }],
   };
   const filtroGanhosDaSafra: Filtro = { and: [...criadoNoPeriodo, ganho] };
-  const filtroSemOrigem: Filtro = {
-    and: [...criadoNoPeriodo, { origem: { is: 'NULL' } }],
-  };
 
-  const [lead, venda, ganhosDaSafra, semOrigem] = await Promise.all([
+  const porDia = (campo: string) => ({ [campo]: { granularity: 'DAY', timeZone: FUSO } });
+
+  const [
+    lead,
+    venda,
+    ganhosDaSafra,
+    negociosPorOrigem,
+    vendasPorOrigem,
+    negociosPorCanal,
+    vendasPorCanal,
+    vendasPorVendedor,
+    criadosPorDia,
+    vendasPorDia,
+  ] = await Promise.all([
     agregar(filtroLead),
-    agregar(
-      filtroVenda,
-      'totalCount sumAmountAmountMicros avgAmountAmountMicros',
-    ),
+    agregar(filtroVenda, 'totalCount sumAmountAmountMicros avgAmountAmountMicros'),
     agregar(filtroGanhosDaSafra),
-    agregar(filtroSemOrigem),
+    agrupar(filtroLead, { origem: true }),
+    agrupar(filtroVenda, { origem: true }),
+    agrupar(filtroLead, { canal: true }),
+    agrupar(filtroVenda, { canal: true }),
+    agrupar(filtroVenda, { ownerId: true }),
+    agrupar(filtroLead, porDia('createdAt')),
+    agrupar(filtroVenda, porDia('closeDate')),
   ]);
 
   return {
-    criados: lead.totalCount,
-    vendas: venda.totalCount,
-    receita: deMicros(venda.sumAmountAmountMicros) ?? 0,
-    ticketMedio: deMicros(venda.avgAmountAmountMicros),
-    ganhosDaSafra: ganhosDaSafra.totalCount,
-    semOrigem: semOrigem.totalCount,
+    numeros: {
+      criados: lead.totalCount,
+      vendas: venda.totalCount,
+      receita: deMicros(venda.sumAmountAmountMicros) ?? 0,
+      ticketMedio: deMicros(venda.avgAmountAmountMicros),
+      ganhosDaSafra: ganhosDaSafra.totalCount,
+      // O grupo sem chave é exatamente "origem vazia": não precisa de consulta própria.
+      semOrigem: negociosPorOrigem.find((grupo) => grupo.chave === null)?.contagem ?? 0,
+    },
+    negociosPorOrigem,
+    vendasPorOrigem,
+    negociosPorCanal,
+    vendasPorCanal,
+    vendasPorVendedor,
+    criadosPorDia,
+    vendasPorDia,
   };
+};
+
+// --- Formatação ---------------------------------------------------------------
+
+const formatarInteiro = (valor: number): string =>
+  new Intl.NumberFormat('pt-BR').format(valor);
+
+const formatarReais = (valor: number): string =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
+const formatarPercentual = (parte: number, total: number): string =>
+  total === 0
+    ? '—'
+    : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format((parte / total) * 100)}%`;
+
+type Tema = {
+  texto: string;
+  suave: string;
+  borda: string;
+  fundo: string;
+  destaque: string;
+  vermelho: string;
+  rosa: string;
+  verde: string;
+  azul: string;
+};
+
+// --- Gráficos -----------------------------------------------------------------
+
+const Cartao = ({ titulo, tema, children }: { titulo: string; tema: Tema; children: React.ReactNode }) => (
+  <div
+    style={{
+      padding: '12px 14px',
+      borderRadius: '8px',
+      border: `1px solid ${tema.borda}`,
+      background: tema.fundo,
+      minWidth: 0,
+    }}
+  >
+    <div style={{ fontSize: '12px', fontWeight: 600, color: tema.texto, marginBottom: '10px' }}>{titulo}</div>
+    {children}
+  </div>
+);
+
+type Barra = { chave: string | null; valor: number };
+
+const Barras = ({
+  titulo,
+  barras,
+  rotulo,
+  cor,
+  formatar = formatarInteiro,
+  tema,
+}: {
+  titulo: string;
+  barras: Barra[];
+  rotulo: (chave: string | null) => string;
+  cor: string;
+  formatar?: (valor: number) => string;
+  tema: Tema;
+}) => {
+  const ordenadas = [...barras].filter((barra) => barra.valor > 0).sort((a, b) => b.valor - a.valor);
+  const maximo = Math.max(...ordenadas.map((barra) => barra.valor), 1);
+
+  return (
+    <Cartao titulo={titulo} tema={tema}>
+      {ordenadas.length === 0 ? (
+        <div style={{ fontSize: '12px', color: tema.suave }}>Nada no período.</div>
+      ) : (
+        ordenadas.map((barra) => (
+          <div
+            key={barra.chave ?? '__vazio__'}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', fontSize: '12px' }}
+          >
+            <div
+              style={{
+                width: '130px',
+                flex: '0 0 130px',
+                color: barra.chave === null ? tema.suave : tema.texto,
+                fontStyle: barra.chave === null ? 'italic' : 'normal',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {rotulo(barra.chave)}
+            </div>
+            <div style={{ flex: '1 1 auto', height: '14px', background: tema.destaque, borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: `${(barra.valor / maximo) * 100}%`, height: '100%', background: cor, borderRadius: '4px' }} />
+            </div>
+            <div style={{ width: '90px', flex: '0 0 90px', textAlign: 'right', color: tema.texto, fontVariantNumeric: 'tabular-nums' }}>
+              {formatar(barra.valor)}
+            </div>
+          </div>
+        ))
+      )}
+    </Cartao>
+  );
+};
+
+const Linha = ({
+  titulo,
+  grupos,
+  periodo,
+  cor,
+  tema,
+}: {
+  titulo: string;
+  grupos: Grupo[];
+  periodo: Periodo;
+  cor: string;
+  tema: Tema;
+}) => {
+  const dias = listarDias(periodo);
+  const porDia = new Map(grupos.map((grupo) => [grupo.chave, grupo.contagem]));
+  const valores = dias.map((dia) => porDia.get(dia) ?? 0);
+  const total = valores.reduce((soma, valor) => soma + valor, 0);
+
+  const largura = 600;
+  const altura = 180;
+  const margem = { esquerda: 14, direita: 14, topo: 24, base: 24 };
+  const maximo = Math.max(...valores, 1);
+  const larguraUtil = largura - margem.esquerda - margem.direita;
+  const alturaUtil = altura - margem.topo - margem.base;
+
+  const x = (indice: number) =>
+    dias.length === 1
+      ? margem.esquerda + larguraUtil / 2
+      : margem.esquerda + (indice * larguraUtil) / (dias.length - 1);
+  const y = (valor: number) => margem.topo + (1 - valor / maximo) * alturaUtil;
+
+  const caminho = valores
+    .map((valor, indice) => `${indice === 0 ? 'M' : 'L'}${x(indice).toFixed(1)},${y(valor).toFixed(1)}`)
+    .join(' ');
+
+  // Com muitos dias os rótulos se atropelam: mostra um a cada N.
+  const passoRotulo = Math.max(1, Math.ceil(dias.length / 16));
+  const mostrarValores = dias.length <= 31;
+
+  return (
+    <Cartao titulo={`${titulo} · ${formatarInteiro(total)} no período`} tema={tema}>
+      <svg
+        viewBox={`0 0 ${largura} ${altura}`}
+        preserveAspectRatio="xMidYMid meet"
+        style={{ width: '100%', height: 'auto', display: 'block' }}
+      >
+        <path
+          d={`M${margem.esquerda},${(altura - margem.base).toFixed(1)} L${(largura - margem.direita).toFixed(1)},${(altura - margem.base).toFixed(1)}`}
+          stroke={tema.borda}
+          strokeWidth="1"
+          fill="none"
+        />
+        <path d={caminho} fill="none" stroke={cor} strokeWidth="2" strokeLinejoin="round" />
+        {valores.map((valor, indice) => (
+          <g key={dias[indice]}>
+            <circle cx={x(indice).toFixed(1)} cy={y(valor).toFixed(1)} r="3" fill={cor} />
+            {mostrarValores && valor > 0 ? (
+              <text
+                x={x(indice).toFixed(1)}
+                y={(y(valor) - 8).toFixed(1)}
+                textAnchor="middle"
+                fill={tema.texto}
+                style={{ fontSize: '11px' }}
+              >
+                {valor}
+              </text>
+            ) : null}
+            {indice % passoRotulo === 0 ? (
+              <text
+                x={x(indice).toFixed(1)}
+                y={(altura - 7).toFixed(1)}
+                textAnchor="middle"
+                fill={tema.suave}
+                style={{ fontSize: '10px' }}
+              >
+                {dias[indice].slice(8, 10)}
+              </text>
+            ) : null}
+          </g>
+        ))}
+      </svg>
+    </Cartao>
+  );
 };
 
 // --- Tela --------------------------------------------------------------------
@@ -212,40 +509,27 @@ const PREDEFINIDOS: { valor: Predefinido; rotulo: string }[] = [
   { valor: 'desde-inicio', rotulo: 'Desde 01/09' },
 ];
 
-const formatarInteiro = (valor: number): string =>
-  new Intl.NumberFormat('pt-BR').format(valor);
-
-const formatarReais = (valor: number): string =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    valor,
-  );
-
-const formatarPercentual = (parte: number, total: number): string =>
-  total === 0
-    ? '—'
-    : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format((parte / total) * 100)}%`;
-
 const PainelPeriodo = () => {
   const escuro = useColorScheme() === 'dark';
   const hoje = hojeEmBrasilia();
 
   const [predefinido, setPredefinido] = useState<Predefinido>('este-mes');
-  const [periodo, setPeriodo] = useState<Periodo>(() =>
-    periodoPredefinido('este-mes', hoje),
-  );
-  const [numeros, setNumeros] = useState<Numeros | null>(null);
+  const [periodo, setPeriodo] = useState<Periodo>(() => periodoPredefinido('este-mes', hoje));
+  const [dados, setDados] = useState<Dados | null>(null);
+  const [nomes, setNomes] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
-  const cores = {
+  const tema: Tema = {
     texto: escuro ? '#ebebeb' : '#333',
     suave: escuro ? '#a0a0a0' : '#777',
     borda: escuro ? '#3a3a3a' : '#e5e5e5',
     fundo: escuro ? '#1d1d1d' : '#fafafa',
-    destaque: escuro ? '#2a2a2a' : '#eeeeee',
+    destaque: escuro ? '#2e2e2e' : '#ececec',
     vermelho: '#e05252',
     rosa: '#c2417b',
     verde: '#3f7a4f',
+    azul: '#3b6fb6',
   };
 
   const periodoInvalido = periodo.de > periodo.ate;
@@ -255,7 +539,7 @@ const PainelPeriodo = () => {
     setCarregando(true);
     setErro(null);
     try {
-      setNumeros(await buscarNumeros(periodo));
+      setDados(await buscarDados(periodo));
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : String(falha));
     } finally {
@@ -266,6 +550,12 @@ const PainelPeriodo = () => {
   useEffect(() => {
     recarregar();
   }, [recarregar]);
+
+  useEffect(() => {
+    buscarNomes()
+      .then(setNomes)
+      .catch(() => setNomes({}));
+  }, []);
 
   const escolherPredefinido = (qual: Predefinido) => {
     setPredefinido(qual);
@@ -288,9 +578,9 @@ const PainelPeriodo = () => {
         style={{
           padding: '5px 10px',
           borderRadius: '6px',
-          border: `1px solid ${ativo ? cores.texto : cores.borda}`,
-          background: ativo ? cores.destaque : 'transparent',
-          color: cores.texto,
+          border: `1px solid ${ativo ? tema.texto : tema.borda}`,
+          background: ativo ? tema.destaque : 'transparent',
+          color: tema.texto,
           fontWeight: ativo ? 700 : 500,
           fontSize: '12px',
           cursor: 'pointer',
@@ -302,15 +592,7 @@ const PainelPeriodo = () => {
   };
 
   const campoData = (campo: keyof Periodo, rotulo: string) => (
-    <label
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-        fontSize: '12px',
-        color: cores.suave,
-      }}
-    >
+    <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: tema.suave }}>
       {rotulo}
       <input
         type="date"
@@ -320,9 +602,9 @@ const PainelPeriodo = () => {
         style={{
           padding: '4px 6px',
           borderRadius: '6px',
-          border: `1px solid ${cores.borda}`,
-          background: cores.fundo,
-          color: cores.texto,
+          border: `1px solid ${tema.borda}`,
+          background: tema.fundo,
+          color: tema.texto,
           fontSize: '12px',
         }}
       />
@@ -336,22 +618,32 @@ const PainelPeriodo = () => {
         flex: '1 1 150px',
         padding: '12px 14px',
         borderRadius: '8px',
-        border: `1px solid ${cores.borda}`,
-        background: cores.fundo,
+        border: `1px solid ${tema.borda}`,
+        background: tema.fundo,
       }}
     >
-      <div style={{ fontSize: '12px', color: cores.suave, marginBottom: '4px' }}>{rotulo}</div>
+      <div style={{ fontSize: '12px', color: tema.suave, marginBottom: '4px' }}>{rotulo}</div>
       <div style={{ fontSize: '26px', fontWeight: 700, color: cor, lineHeight: 1.1, whiteSpace: 'nowrap' }}>
         {valor ?? '—'}
       </div>
-      <div style={{ fontSize: '11px', color: cores.suave, marginTop: '4px' }}>{nota}</div>
+      <div style={{ fontSize: '11px', color: tema.suave, marginTop: '4px' }}>{nota}</div>
     </div>
   );
 
-  const n = numeros;
+  const n = dados?.numeros ?? null;
+  const rotuloOrigem = (chave: string | null) =>
+    chave === null ? 'Sem origem' : (ROTULO_ORIGEM[chave] ?? legivel(chave));
+  const rotuloCanal = (chave: string | null) =>
+    chave === null ? 'Sem canal' : (ROTULO_CANAL[chave] ?? legivel(chave));
+  const rotuloVendedor = (chave: string | null) =>
+    chave === null ? 'Sem dono' : (nomes[chave] ?? 'Membro removido');
+  const contagens = (grupos: Grupo[]): Barra[] =>
+    grupos.map((grupo) => ({ chave: grupo.chave, valor: grupo.contagem }));
+  const somas = (grupos: Grupo[]): Barra[] =>
+    grupos.map((grupo) => ({ chave: grupo.chave, valor: grupo.somaReais }));
 
   return (
-    <div style={{ padding: '12px 16px', fontFamily: 'inherit', color: cores.texto, fontSize: '13px' }}>
+    <div style={{ padding: '12px 16px', fontFamily: 'inherit', color: tema.texto, fontSize: '13px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
         {PREDEFINIDOS.map((item) => botaoPeriodo(item.valor, item.rotulo))}
         <span style={{ width: '8px' }} />
@@ -359,22 +651,22 @@ const PainelPeriodo = () => {
         {campoData('ate', 'Até')}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '12px', color: cores.suave }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontSize: '12px', color: tema.suave }}>
         {periodoInvalido ? (
-          <span style={{ color: cores.vermelho }}>A data inicial está depois da final.</span>
+          <span style={{ color: tema.vermelho }}>A data inicial está depois da final.</span>
         ) : (
           <span>
             {formatarDia(periodo.de)} a {formatarDia(periodo.ate)} · {contarDias(periodo)}{' '}
             {contarDias(periodo) === 1 ? 'dia' : 'dias'} · horário de Brasília
           </span>
         )}
-        <a onClick={recarregar} style={{ marginLeft: 'auto', cursor: 'pointer', color: cores.suave }}>
+        <a onClick={recarregar} style={{ marginLeft: 'auto', cursor: 'pointer', color: tema.suave }}>
           {carregando ? 'carregando…' : '↻ atualizar'}
         </a>
       </div>
 
       {erro ? (
-        <div style={{ color: cores.vermelho, fontSize: '12px', marginBottom: '8px' }}>
+        <div style={{ color: tema.vermelho, fontSize: '12px', marginBottom: '8px' }}>
           Não consegui ler o CRM ({erro}).{' '}
           <a onClick={recarregar} style={{ cursor: 'pointer', textDecoration: 'underline' }}>
             Tentar de novo
@@ -382,24 +674,45 @@ const PainelPeriodo = () => {
         </div>
       ) : null}
 
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-        {numero('Negócios criados', n ? formatarInteiro(n.criados) : null, cores.rosa, 'funil Vendas, pela data de criação')}
-        {numero('Vendas', n ? formatarInteiro(n.vendas) : null, cores.verde, 'etapa Ganho, pela data de fechamento')}
-        {numero('Receita', n ? formatarReais(n.receita) : null, cores.verde, 'soma do valor das vendas')}
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', opacity: carregando ? 0.6 : 1 }}>
+        {numero('Negócios criados', n ? formatarInteiro(n.criados) : null, tema.rosa, 'funil Vendas, pela data de criação')}
+        {numero('Vendas', n ? formatarInteiro(n.vendas) : null, tema.verde, 'etapa Ganho, pela data de fechamento')}
+        {numero('Receita', n ? formatarReais(n.receita) : null, tema.verde, 'soma do valor das vendas')}
         {numero(
           'Ticket médio',
           n ? (n.ticketMedio === null ? '—' : formatarReais(n.ticketMedio)) : null,
-          cores.verde,
+          tema.verde,
           'média do valor por venda',
         )}
         {numero(
           'Conversão',
           n ? formatarPercentual(n.ganhosDaSafra, n.criados) : null,
-          cores.texto,
+          tema.texto,
           n ? `${formatarInteiro(n.ganhosDaSafra)} ganhos entre os ${formatarInteiro(n.criados)} criados` : 'ganhos entre os criados no período',
         )}
-        {numero('Sem origem', n ? formatarInteiro(n.semOrigem) : null, cores.texto, 'criados no período sem origem preenchida')}
+        {numero('Sem origem', n ? formatarInteiro(n.semOrigem) : null, tema.texto, 'criados no período sem origem preenchida')}
       </div>
+
+      {dados && !periodoInvalido ? (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '10px',
+            marginTop: '12px',
+            opacity: carregando ? 0.6 : 1,
+          }}
+        >
+          <Linha titulo="Negócios criados por dia" grupos={dados.criadosPorDia} periodo={periodo} cor={tema.rosa} tema={tema} />
+          <Linha titulo="Vendas por dia" grupos={dados.vendasPorDia} periodo={periodo} cor={tema.verde} tema={tema} />
+          <Barras titulo="Negócios por origem" barras={contagens(dados.negociosPorOrigem)} rotulo={rotuloOrigem} cor={tema.rosa} tema={tema} />
+          <Barras titulo="Vendas por origem" barras={contagens(dados.vendasPorOrigem)} rotulo={rotuloOrigem} cor={tema.verde} tema={tema} />
+          <Barras titulo="Negócios por canal" barras={contagens(dados.negociosPorCanal)} rotulo={rotuloCanal} cor={tema.rosa} tema={tema} />
+          <Barras titulo="Vendas por canal" barras={contagens(dados.vendasPorCanal)} rotulo={rotuloCanal} cor={tema.verde} tema={tema} />
+          <Barras titulo="Receita por origem" barras={somas(dados.vendasPorOrigem)} rotulo={rotuloOrigem} cor={tema.verde} formatar={formatarReais} tema={tema} />
+          <Barras titulo="Vendas por vendedor" barras={contagens(dados.vendasPorVendedor)} rotulo={rotuloVendedor} cor={tema.azul} tema={tema} />
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -408,6 +721,6 @@ export default defineFrontComponent({
   universalIdentifier: PAINEL_PERIODO_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
   name: 'painel-periodo',
   description:
-    'Painel comercial com seletor de período (v0: negócios criados e vendas).',
+    'Painel comercial com seletor de período: números, linhas por dia e barras por origem, canal e vendedor.',
   component: PainelPeriodo,
 });

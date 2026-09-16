@@ -22,7 +22,7 @@ Um dashboard chamado **Painel Comercial**, com duas abas:
 | Aba | Conteúdo |
 |---|---|
 | **Comercial** | 6 números (criados, vendas, receita, ticket, conversão, sem origem), 2 linhas do tempo por dia, 6 barras por origem / canal / vendedor |
-| **Por período** | Quadro próprio com seletor de datas (este mês, mês passado, 7 dias, 30 dias, desde 01/09, ou De/Até livre). v1: os seis números da aba Comercial obedecendo ao período |
+| **Por período** | Quadro próprio com seletor de datas (este mês, mês passado, 7 dias, 30 dias, desde 01/09, ou De/Até livre). v2: os seis números, as duas linhas por dia e as seis barras da aba Comercial, tudo obedecendo ao período. Diferente do nativo, o vazio aparece como barra ("Sem origem", "Sem canal", "Sem dono") |
 | **Vendedores** | 4 números de pipeline, pipeline por dono, vendas por vendedor, pipeline por etapa e dono (empilhado), motivos de perda |
 
 ### Por que a aba "Por período" é um componente e não gráfico nativo
@@ -43,6 +43,13 @@ Duas regras do servidor que custaram um deploy cada:
   apelido ("Duplicate root resolver"). Uma consulta por filtro, disparadas em paralelo.
 - **Dentro de uma consulta, vários agregados são permitidos**: `totalCount`,
   `sumAmountAmountMicros`, `avgAmountAmountMicros` saem juntos para o mesmo filtro.
+- **Agrupamento é `opportunitiesGroupBy`**, com `groupBy: [{ origem: true }]` ou
+  `[{ createdAt: { granularity: DAY, timeZone } }]`. Cada grupo traz
+  `groupByDimensionValues` (a chave, `null` para vazio) e os mesmos agregados.
+  Dono vem como `ownerId`; o nome sai de uma consulta a `workspaceMembers`.
+- **SVG no componente**: o renderizador só deixa passar atributos de uma lista fixa.
+  `line` não aceita coordenadas, então toda linha é um `path`. Tamanho de fonte de
+  `text` vai por `style`, não por atributo.
 
 Números de agosto/2026 pela API, para conferir o seletor em "Mês passado": 622 criados,
 128 vendas, R$ 20.154,90 de receita, ticket R$ 157,46, conversão 17,2% (107 ganhos entre

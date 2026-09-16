@@ -463,7 +463,9 @@ export default definePageLayout({
           universalIdentifier: W_PAINEL_PERIODO,
           title: 'Escolha o período',
           type: 'FRONT_COMPONENT',
-          ...posicao({ row: 0, column: 0, rowSpan: 5, columnSpan: 12 }),
+          // Cada linha da grade tem 55px. O quadro tem seis números, duas
+          // linhas por dia e seis blocos de barras: ~1.200px.
+          ...posicao({ row: 0, column: 0, rowSpan: 24, columnSpan: 12 }),
           configuration: {
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:
