@@ -1,3 +1,4 @@
 generated
 .twenty
-
+.yarn
+node_modules
