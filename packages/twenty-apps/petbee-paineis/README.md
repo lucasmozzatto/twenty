@@ -80,7 +80,18 @@ tracejado, e o rodapé do cartão traz o total de antes e a variação. Dois cui
   mês anterior é mais curto, a linha cinza acaba antes em vez de ser esticada —
   esticar inventaria dias que não existiram.
 
-Pipeline não entra na comparação, pelo mesmo motivo de não seguir o período.
+**Nas barras** cada linha ganha, à direita do valor, o "antes" e a variação, e um
+traço fino cinza dentro da barra marca onde o período anterior estava. Três cuidados:
+
+- **Categoria que sumiu continua na lista**, com barra vazia e −100%. Um canal que
+  morreu é justamente o que se quer ver, e ele some se olharmos só o período de agora.
+- **A escala inclui o período anterior.** Sem isso a maior barra de agora encheria a
+  largura toda e uma queda não apareceria.
+- **A ordem é pelo valor de agora**, e entre os zerados pelo que era maior antes.
+
+Pipeline não entra na comparação, pelo mesmo motivo de não seguir o período. Ligada a
+comparação, a grade das barras passa a pedir colunas mais largas, senão a barra fica
+espremida entre os números.
 
 ### Estrutura dos arquivos
 
@@ -224,6 +235,21 @@ origem mostra 299 de 369, canal mostra 364 de 369.
 As linhas por dia de 01 a 16/08, para conferir a linha cinza: criados
 10, 16, 28, 28, 26, 18, 16, 10, 8, 21, 25, 24, 20, 10, 12, 9 (soma 281); vendas
 0, 7, 1, 4, 1, 9, 0, 0, 11, 4, 5, 4, 6, 1, 1, 2 (soma 56).
+
+O "antes" das barras, mesmo período de 01 a 16/08:
+
+| Barra | Valores de 01 a 16/08 |
+|---|---|
+| Negócios por origem | Sem origem 98, Google Ads 59, Cadastro Direto 47, Facebook Ads 40, Organic Search 17, Indicação-Cliente 8, Cliente 8, Indicação-Clínica 2, Parceiros 1, Tour 1 |
+| Negócios por canal | Formulário 122, WhatsApp 109, Onboarding 50 |
+| Vendas por origem | Google Ads 18, Cadastro Direto 12, Cliente 9, Organic Search 6, Indicação-Cliente 6, Indicação-Clínica 2, Facebook Ads 2, Outros 1 |
+| Vendas por vendedor | Lucas 55, Rodrigo 1 |
+
+**Tour** é o caso de teste da categoria que sumiu: tinha 1 em agosto e nenhum em
+setembro, então aparece com barra vazia e −100%.
+
+Conferido em 16/09: o agrupamento por origem soma exatamente o mesmo que o total
+(388 em ambos), ou seja `opportunitiesGroupBy` não perde registro nenhum.
 
 ## Conferência da seção Vendedores
 

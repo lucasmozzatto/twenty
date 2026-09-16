@@ -19,6 +19,12 @@ export type Comparacao = {
   // As mesmas séries por dia do período de agora, para desenhar por cima.
   criadosPorDia: Grupo[];
   vendasPorDia: Grupo[];
+  // Os mesmos agrupamentos das barras, para o "antes" de cada linha.
+  negociosPorOrigem: Grupo[];
+  vendasPorOrigem: Grupo[];
+  negociosPorCanal: Grupo[];
+  vendasPorCanal: Grupo[];
+  vendasPorVendedor: Grupo[];
   falhas: Falha[];
 };
 
@@ -58,6 +64,11 @@ export const buscarComparacao = async (periodo: Periodo): Promise<Comparacao> =>
     perdasComConversa,
     criadosPorDia,
     vendasPorDia,
+    negociosPorOrigem,
+    vendasPorOrigem,
+    negociosPorCanal,
+    vendasPorCanal,
+    vendasPorVendedor,
   ] = await Promise.all([
       tentar(
         'comparação de criados',
@@ -110,6 +121,36 @@ export const buscarComparacao = async (periodo: Periodo): Promise<Comparacao> =>
         semGrupos,
         falhas,
       ),
+      tentar(
+        'comparação de negócios por origem',
+        agrupar({ and: criadoNoPeriodo }, [{ origem: true }]),
+        semGrupos,
+        falhas,
+      ),
+      tentar(
+        'comparação de vendas por origem',
+        agrupar(filtroVenda, [{ origem: true }]),
+        semGrupos,
+        falhas,
+      ),
+      tentar(
+        'comparação de negócios por canal',
+        agrupar({ and: criadoNoPeriodo }, [{ canal: true }]),
+        semGrupos,
+        falhas,
+      ),
+      tentar(
+        'comparação de vendas por canal',
+        agrupar(filtroVenda, [{ canal: true }]),
+        semGrupos,
+        falhas,
+      ),
+      tentar(
+        'comparação de vendas por vendedor',
+        agrupar(filtroVenda, [{ ownerId: true }]),
+        semGrupos,
+        falhas,
+      ),
     ]);
 
   return {
@@ -125,6 +166,11 @@ export const buscarComparacao = async (periodo: Periodo): Promise<Comparacao> =>
     perdasComConversa: perdasComConversa.totalCount,
     criadosPorDia,
     vendasPorDia,
+    negociosPorOrigem,
+    vendasPorOrigem,
+    negociosPorCanal,
+    vendasPorCanal,
+    vendasPorVendedor,
     falhas,
   };
 };

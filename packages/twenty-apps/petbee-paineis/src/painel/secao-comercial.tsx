@@ -13,7 +13,7 @@ import {
   taxa,
   variacao,
 } from 'src/painel/formato';
-import { GRADE_DE_CARTOES } from 'src/painel/grade';
+import { gradeDeCartoes } from 'src/painel/grade';
 import { Linha } from 'src/painel/linha';
 import { type Periodo } from 'src/painel/periodo';
 import { rotuloCanal, rotuloOrigem } from 'src/painel/rotulos';
@@ -168,10 +168,11 @@ export const GraficosComerciais = ({
       tema={tema}
     />
 
-    <div style={GRADE_DE_CARTOES}>
+    <div style={gradeDeCartoes(comparacao !== null)}>
       <Barras
         titulo="Negócios por origem"
         barras={contagens(dados.negociosPorOrigem)}
+        anteriores={comparacao ? contagens(comparacao.negociosPorOrigem) : undefined}
         rotulo={rotuloOrigem}
         cor={tema.rosa}
         tema={tema}
@@ -179,6 +180,7 @@ export const GraficosComerciais = ({
       <Barras
         titulo="Vendas por origem"
         barras={contagens(dados.vendasPorOrigem)}
+        anteriores={comparacao ? contagens(comparacao.vendasPorOrigem) : undefined}
         rotulo={rotuloOrigem}
         cor={tema.verde}
         tema={tema}
@@ -186,6 +188,7 @@ export const GraficosComerciais = ({
       <Barras
         titulo="Negócios por canal"
         barras={contagens(dados.negociosPorCanal)}
+        anteriores={comparacao ? contagens(comparacao.negociosPorCanal) : undefined}
         rotulo={rotuloCanal}
         cor={tema.rosa}
         tema={tema}
@@ -193,6 +196,7 @@ export const GraficosComerciais = ({
       <Barras
         titulo="Vendas por canal"
         barras={contagens(dados.vendasPorCanal)}
+        anteriores={comparacao ? contagens(comparacao.vendasPorCanal) : undefined}
         rotulo={rotuloCanal}
         cor={tema.verde}
         tema={tema}
@@ -200,6 +204,7 @@ export const GraficosComerciais = ({
       <Barras
         titulo="Receita por origem"
         barras={somas(dados.vendasPorOrigem)}
+        anteriores={comparacao ? somas(comparacao.vendasPorOrigem) : undefined}
         rotulo={rotuloOrigem}
         cor={tema.verde}
         formatar={formatarReais}

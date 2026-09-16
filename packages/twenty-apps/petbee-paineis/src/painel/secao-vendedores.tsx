@@ -4,13 +4,14 @@
 // gráficos de PIPELINE são foto de agora e não mudam com o período, porque
 // "quantos estavam em aberto em agosto" não se responde olhando o estado
 // atual do CRM. Vendas, perdas e motivos seguem o período.
-import { type Barra, Barras, BarrasEmpilhadas } from 'src/painel/barras';
+import { BarrasEmpilhadas } from 'src/painel/barras-empilhadas';
+import { type Barra, Barras } from 'src/painel/barras';
 import { Numero, Titulo } from 'src/painel/cartoes';
 import { type Grupo } from 'src/painel/crm';
 import { type Comparacao } from 'src/painel/comparacao';
 import { type Contagem, type Dados } from 'src/painel/dados';
 import { formatarInteiro, variacao } from 'src/painel/formato';
-import { GRADE_DE_CARTOES } from 'src/painel/grade';
+import { gradeDeCartoes } from 'src/painel/grade';
 import { rotuloEtapa, rotuloMotivoLost } from 'src/painel/rotulos';
 import { corDaSerie, type Tema } from 'src/painel/tema';
 
@@ -93,7 +94,7 @@ export const SecaoVendedores = ({
         />
       </div>
 
-      <div style={GRADE_DE_CARTOES}>
+      <div style={gradeDeCartoes(comparacao !== null)}>
         <Barras
           titulo="Pipeline por dono"
           nota="foto de agora, sem período"
@@ -106,6 +107,9 @@ export const SecaoVendedores = ({
           titulo="Vendas por vendedor"
           nota="do período, pela data de fechamento"
           barras={contagens(dados.vendasPorVendedor)}
+          anteriores={
+            comparacao ? contagens(comparacao.vendasPorVendedor) : undefined
+          }
           rotulo={rotuloVendedor}
           cor={tema.verde}
           tema={tema}
@@ -129,6 +133,7 @@ export const SecaoVendedores = ({
         barras={contagens(dados.motivosPerda)}
         rotulo={rotuloMotivoLost}
         cor={tema.laranja}
+        sentido="negativo"
         tema={tema}
       />
 
