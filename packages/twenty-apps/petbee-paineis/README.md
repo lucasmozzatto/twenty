@@ -40,10 +40,13 @@ existe para evitar. Com as abas dentro do quadro, o período se escolhe uma vez 
 para as três visões. Os dados das três vêm juntos numa carga só, então trocar de visão
 é instantâneo.
 
-A aba do CRM está em modo **lista vertical**, não grade. Na grade o quadro tem altura
-fixa em linhas de 55px e cada visão nova obrigava a chutar de novo (foi 24, 38, 42, 53),
-com sobra em branco numa visão e barra de rolagem interna na outra. Na lista o quadro
-fica com a altura do conteúdo, igual à aba "Régua" do app de cadência.
+A aba do CRM está em modo **grade**, com o quadro em 30 linhas de 55px (~1.650px), o
+que cabe a visão mais alta; as outras sobram em branco embaixo. O modo **lista vertical**
+foi tentado em 16/09/2026 e não serve: o quadro saiu com largura de coluna lateral e
+altura fixa com rolagem interna. Aquele modo é feito para a página do registro (é como
+a aba "Régua" da cadência roda), não para uma página inteira. Se uma visão crescer e
+aparecer barra de rolagem dentro do quadro, é o número de linhas em
+`src/page-layouts/comercial.page-layout.ts` que sobe.
 
 ### As abas "Comercial" e "Vendedores" foram apagadas
 
