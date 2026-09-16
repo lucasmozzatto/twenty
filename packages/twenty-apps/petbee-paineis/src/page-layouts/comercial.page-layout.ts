@@ -464,8 +464,8 @@ export default definePageLayout({
           title: 'Escolha o período',
           type: 'FRONT_COMPONENT',
           // Cada linha da grade tem 55px. O quadro tem seis números, duas
-          // linhas por dia e seis blocos de barras: ~1.200px.
-          ...posicao({ row: 0, column: 0, rowSpan: 24, columnSpan: 12 }),
+          // linhas por dia na largura toda e seis blocos de barras: ~1.300px.
+          ...posicao({ row: 0, column: 0, rowSpan: 26, columnSpan: 12 }),
           configuration: {
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:
