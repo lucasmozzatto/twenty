@@ -22,7 +22,20 @@ Um dashboard chamado **Painel Comercial**, com duas abas:
 | Aba | Conteúdo |
 |---|---|
 | **Comercial** | 6 números (criados, vendas, receita, ticket, conversão, sem origem), 2 linhas do tempo por dia, 6 barras por origem / canal / vendedor |
+| **Por período** | Quadro próprio com seletor de datas (este mês, mês passado, 7 dias, 30 dias, desde 01/09, ou De/Até livre). v0: negócios criados e vendas |
 | **Vendedores** | 4 números de pipeline, pipeline por dono, vendas por vendedor, pipeline por etapa e dono (empilhado), motivos de perda |
+
+### Por que a aba "Por período" é um componente e não gráfico nativo
+
+Gráfico nativo só lê o filtro gravado nele mesmo: não existe filtro de data da página
+inteira, nem por variável, nem por aba. O único caminho é um **front component**
+(`src/components/painel-periodo.front-component.tsx`) que pergunta ao GraphQL do CRM
+com o período que a pessoa escolheu. Ele roda no navegador, dentro de um worker, com
+o token do app (somente leitura) injetado pelo runtime, do mesmo jeito que a régua da
+cadência faz.
+
+Cresce em fatias: v0 dois números → v1 os seis números → v2 barras → v3 funil por
+histórico de etapa (a linha do tempo, que gráfico nativo não abre).
 
 ## As três regras de filtro
 

@@ -11,7 +11,9 @@ import {
   FG,
   FIELD,
   OBJ,
+  PAINEL_PERIODO_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
   TAB_COMERCIAL_UNIVERSAL_IDENTIFIER,
+  TAB_PERIODO_UNIVERSAL_IDENTIFIER,
   TAB_VENDEDORES_UNIVERSAL_IDENTIFIER,
   W_CONVERSAO,
   W_CRIADOS_DIA,
@@ -20,6 +22,7 @@ import {
   W_NEG_ORIGEM,
   W_NEGOCIOS_CRIADOS,
   W_NOTA_VENDEDOR,
+  W_PAINEL_PERIODO,
   W_PERDAS_CONVERSA,
   W_PIPE_ABERTO,
   W_PIPE_ETAPA_DONO,
@@ -444,6 +447,29 @@ export default definePageLayout({
             cor: 'green',
           }),
         }),
+      ],
+    },
+    {
+      // Aba do quadro próprio: o único jeito de ter filtro de data que vale
+      // para tudo de uma vez. Cresce em fatias (v0 → v3); as abas nativas
+      // ficam como estão até o quadro cobrir tudo o que elas mostram.
+      universalIdentifier: TAB_PERIODO_UNIVERSAL_IDENTIFIER,
+      title: 'Por período',
+      icon: 'IconCalendarStats',
+      position: 15,
+      layoutMode: PageLayoutTabLayoutMode.GRID,
+      widgets: [
+        {
+          universalIdentifier: W_PAINEL_PERIODO,
+          title: 'Escolha o período',
+          type: 'FRONT_COMPONENT',
+          ...posicao({ row: 0, column: 0, rowSpan: 5, columnSpan: 12 }),
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+              PAINEL_PERIODO_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
+          },
+        },
       ],
     },
     {
