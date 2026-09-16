@@ -49,8 +49,8 @@ export default definePageLayout({
           universalIdentifier: W_PAINEL_PERIODO,
           title: 'Escolha o período',
           type: 'FRONT_COMPONENT',
-          // Cada linha da grade tem 55px. O quadro inteiro pede ~2.300px.
-          ...posicao(42, 12),
+          // Cada linha da grade tem 55px. O quadro inteiro pede ~2.900px.
+          ...posicao(53, 12),
           configuration: {
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:

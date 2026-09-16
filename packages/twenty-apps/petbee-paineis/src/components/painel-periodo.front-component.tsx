@@ -17,13 +17,11 @@ import { PAINEL_PERIODO_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/constan
 import { buscarNomes } from 'src/painel/crm';
 import { buscarComparacao, type Comparacao } from 'src/painel/comparacao';
 import { buscarDados, type Dados } from 'src/painel/dados';
-import { formatarDia } from 'src/painel/formato';
+import { buscarFunil, type Funil } from 'src/painel/funil';
 import {
-  contarDias,
   hojeEmBrasilia,
   periodoAnterior,
   periodoPredefinido,
-  PREDEFINIDOS,
   type Periodo,
   type Predefinido,
 } from 'src/painel/periodo';
@@ -31,7 +29,9 @@ import {
   GraficosComerciais,
   NumerosComerciais,
 } from 'src/painel/secao-comercial';
+import { SecaoFunil } from 'src/painel/secao-funil';
 import { SecaoVendedores } from 'src/painel/secao-vendedores';
+import { Seletor } from 'src/painel/seletor';
 import { construirTema } from 'src/painel/tema';
 
 const PainelPeriodo = () => {
@@ -45,6 +45,7 @@ const PainelPeriodo = () => {
   const [dados, setDados] = useState<Dados | null>(null);
   const [comparar, setComparar] = useState(false);
   const [comparacao, setComparacao] = useState<Comparacao | null>(null);
+  const [funil, setFunil] = useState<Funil | null>(null);
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -60,13 +61,15 @@ const PainelPeriodo = () => {
     try {
       // As duas buscas vão juntas: o painel aparece de uma vez, sem os
       // rodapés de comparação chegando depois e empurrando a tela.
-      const [novosDados, novaComparacao] = await Promise.all([
+      const [novosDados, novaComparacao, novoFunil] = await Promise.all([
         buscarDados(periodo),
         comparar ? buscarComparacao(anterior) : Promise.resolve(null),
+        buscarFunil(periodo),
       ]);
 
       setDados(novosDados);
       setComparacao(novaComparacao);
+      setFunil(novoFunil);
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : String(falha));
     } finally {
@@ -98,57 +101,6 @@ const PainelPeriodo = () => {
     setPeriodo((atual) => ({ ...atual, [campo]: valor }));
   };
 
-  const botaoPeriodo = (valor: Predefinido, rotulo: string) => {
-    const ativo = predefinido === valor;
-
-    return (
-      <button
-        key={valor}
-        onClick={() => escolherPredefinido(valor)}
-        style={{
-          padding: '5px 10px',
-          borderRadius: '6px',
-          border: `1px solid ${ativo ? tema.texto : tema.borda}`,
-          background: ativo ? tema.destaque : 'transparent',
-          color: tema.texto,
-          fontWeight: ativo ? 700 : 500,
-          fontSize: '12px',
-          cursor: 'pointer',
-        }}
-      >
-        {rotulo}
-      </button>
-    );
-  };
-
-  const campoData = (campo: keyof Periodo, rotulo: string) => (
-    <label
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-        fontSize: '12px',
-        color: tema.suave,
-      }}
-    >
-      {rotulo}
-      <input
-        type="date"
-        value={periodo[campo]}
-        max={hoje}
-        onChange={(evento) => editarData(campo, evento.target.value)}
-        style={{
-          padding: '4px 6px',
-          borderRadius: '6px',
-          border: `1px solid ${tema.borda}`,
-          background: tema.fundo,
-          color: tema.texto,
-          fontSize: '12px',
-        }}
-      />
-    </label>
-  );
-
   return (
     <div
       style={{
@@ -161,69 +113,20 @@ const PainelPeriodo = () => {
         gap: '10px',
       }}
     >
-      <div
-        style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}
-      >
-        {PREDEFINIDOS.map((item) => botaoPeriodo(item.valor, item.rotulo))}
-        <span style={{ width: '8px' }} />
-        {campoData('de', 'De')}
-        {campoData('ate', 'Até')}
-        <button
-          onClick={() => setComparar((ligado) => !ligado)}
-          style={{
-            marginLeft: 'auto',
-            padding: '5px 10px',
-            borderRadius: '6px',
-            border: `1px solid ${comparar ? tema.texto : tema.borda}`,
-            background: comparar ? tema.destaque : 'transparent',
-            color: tema.texto,
-            fontWeight: comparar ? 700 : 500,
-            fontSize: '12px',
-            cursor: 'pointer',
-          }}
-        >
-          {comparar ? '✓ ' : ''}Comparar com o período anterior
-        </button>
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '12px',
-          color: tema.suave,
-        }}
-      >
-        {periodoInvalido ? (
-          <span style={{ color: tema.vermelho }}>
-            A data inicial está depois da final.
-          </span>
-        ) : (
-          <span>
-            {formatarDia(periodo.de)} a {formatarDia(periodo.ate)} ·{' '}
-            {contarDias(periodo)} {contarDias(periodo) === 1 ? 'dia' : 'dias'} ·
-            horário de Brasília
-            {comparar ? (
-              <>
-                {' '}
-                · comparando com{' '}
-                <b style={{ color: tema.texto }}>
-                  {formatarDia(anterior.de)} a {formatarDia(anterior.ate)}
-                </b>{' '}
-                ({contarDias(anterior)}{' '}
-                {contarDias(anterior) === 1 ? 'dia' : 'dias'})
-              </>
-            ) : null}
-          </span>
-        )}
-        <a
-          onClick={recarregar}
-          style={{ marginLeft: 'auto', cursor: 'pointer', color: tema.suave }}
-        >
-          {carregando ? 'carregando…' : '↻ atualizar'}
-        </a>
-      </div>
+      <Seletor
+        predefinido={predefinido}
+        periodo={periodo}
+        anterior={anterior}
+        hoje={hoje}
+        comparar={comparar}
+        carregando={carregando}
+        periodoInvalido={periodoInvalido}
+        tema={tema}
+        aoEscolherPredefinido={escolherPredefinido}
+        aoEditarData={editarData}
+        aoAlternarComparar={() => setComparar((ligado) => !ligado)}
+        aoAtualizar={recarregar}
+      />
 
       {erro ? (
         <div style={{ color: tema.vermelho, fontSize: '12px' }}>
@@ -239,7 +142,9 @@ const PainelPeriodo = () => {
 
       {/* Um quadro que falhou aparece zerado, então o aviso é obrigatório:
           sem ele um zero por erro pareceria um zero de verdade. */}
-      {dados && [...dados.falhas, ...(comparacao?.falhas ?? [])].length > 0 ? (
+      {dados &&
+      [...dados.falhas, ...(comparacao?.falhas ?? []), ...(funil?.falhas ?? [])]
+        .length > 0 ? (
         <div
           style={{
             padding: '8px 10px',
@@ -250,11 +155,21 @@ const PainelPeriodo = () => {
           }}
         >
           <b>Atenção:</b> estes quadros não carregaram e estão zerados —{' '}
-          {[...dados.falhas, ...(comparacao?.falhas ?? [])]
+          {[
+            ...dados.falhas,
+            ...(comparacao?.falhas ?? []),
+            ...(funil?.falhas ?? []),
+          ]
             .map((falha) => falha.onde)
             .join(', ')}
           . Motivo do primeiro:{' '}
-          {[...dados.falhas, ...(comparacao?.falhas ?? [])][0].motivo}
+          {
+            [
+              ...dados.falhas,
+              ...(comparacao?.falhas ?? []),
+              ...(funil?.falhas ?? []),
+            ][0].motivo
+          }
         </div>
       ) : null}
 
@@ -277,6 +192,13 @@ const PainelPeriodo = () => {
               periodo={periodo}
               tema={tema}
             />
+            {funil ? (
+              <SecaoFunil
+                funil={funil}
+                criadosNoPeriodo={dados.numeros.criados}
+                tema={tema}
+              />
+            ) : null}
             <SecaoVendedores
               dados={dados}
               comparacao={comparacao}
