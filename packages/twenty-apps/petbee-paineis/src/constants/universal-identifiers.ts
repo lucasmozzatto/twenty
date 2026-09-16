@@ -85,3 +85,6 @@ export const FIELD = {
   canal: 'bda0ae13-76c7-4970-bc03-cb0487b513df',
   motivoLost: 'e62365a9-559b-4c5e-b3c7-309ea955f895',
 } as const;
+
+export const NAV_PAINEL_COMERCIAL_UNIVERSAL_IDENTIFIER =
+  '8a368b99-7325-4981-8a4c-3fc6e60f1b8f';
