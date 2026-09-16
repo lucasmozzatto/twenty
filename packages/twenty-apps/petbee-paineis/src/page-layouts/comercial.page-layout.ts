@@ -235,7 +235,10 @@ const grafico = <TConfig,>({
 export default definePageLayout({
   universalIdentifier: COMERCIAL_PAGE_LAYOUT_UNIVERSAL_IDENTIFIER,
   name: 'Painel Comercial',
-  type: PageLayoutType.DASHBOARD,
+  // STANDALONE_PAGE, nao DASHBOARD: a rota /page/:id e servida pelo
+  // StandalonePageLayoutPage, que exige este tipo. DASHBOARD so abre por
+  // dentro de um registro da lista "Dashboards", e app nao cria registro.
+  type: PageLayoutType.STANDALONE_PAGE,
   tabs: [
     {
       universalIdentifier: TAB_COMERCIAL_UNIVERSAL_IDENTIFIER,
