@@ -52,30 +52,37 @@ plausíveis. Já aconteceu três vezes durante a montagem manual.
 
 ## Como publicar
 
-Na mesma máquina de onde o `petbee-cadencia` é publicado. A credencial do CRM fica em
-`~/.twenty/config.json`, global por máquina — se o remote `petbee` já existe ali, não
-precisa informar chave nenhuma de novo.
+**Na VPS**, pelo script, igual à cadência. A VPS tem Node 18 e não tem yarn, então o
+script roda tudo num container `node:22` descartável e lê a chave de
+`petbee/sync/.env` — ninguém digita credencial.
 
 ```bash
-cd packages/twenty-apps/petbee-paineis
-yarn install
-yarn typecheck    # confere o código antes de falar com o CRM
-
-yarn twenty plan  # mostra o que SERIA criado, sem aplicar nada
-yarn twenty apply # cria de verdade
+cd /opt/twenty-repo/petbee/deploy
+./publicar-paineis.sh          # PLANO: mostra o que mudaria, não escreve nada
+./publicar-paineis.sh apply    # publica de verdade
 ```
 
-Se o remote ainda não existir nesta máquina:
-
-```bash
-yarn twenty remote:add --url https://crm.petbeetools.com.br --api-key $TWENTY_API_KEY --as petbee
-```
+O código chega na VPS pelo `deploy.yml`, que roda a cada push na `main`. Como a produção
+usa imagem pronta (`twentycrm/twenty:${TAG}`) e não compila do fonte, um merge que só
+adiciona pasta de app é praticamente no-op para os contêineres.
 
 Ele cria um dashboard **novo**, com nome diferente do "Comercial" montado à mão. Os dois
 convivem: compare lado a lado e apague o manual só quando estiver satisfeito.
 
-Para desfazer: `yarn twenty apply` depois de remover o arquivo do page layout, ou apague
-o dashboard pela tela. Nada aqui altera negócio — o papel do app é somente leitura.
+Para desfazer, apague o dashboard pela tela. Nada aqui altera negócio — o papel do app
+não tem permissão de escrita.
+
+### Rodar da máquina local, se preferir
+
+Funciona também, desde que a máquina tenha Node 22+ e o remote `petbee` configurado
+(a credencial do CLI fica em `~/.twenty/config.json`, global por máquina):
+
+```bash
+cd packages/twenty-apps/petbee-paineis
+yarn install && yarn typecheck
+yarn twenty plan
+yarn twenty apply
+```
 
 ## Conferência
 
