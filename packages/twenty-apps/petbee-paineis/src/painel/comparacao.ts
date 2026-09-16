@@ -1,15 +1,24 @@
 // O período anterior, para o comparativo. Só o que faz sentido comparar:
 // pipeline fica fora de propósito, porque é foto de agora e não existe o
 // pipeline "de agosto" para colocar do lado.
-import { type Agregados, agregar, deMicros } from 'src/painel/crm';
+import {
+  type Agregados,
+  agregar,
+  agrupar,
+  deMicros,
+  type Grupo,
+} from 'src/painel/crm';
 import { type Falha, type Numeros, tentar } from 'src/painel/dados';
-import { limitesIso, type Periodo } from 'src/painel/periodo';
+import { FUSO, limitesIso, type Periodo } from 'src/painel/periodo';
 import { MOTIVOS_COM_CONVERSA } from 'src/painel/rotulos';
 
 export type Comparacao = {
   periodo: Periodo;
   numeros: Numeros;
   perdasComConversa: number;
+  // As mesmas séries por dia do período de agora, para desenhar por cima.
+  criadosPorDia: Grupo[];
+  vendasPorDia: Grupo[];
   falhas: Falha[];
 };
 
@@ -24,11 +33,32 @@ export const buscarComparacao = async (periodo: Periodo): Promise<Comparacao> =>
     { createdAt: { lt: fim } },
   ];
 
+  const filtroVenda = {
+    and: [
+      funilVendas,
+      ganho,
+      { closeDate: { gte: inicio } },
+      { closeDate: { lt: fim } },
+    ],
+  };
+
+  const porDia = (campo: string) => ({
+    [campo]: { granularity: 'DAY', timeZone: FUSO },
+  });
+
   const falhas: Falha[] = [];
   const semAgregado: Agregados = { totalCount: 0 };
+  const semGrupos: Grupo[] = [];
 
-  const [lead, venda, ganhosDaSafra, semOrigem, perdasComConversa] =
-    await Promise.all([
+  const [
+    lead,
+    venda,
+    ganhosDaSafra,
+    semOrigem,
+    perdasComConversa,
+    criadosPorDia,
+    vendasPorDia,
+  ] = await Promise.all([
       tentar(
         'comparação de criados',
         agregar({ and: criadoNoPeriodo }),
@@ -38,14 +68,7 @@ export const buscarComparacao = async (periodo: Periodo): Promise<Comparacao> =>
       tentar(
         'comparação de vendas',
         agregar(
-          {
-            and: [
-              funilVendas,
-              ganho,
-              { closeDate: { gte: inicio } },
-              { closeDate: { lt: fim } },
-            ],
-          },
+          filtroVenda,
           'totalCount sumAmountAmountMicros avgAmountAmountMicros',
         ),
         semAgregado,
@@ -75,6 +98,18 @@ export const buscarComparacao = async (periodo: Periodo): Promise<Comparacao> =>
         semAgregado,
         falhas,
       ),
+      tentar(
+        'comparação de criados por dia',
+        agrupar({ and: criadoNoPeriodo }, [porDia('createdAt')]),
+        semGrupos,
+        falhas,
+      ),
+      tentar(
+        'comparação de vendas por dia',
+        agrupar(filtroVenda, [porDia('closeDate')]),
+        semGrupos,
+        falhas,
+      ),
     ]);
 
   return {
@@ -88,6 +123,8 @@ export const buscarComparacao = async (periodo: Periodo): Promise<Comparacao> =>
       semOrigem: semOrigem.totalCount,
     },
     perdasComConversa: perdasComConversa.totalCount,
+    criadosPorDia,
+    vendasPorDia,
     falhas,
   };
 };

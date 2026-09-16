@@ -271,7 +271,12 @@ const PainelPeriodo = () => {
         <NumerosComerciais dados={dados} comparacao={comparacao} tema={tema} />
         {dados && !periodoInvalido ? (
           <>
-            <GraficosComerciais dados={dados} periodo={periodo} tema={tema} />
+            <GraficosComerciais
+              dados={dados}
+              comparacao={comparacao}
+              periodo={periodo}
+              tema={tema}
+            />
             <SecaoVendedores
               dados={dados}
               comparacao={comparacao}
