@@ -1,10 +1,12 @@
 // Quadro com seletor de período: a única forma de ter filtro de data global no
 // painel, porque os gráficos nativos só leem o filtro gravado em cada um.
 //
-// Tem duas seções. A de cima é a visão comercial e obedece ao período todo.
-// A de baixo é a visão por vendedor, com os gráficos de pipeline que são foto
-// de agora. Este arquivo cuida só do seletor e de buscar os dados; quem desenha
-// é `src/painel/secao-comercial.tsx` e `src/painel/secao-vendedores.tsx`.
+// Um seletor de período em cima e três visões embaixo: Visão geral, Funil e
+// Vendedores. São abas DENTRO do quadro, não abas do CRM, de propósito: cada
+// aba do CRM seria um quadro independente com o próprio seletor, e a pessoa
+// escolheria o período três vezes. Aqui escolhe uma vez e troca de visão.
+// Este arquivo cuida só do seletor e de buscar os dados; quem desenha são
+// os arquivos `secao-*.tsx` em `src/painel/`.
 //
 // Busca os dados direto do GraphQL do CRM, como a régua da cadência faz: o
 // runtime injeta TWENTY_API_URL e o token do app. O papel do app é somente
@@ -34,6 +36,14 @@ import { SecaoVendedores } from 'src/painel/secao-vendedores';
 import { Seletor } from 'src/painel/seletor';
 import { construirTema } from 'src/painel/tema';
 
+type Visao = 'geral' | 'funil' | 'vendedores';
+
+const VISOES: { valor: Visao; rotulo: string }[] = [
+  { valor: 'geral', rotulo: 'Visão geral' },
+  { valor: 'funil', rotulo: 'Funil' },
+  { valor: 'vendedores', rotulo: 'Vendedores' },
+];
+
 const PainelPeriodo = () => {
   const tema = construirTema(useColorScheme() === 'dark');
   const hoje = hojeEmBrasilia();
@@ -46,6 +56,7 @@ const PainelPeriodo = () => {
   const [comparar, setComparar] = useState(false);
   const [comparacao, setComparacao] = useState<Comparacao | null>(null);
   const [funil, setFunil] = useState<Funil | null>(null);
+  const [visao, setVisao] = useState<Visao>('geral');
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -173,6 +184,35 @@ const PainelPeriodo = () => {
         </div>
       ) : null}
 
+      {/* As visões, como abas dentro do quadro. */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '2px',
+          borderBottom: `1px solid ${tema.borda}`,
+        }}
+      >
+        {VISOES.map((item) => (
+          <button
+            key={item.valor}
+            onClick={() => setVisao(item.valor)}
+            style={{
+              padding: '8px 14px',
+              border: 'none',
+              borderBottom: `2px solid ${visao === item.valor ? tema.texto : 'transparent'}`,
+              marginBottom: '-1px',
+              background: 'transparent',
+              color: visao === item.valor ? tema.texto : tema.suave,
+              fontWeight: visao === item.valor ? 700 : 500,
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            {item.rotulo}
+          </button>
+        ))}
+      </div>
+
       {/* Enquanto recarrega, os números velhos ficam esmaecidos em vez de
           desaparecer: trocar o período não faz a tela pular. */}
       <div
@@ -183,29 +223,40 @@ const PainelPeriodo = () => {
           opacity: carregando ? 0.6 : 1,
         }}
       >
-        <NumerosComerciais dados={dados} comparacao={comparacao} tema={tema} />
-        {dados && !periodoInvalido ? (
+        {visao === 'geral' ? (
           <>
-            <GraficosComerciais
-              dados={dados}
-              comparacao={comparacao}
-              periodo={periodo}
-              tema={tema}
-            />
-            {funil ? (
-              <SecaoFunil
-                funil={funil}
-                criadosNoPeriodo={dados.numeros.criados}
+            <NumerosComerciais dados={dados} comparacao={comparacao} tema={tema} />
+            {dados && !periodoInvalido ? (
+              <GraficosComerciais
+                dados={dados}
+                comparacao={comparacao}
+                periodo={periodo}
                 tema={tema}
               />
             ) : null}
-            <SecaoVendedores
-              dados={dados}
-              comparacao={comparacao}
-              nomes={nomes}
-              tema={tema}
-            />
           </>
+        ) : null}
+
+        {visao === 'funil' && dados && funil && !periodoInvalido ? (
+          <SecaoFunil
+            funil={funil}
+            criadosNoPeriodo={dados.numeros.criados}
+            tema={tema}
+          />
+        ) : null}
+
+        {visao === 'vendedores' && dados && !periodoInvalido ? (
+          <SecaoVendedores
+            dados={dados}
+            comparacao={comparacao}
+            funil={funil}
+            nomes={nomes}
+            tema={tema}
+          />
+        ) : null}
+
+        {visao !== 'geral' && dados === null ? (
+          <div style={{ fontSize: '12px', color: tema.suave }}>Carregando…</div>
         ) : null}
       </div>
     </div>

@@ -21,12 +21,29 @@ Uma página chamada **Painel Comercial** no menu lateral, com uma aba só,
 **Por período**: um quadro com seletor de datas (este mês, mês passado, 7 dias,
 30 dias, desde 01/09, ou De/Até livre) e botão de comparar com o período anterior.
 
-Em cima a visão comercial: seis números, duas linhas do tempo por dia e as barras
-por origem e canal. No meio o **Funil por etapa**, lido do histórico. Embaixo a seção
-**Vendedores**: pipeline em aberto, sem dono, em
-negociação, perdas com conversa, pipeline por dono, vendas por vendedor, pipeline por
-etapa e dono, e motivos de perda. Diferente do gráfico nativo, o vazio aparece como
-barra própria ("Sem origem", "Sem canal", "Sem dono").
+Abaixo do seletor, três visões, como abas **dentro do quadro**:
+
+| Visão | Conteúdo |
+|---|---|
+| **Visão geral** | seis números, duas linhas do tempo por dia, barras por origem e canal |
+| **Funil** | funil por etapa lido do histórico: fluxo do período e safra dos que negociaram |
+| **Vendedores** | a tabela por vendedor (recebidos, ganhos, perdidos, em aberto, taxa), pipeline em aberto, sem dono, em negociação, perdas com conversa, pipeline por dono, vendas por vendedor, pipeline por etapa e dono, motivos de perda |
+
+Diferente do gráfico nativo, o vazio aparece como barra própria ("Sem origem",
+"Sem canal", "Sem dono").
+
+### Por que abas dentro do quadro, e não abas do CRM
+
+Cada aba do CRM é um quadro independente, com o próprio seletor de período — a pessoa
+escolheria o período três vezes, uma por aba, e era exatamente isso que o quadro
+existe para evitar. Com as abas dentro do quadro, o período se escolhe uma vez e vale
+para as três visões. Os dados das três vêm juntos numa carga só, então trocar de visão
+é instantâneo.
+
+A aba do CRM está em modo **lista vertical**, não grade. Na grade o quadro tem altura
+fixa em linhas de 55px e cada visão nova obrigava a chutar de novo (foi 24, 38, 42, 53),
+com sobra em branco numa visão e barra de rolagem interna na outra. Na lista o quadro
+fica com a altura do conteúdo, igual à aba "Régua" do app de cadência.
 
 ### As abas "Comercial" e "Vendedores" foram apagadas
 
@@ -85,10 +102,14 @@ Quatro cuidados:
   **sem avisar**, porque o "li tudo" era um `false` fixo. Agora cada página vem por
   `offset` com ordem fixa, e o aviso de leitura incompleta sai de comparar o que foi
   lido com o total que o servidor informa. Teto de 40 páginas de 200.
-- **Não dá para dizer quem fez o movimento.** Das 901 mudanças de setembro, 689 não têm
-  pessoa: foram feitas pela automação do n8n via API, não por alguém clicando. Por isso
-  o funil não tem recorte por vendedor — seria um número sobre gente com dado pela
-  metade.
+- **"Quem clicou" não dá; "para quem foi" dá.** Das 901 mudanças de setembro, 689 não
+  têm pessoa: foram feitas pela automação do n8n via API. Então não existe "quem moveu
+  a etapa". Mas o processo da Petbee é a automação delegar o lead ao vendedor **no mesmo
+  instante** em que o passa para negociação (o histórico mostra `owner` e `stage`
+  mudando na mesma linha), e o dono fica com o negócio até o fim. Por isso a tabela por
+  vendedor usa o **dono atual** da safra, e isso responde "quantos a Vitoria vendeu
+  depois da qualificação". A ressalva vai na tela: negócio repassado conta para quem
+  está com ele hoje, e quem está em aberto ainda não é veredito.
 
 ### A comparação com o período anterior
 
@@ -148,7 +169,7 @@ busca os dados. O resto está em `src/painel/`:
 | `dados.ts`, `comparacao.ts`, `funil.ts` | as perguntas e as contas derivadas |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `safra-por-vendedor.tsx` | as partes da tela |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.
 
@@ -318,11 +339,15 @@ Eventos de mudança de etapa em setembro/2026, medidos pela API em 16/09:
 A tela conta **negócios distintos**, então mostra número igual ou um pouco menor que
 estes: quem entrou duas vezes na mesma etapa conta uma vez.
 
+Um teste para a tabela por vendedor: "Vendas por vendedor" (pela data de fechamento)
+mostrava Lucas 13 e Vitoria 12 em setembro. Na tabela, os ganhos do Lucas devem cair
+para poucos e os da Vitoria ficar parecidos — a maior parte das vendas do Lucas é
+direta, nunca passa por negociação, e por isso não está na safra.
+
 ## O que ainda não está aqui
 
-- **Recorte do funil por vendedor.** Só seria possível pelo dono atual do negócio, que
-  mede "de quem é hoje" e não "quem trabalhou". Decidido não fazer: número sobre gente
-  com dado pela metade vira decisão errada sobre gente.
+- **Quem clicou em cada mudança de etapa.** A maioria é a automação; o campo de pessoa
+  não serve. O recorte por vendedor existe, mas pelo dono atual da safra (ver acima).
 - **Tempo até fechar** (dias entre entrar em negociação e virar Ganho). Dá para tirar do
   mesmo histórico; ainda não foi pedido.
 - **"Sem origem" como categoria de verdade.** São ~70 negócios por mês sem origem

@@ -11,18 +11,22 @@ import { type Grupo } from 'src/painel/crm';
 import { type Comparacao } from 'src/painel/comparacao';
 import { type Contagem, type Dados } from 'src/painel/dados';
 import { formatarInteiro, variacao } from 'src/painel/formato';
+import { type Funil } from 'src/painel/funil';
 import { gradeDeCartoes } from 'src/painel/grade';
 import { rotuloEtapa, rotuloMotivoLost } from 'src/painel/rotulos';
+import { SafraPorVendedor } from 'src/painel/safra-por-vendedor';
 import { corDaSerie, type Tema } from 'src/painel/tema';
 
 export const SecaoVendedores = ({
   dados,
   comparacao,
+  funil,
   nomes,
   tema,
 }: {
   dados: Dados;
   comparacao: Comparacao | null;
+  funil: Funil | null;
   nomes: Record<string, string>;
   tema: Tema;
 }) => {
@@ -47,9 +51,13 @@ export const SecaoVendedores = ({
     <>
       <Titulo
         texto="Vendedores"
-        nota="Pipeline é foto de agora e não muda com o período. Vendas, perdas e motivos seguem o período escolhido."
+        nota="A tabela e as vendas seguem o período. Pipeline é foto de agora e não muda com o período."
         tema={tema}
       />
+
+      {funil === null ? null : (
+        <SafraPorVendedor linhas={funil.porVendedor} nomes={nomes} tema={tema} />
+      )}
 
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <Numero

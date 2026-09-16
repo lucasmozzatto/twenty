@@ -11,21 +11,6 @@ import {
   W_PAINEL_PERIODO,
 } from 'src/constants/universal-identifiers';
 
-// Os dois campos de posição de propósito: o servidor desta instância lê
-// `gridPosition` e o tipo do SDK 2.40 declara só `position`. Enquanto
-// discordarem, mandar os dois é o que funciona nos dois lados — e o espalhe
-// é o que faz o TypeScript aceitar o campo que ele não conhece.
-const posicao = (rowSpan: number, columnSpan: number) => ({
-  gridPosition: { row: 0, column: 0, rowSpan, columnSpan },
-  position: {
-    layoutMode: PageLayoutTabLayoutMode.GRID as const,
-    row: 0,
-    column: 0,
-    rowSpan,
-    columnSpan,
-  },
-});
-
 // Uma aba só. As abas "Comercial" e "Vendedores", feitas de gráficos nativos,
 // existiram até 16/09/2026 e foram apagadas: mostravam o mesmo que esta,
 // travadas em "este mês", e toda melhoria entrava só aqui — duas telas
@@ -43,14 +28,17 @@ export default definePageLayout({
       title: 'Por período',
       icon: 'IconCalendarStats',
       position: 10,
-      layoutMode: PageLayoutTabLayoutMode.GRID,
+      // Lista vertical, não grade: na grade o quadro tem altura fixa em linhas
+      // de 55px, e cada visão nova obrigava a chutar de novo (24, 38, 42, 53…),
+      // com sobra em branco numa visão e barra de rolagem interna na outra. Na
+      // lista o quadro fica com a altura do conteúdo. É o mesmo modo da aba
+      // "Régua" do app de cadência, que já roda assim.
+      layoutMode: PageLayoutTabLayoutMode.VERTICAL_LIST,
       widgets: [
         {
           universalIdentifier: W_PAINEL_PERIODO,
-          title: 'Escolha o período',
+          title: 'Comercial',
           type: 'FRONT_COMPONENT',
-          // Cada linha da grade tem 55px. O quadro inteiro pede ~2.900px.
-          ...posicao(53, 12),
           configuration: {
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:

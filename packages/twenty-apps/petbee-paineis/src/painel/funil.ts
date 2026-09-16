@@ -29,6 +29,18 @@ type MudancaDeEtapa = {
   properties: { diff?: { stage?: { after?: string; before?: string } } } | null;
 };
 
+// Uma linha por dono na safra. "Recebidos" são os negócios que entraram em
+// negociação no período e estão com essa pessoa HOJE: no processo da Petbee a
+// automação delega o lead ao vendedor no mesmo instante em que o passa para
+// negociação, então o dono atual é quem trabalhou o negócio.
+export type SafraPorVendedor = {
+  chave: string | null;
+  recebidos: number;
+  ganhos: number;
+  perdidos: number;
+  emAberto: number;
+};
+
 export type Funil = {
   // Fluxo: negócios distintos que ENTRARAM em cada etapa dentro do período.
   entrouQualificacao: number;
@@ -40,6 +52,8 @@ export type Funil = {
   negociacaoGanhos: number;
   negociacaoPerdidos: number;
   negociacaoEmAberto: number;
+  // A mesma safra, aberta por dono. Ordenada por recebidos; "Sem dono" no fim.
+  porVendedor: SafraPorVendedor[];
   // Antes desta data não existe histórico: o CRM não gravava ainda.
   historicoComecaEm: string | null;
   // Verdadeiro quando o período pedido começa antes do histórico existir.
@@ -58,6 +72,7 @@ const FUNIL_VAZIO: Omit<Funil, 'historicoComecaEm' | 'periodoIncompleto' | 'falh
   negociacaoGanhos: 0,
   negociacaoPerdidos: 0,
   negociacaoEmAberto: 0,
+  porVendedor: [],
   truncado: false,
 };
 
@@ -160,22 +175,67 @@ const buscarInicioDoHistorico = async (): Promise<string | null> => {
   return minimo === null ? null : minimo.slice(0, 10);
 };
 
-// Como estão HOJE os negócios da safra. Uma consulta só, agrupada por etapa.
-const situacaoDeHoje = async (negocios: string[]) => {
-  if (negocios.length === 0) return { ganhos: 0, perdidos: 0, emAberto: 0 };
+// Como estão HOJE os negócios da safra. Dono e etapa juntos num agrupamento
+// só: dele saem o total da safra e a tabela por vendedor.
+type Situacao = {
+  ganhos: number;
+  perdidos: number;
+  emAberto: number;
+  porVendedor: SafraPorVendedor[];
+};
 
-  const grupos = await agrupar({ id: { in: negocios } }, [{ stage: true }]);
+const SITUACAO_VAZIA: Situacao = {
+  ganhos: 0,
+  perdidos: 0,
+  emAberto: 0,
+  porVendedor: [],
+};
 
-  const porEtapa = (etapa: string) =>
-    grupos.find((grupo) => grupo.chaves[0] === etapa)?.contagem ?? 0;
+const situacaoDeHoje = async (negocios: string[]): Promise<Situacao> => {
+  if (negocios.length === 0) return SITUACAO_VAZIA;
 
-  const ganhos = porEtapa('WON');
-  const perdidos = porEtapa('LOST');
+  const grupos = await agrupar({ id: { in: negocios } }, [
+    { ownerId: true },
+    { stage: true },
+  ]);
+
+  const porDono = new Map<string | null, SafraPorVendedor>();
+
+  for (const grupo of grupos) {
+    const dono = grupo.chaves[0] ?? null;
+    const etapa = grupo.chaves[1];
+    const linha = porDono.get(dono) ?? {
+      chave: dono,
+      recebidos: 0,
+      ganhos: 0,
+      perdidos: 0,
+      emAberto: 0,
+    };
+
+    linha.recebidos += grupo.contagem;
+    if (etapa === 'WON') linha.ganhos += grupo.contagem;
+    else if (etapa === 'LOST') linha.perdidos += grupo.contagem;
+    else linha.emAberto += grupo.contagem;
+
+    porDono.set(dono, linha);
+  }
+
+  // Quem recebeu mais primeiro; "Sem dono" sempre no fim, porque não é pessoa.
+  const porVendedor = [...porDono.values()].sort((a, b) => {
+    if (a.chave === null) return 1;
+    if (b.chave === null) return -1;
+
+    return b.recebidos - a.recebidos;
+  });
+
+  const somar = (campo: 'ganhos' | 'perdidos' | 'emAberto') =>
+    porVendedor.reduce((total, linha) => total + linha[campo], 0);
 
   return {
-    ganhos,
-    perdidos,
-    emAberto: negocios.length - ganhos - perdidos,
+    ganhos: somar('ganhos'),
+    perdidos: somar('perdidos'),
+    emAberto: somar('emAberto'),
+    porVendedor,
   };
 };
 
@@ -200,7 +260,7 @@ export const buscarFunil = async (periodo: Periodo): Promise<Funil> => {
   const safra = await tentar(
     'situação da safra em negociação',
     situacaoDeHoje([...emNegociacao]),
-    { ganhos: 0, perdidos: 0, emAberto: 0 },
+    SITUACAO_VAZIA,
     falhas,
   );
 
@@ -216,6 +276,7 @@ export const buscarFunil = async (periodo: Periodo): Promise<Funil> => {
     negociacaoGanhos: safra.ganhos,
     negociacaoPerdidos: safra.perdidos,
     negociacaoEmAberto: safra.emAberto,
+    porVendedor: safra.porVendedor,
     historicoComecaEm,
     periodoIncompleto:
       historicoComecaEm !== null && periodo.de < historicoComecaEm,
