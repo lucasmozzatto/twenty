@@ -79,8 +79,12 @@ Quatro cuidados:
   de um Break geraria duas linhas no histórico; contar as duas inflaria o funil.
 - **O histórico começa em 18/08/2026.** Antes disso o CRM não gravava. Período que
   comece antes mostra um aviso laranja, porque os números sairiam por baixo.
-- **Teto de 4.000 mudanças lidas** (40 páginas de 100). Hoje são ~900 por mês, então
-  sobra folga; se bater no teto, avisa em vez de mostrar número menor calado.
+- **Paginação por `offset`, não por cursor, e conferida contra `totalCount`.** A
+  primeira versão usava `after`/`endCursor` e parou na primeira página em produção: em
+  409 mudanças de 7 dias ela leu 100 e mostrou 21 entradas em negociação em vez de 76,
+  **sem avisar**, porque o "li tudo" era um `false` fixo. Agora cada página vem por
+  `offset` com ordem fixa, e o aviso de leitura incompleta sai de comparar o que foi
+  lido com o total que o servidor informa. Teto de 40 páginas de 200.
 - **Não dá para dizer quem fez o movimento.** Das 901 mudanças de setembro, 689 não têm
   pessoa: foram feitas pela automação do n8n via API, não por alguém clicando. Por isso
   o funil não tem recorte por vendedor — seria um número sobre gente com dado pela

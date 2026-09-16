@@ -18,9 +18,10 @@ import { type Falha, tentar } from 'src/painel/dados';
 import { limitesIso, type Periodo } from 'src/painel/periodo';
 import { ETAPAS_EM_NEGOCIACAO } from 'src/painel/rotulos';
 
-// Uma página de 100 por vez; o teto evita pendurar a tela se alguém pedir um
-// intervalo gigante. Hoje são ~900 mudanças por mês, então sobra folga.
-const POR_PAGINA = 100;
+// 200 é o teto do servidor por consulta (QUERY_MAX_RECORDS). O teto de páginas
+// evita pendurar a tela num intervalo gigante: hoje são ~900 mudanças por mês,
+// então 40 páginas dão folga para uns três anos.
+const POR_PAGINA = 200;
 const MAXIMO_DE_PAGINAS = 40;
 
 type MudancaDeEtapa = {
@@ -60,10 +61,18 @@ const FUNIL_VAZIO: Omit<Funil, 'historicoComecaEm' | 'periodoIncompleto' | 'falh
   truncado: false,
 };
 
+// Paginação por `offset` com ordem fixa, e não por cursor: o cursor parou na
+// primeira página em produção e o funil saiu por baixo sem avisar. `totalCount`
+// vem junto de propósito — é ele que permite saber se lemos tudo.
 const CONSULTA_MUDANCAS = `
-  query Mudancas($filter: TimelineActivityFilterInput, $after: String) {
-    timelineActivities(filter: $filter, first: ${POR_PAGINA}, after: $after) {
-      pageInfo { hasNextPage endCursor }
+  query Mudancas($filter: TimelineActivityFilterInput, $offset: Int) {
+    timelineActivities(
+      filter: $filter
+      first: ${POR_PAGINA}
+      offset: $offset
+      orderBy: [{ happensAt: AscNullsLast }]
+    ) {
+      totalCount
       edges { node { targetOpportunityId properties } }
     }
   }
@@ -84,28 +93,30 @@ const buscarMudancas = async (
   };
 
   const mudancas: MudancaDeEtapa[] = [];
-  let cursor: string | undefined;
+  let total = 0;
 
   for (let pagina = 0; pagina < MAXIMO_DE_PAGINAS; pagina += 1) {
     const dados = await consultar<{
       timelineActivities: {
-        pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        totalCount: number;
         edges: { node: MudancaDeEtapa }[];
       };
-    }>(CONSULTA_MUDANCAS, { filter, after: cursor ?? null });
+    }>(CONSULTA_MUDANCAS, { filter, offset: mudancas.length });
 
-    const pagina_ = dados.timelineActivities;
+    const conexao = dados.timelineActivities;
 
-    for (const borda of pagina_.edges) mudancas.push(borda.node);
+    total = conexao.totalCount;
 
-    if (!pagina_.pageInfo.hasNextPage || !pagina_.pageInfo.endCursor) {
-      return { mudancas, truncado: false };
-    }
+    for (const borda of conexao.edges) mudancas.push(borda.node);
 
-    cursor = pagina_.pageInfo.endCursor;
+    // Página incompleta significa fim da lista. Página vazia também, e a
+    // checagem evita laço infinito se o servidor devolver nada.
+    if (conexao.edges.length < POR_PAGINA) break;
   }
 
-  return { mudancas, truncado: true };
+  // Compara o que foi lido com o que existe. Antes isso era um `false` fixo, e
+  // por isso uma leitura pela metade passou como se fosse completa.
+  return { mudancas, truncado: mudancas.length < total };
 };
 
 // Negócios DISTINTOS que entraram nestas etapas. Distinto importa: um negócio
