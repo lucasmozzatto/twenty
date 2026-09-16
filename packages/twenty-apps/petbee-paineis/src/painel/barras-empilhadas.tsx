@@ -26,6 +26,17 @@ export const BarrasEmpilhadas = ({
   const totais = linhas.map((linha) =>
     linha.pedacos.reduce((soma, pedaco) => soma + pedaco.valor, 0),
   );
+
+  // Quanto cada série soma no gráfico inteiro. Vai escrito na legenda porque
+  // a dica ao passar o mouse não aparece dentro deste renderizador, e sem ela
+  // o gráfico mostrava só o total da linha.
+  const totalDaSerie = (chave: string | null): number =>
+    linhas.reduce(
+      (soma, linha) =>
+        soma +
+        (linha.pedacos.find((pedaco) => pedaco.chave === chave)?.valor ?? 0),
+      0,
+    );
   const maximo = Math.max(...totais, 1);
   const comDados = linhas.filter((_, indice) => totais[indice] > 0);
 
@@ -124,7 +135,12 @@ export const BarrasEmpilhadas = ({
                     background: serie.cor,
                   }}
                 />
-                {serie.rotulo}
+                {serie.rotulo}{' '}
+                <b
+                  style={{ color: tema.texto, fontVariantNumeric: 'tabular-nums' }}
+                >
+                  {formatarInteiro(totalDaSerie(serie.chave))}
+                </b>
               </span>
             ))}
           </div>
