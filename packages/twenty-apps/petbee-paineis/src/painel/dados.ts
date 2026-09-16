@@ -37,7 +37,7 @@ export type Contagem = { chave: string | null; valor: number };
 // os outros. Sem isto, uma consulta recusada apagava o painel inteiro.
 export type Falha = { onde: string; motivo: string };
 
-const tentar = <TDados,>(
+export const tentar = <TDados,>(
   onde: string,
   promessa: Promise<TDados>,
   padrao: TDados,

@@ -44,6 +44,16 @@ export const somarDias = (dia: string, quantidade: number): string => {
 
 const primeiroDiaDoMes = (dia: string): string => `${dia.slice(0, 7)}-01`;
 
+// Dia 0 do mês seguinte é o último dia deste mês, e o próprio Date resolve a
+// virada de ano.
+const ultimoDiaDoMes = (dia: string): string => {
+  const [ano, mes] = dia.split('-').map(Number);
+
+  return new Date(Date.UTC(ano, mes, 0)).toISOString().slice(0, 10);
+};
+
+const menor = (a: string, b: string): string => (a < b ? a : b);
+
 export const periodoPredefinido = (qual: Predefinido, hoje: string): Periodo => {
   switch (qual) {
     case 'este-mes':
@@ -98,4 +108,36 @@ export const listarDias = (periodo: Periodo): string[] => {
   return Array.from({ length: total }, (_, indice) =>
     somarDias(periodo.de, indice),
   );
+};
+
+// O período com que comparar. A regra muda por botão, porque "anterior" quer
+// dizer coisas diferentes: o mês passado inteiro tem 31 dias, mas comparar 16
+// dias de setembro com 31 de agosto daria uma queda falsa de metade. Então
+// mês compara trecho com trecho, e o resto compara com o bloco de mesmo
+// tamanho imediatamente anterior.
+export const periodoAnterior = (
+  qual: Predefinido,
+  periodo: Periodo,
+): Periodo => {
+  const dias = contarDias(periodo);
+
+  switch (qual) {
+    case 'este-mes': {
+      const inicio = primeiroDiaDoMes(somarDias(primeiroDiaDoMes(periodo.de), -1));
+
+      // Mesmo trecho do mês passado, sem passar do fim dele: 01 a 16/08 para
+      // 01 a 16/09. Fevereiro é mais curto, daí o corte.
+      return {
+        de: inicio,
+        ate: menor(somarDias(inicio, dias - 1), ultimoDiaDoMes(inicio)),
+      };
+    }
+    case 'mes-passado': {
+      const ultimo = somarDias(periodo.de, -1);
+
+      return { de: primeiroDiaDoMes(ultimo), ate: ultimo };
+    }
+    default:
+      return { de: somarDias(periodo.de, -dias), ate: somarDias(periodo.de, -1) };
+  }
 };

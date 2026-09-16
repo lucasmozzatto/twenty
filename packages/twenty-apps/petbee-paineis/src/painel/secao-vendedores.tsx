@@ -7,18 +7,21 @@
 import { type Barra, Barras, BarrasEmpilhadas } from 'src/painel/barras';
 import { Numero, Titulo } from 'src/painel/cartoes';
 import { type Grupo } from 'src/painel/crm';
+import { type Comparacao } from 'src/painel/comparacao';
 import { type Contagem, type Dados } from 'src/painel/dados';
-import { formatarInteiro } from 'src/painel/formato';
+import { formatarInteiro, variacao } from 'src/painel/formato';
 import { GRADE_DE_CARTOES } from 'src/painel/grade';
 import { rotuloEtapa, rotuloMotivoLost } from 'src/painel/rotulos';
 import { corDaSerie, type Tema } from 'src/painel/tema';
 
 export const SecaoVendedores = ({
   dados,
+  comparacao,
   nomes,
   tema,
 }: {
   dados: Dados;
+  comparacao: Comparacao | null;
   nomes: Record<string, string>;
   tema: Tema;
 }) => {
@@ -74,6 +77,18 @@ export const SecaoVendedores = ({
           valor={formatarInteiro(dados.perdasComConversa)}
           cor={tema.vermelho}
           nota="perdidos do período, só motivos com contato real"
+          comparacao={
+            comparacao
+              ? {
+                  antes: formatarInteiro(comparacao.perdasComConversa),
+                  variacao: variacao(
+                    dados.perdasComConversa,
+                    comparacao.perdasComConversa,
+                  ),
+                  sentido: 'negativo',
+                }
+              : undefined
+          }
           tema={tema}
         />
       </div>

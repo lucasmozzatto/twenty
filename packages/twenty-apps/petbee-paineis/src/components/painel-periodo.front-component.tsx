@@ -15,11 +15,13 @@ import { useColorScheme } from 'twenty-sdk/front-component';
 
 import { PAINEL_PERIODO_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/constants/universal-identifiers';
 import { buscarNomes } from 'src/painel/crm';
+import { buscarComparacao, type Comparacao } from 'src/painel/comparacao';
 import { buscarDados, type Dados } from 'src/painel/dados';
 import { formatarDia } from 'src/painel/formato';
 import {
   contarDias,
   hojeEmBrasilia,
+  periodoAnterior,
   periodoPredefinido,
   PREDEFINIDOS,
   type Periodo,
@@ -41,24 +43,38 @@ const PainelPeriodo = () => {
     periodoPredefinido('este-mes', hoje),
   );
   const [dados, setDados] = useState<Dados | null>(null);
+  const [comparar, setComparar] = useState(false);
+  const [comparacao, setComparacao] = useState<Comparacao | null>(null);
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
   const periodoInvalido = periodo.de > periodo.ate;
 
+  const anterior = periodoAnterior(predefinido, periodo);
+
   const recarregar = useCallback(async () => {
     if (periodoInvalido) return;
     setCarregando(true);
     setErro(null);
     try {
-      setDados(await buscarDados(periodo));
+      // As duas buscas vão juntas: o painel aparece de uma vez, sem os
+      // rodapés de comparação chegando depois e empurrando a tela.
+      const [novosDados, novaComparacao] = await Promise.all([
+        buscarDados(periodo),
+        comparar ? buscarComparacao(anterior) : Promise.resolve(null),
+      ]);
+
+      setDados(novosDados);
+      setComparacao(novaComparacao);
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : String(falha));
     } finally {
       setCarregando(false);
     }
-  }, [periodo, periodoInvalido]);
+    // `anterior` sai de `predefinido` e `periodo`, então não entra na lista.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodo, periodoInvalido, comparar, predefinido]);
 
   useEffect(() => {
     recarregar();
@@ -152,6 +168,22 @@ const PainelPeriodo = () => {
         <span style={{ width: '8px' }} />
         {campoData('de', 'De')}
         {campoData('ate', 'Até')}
+        <button
+          onClick={() => setComparar((ligado) => !ligado)}
+          style={{
+            marginLeft: 'auto',
+            padding: '5px 10px',
+            borderRadius: '6px',
+            border: `1px solid ${comparar ? tema.texto : tema.borda}`,
+            background: comparar ? tema.destaque : 'transparent',
+            color: tema.texto,
+            fontWeight: comparar ? 700 : 500,
+            fontSize: '12px',
+            cursor: 'pointer',
+          }}
+        >
+          {comparar ? '✓ ' : ''}Comparar com o período anterior
+        </button>
       </div>
 
       <div
@@ -172,6 +204,17 @@ const PainelPeriodo = () => {
             {formatarDia(periodo.de)} a {formatarDia(periodo.ate)} ·{' '}
             {contarDias(periodo)} {contarDias(periodo) === 1 ? 'dia' : 'dias'} ·
             horário de Brasília
+            {comparar ? (
+              <>
+                {' '}
+                · comparando com{' '}
+                <b style={{ color: tema.texto }}>
+                  {formatarDia(anterior.de)} a {formatarDia(anterior.ate)}
+                </b>{' '}
+                ({contarDias(anterior)}{' '}
+                {contarDias(anterior) === 1 ? 'dia' : 'dias'})
+              </>
+            ) : null}
           </span>
         )}
         <a
@@ -196,7 +239,7 @@ const PainelPeriodo = () => {
 
       {/* Um quadro que falhou aparece zerado, então o aviso é obrigatório:
           sem ele um zero por erro pareceria um zero de verdade. */}
-      {dados && dados.falhas.length > 0 ? (
+      {dados && [...dados.falhas, ...(comparacao?.falhas ?? [])].length > 0 ? (
         <div
           style={{
             padding: '8px 10px',
@@ -207,8 +250,11 @@ const PainelPeriodo = () => {
           }}
         >
           <b>Atenção:</b> estes quadros não carregaram e estão zerados —{' '}
-          {dados.falhas.map((falha) => falha.onde).join(', ')}. Motivo do primeiro:{' '}
-          {dados.falhas[0].motivo}
+          {[...dados.falhas, ...(comparacao?.falhas ?? [])]
+            .map((falha) => falha.onde)
+            .join(', ')}
+          . Motivo do primeiro:{' '}
+          {[...dados.falhas, ...(comparacao?.falhas ?? [])][0].motivo}
         </div>
       ) : null}
 
@@ -222,11 +268,16 @@ const PainelPeriodo = () => {
           opacity: carregando ? 0.6 : 1,
         }}
       >
-        <NumerosComerciais dados={dados} tema={tema} />
+        <NumerosComerciais dados={dados} comparacao={comparacao} tema={tema} />
         {dados && !periodoInvalido ? (
           <>
             <GraficosComerciais dados={dados} periodo={periodo} tema={tema} />
-            <SecaoVendedores dados={dados} nomes={nomes} tema={tema} />
+            <SecaoVendedores
+              dados={dados}
+              comparacao={comparacao}
+              nomes={nomes}
+              tema={tema}
+            />
           </>
         ) : null}
       </div>
