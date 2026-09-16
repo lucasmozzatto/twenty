@@ -5,8 +5,9 @@
 # e o app exige Node 22+, então tudo roda num container descartável com a pasta
 # do app montada.
 #
-#   ./publicar-paineis.sh          → PLANO: mostra o que mudaria, não escreve nada
-#   ./publicar-paineis.sh apply    → PUBLICA de verdade no CRM
+#   ./publicar-paineis.sh           → PLANO: mostra o que mudaria, não escreve nada
+#   ./publicar-paineis.sh apply     → PUBLICA de verdade no CRM
+#   ./publicar-paineis.sh remover   → PUBLICA autorizando APAGAR o que saiu do código
 #
 # Diferença em relação à cadência: este app é somente leitura. O papel dele não
 # tem permissão de escrita, então o pior caso de um erro aqui é um gráfico
@@ -21,9 +22,18 @@ ENV_SYNC=/opt/twenty-repo/petbee/sync/.env
 ACAO="${1:-plan}"
 
 case "$ACAO" in
-  plan|apply) ;;
-  *) echo "uso: $0 [plan|apply]"; exit 1 ;;
+  plan|apply|remover) ;;
+  *) echo "uso: $0 [plan|apply|remover]"; exit 1 ;;
 esac
+
+# Aviso antes de um comando que apaga, porque este é o único que apaga.
+if [ "$ACAO" = "remover" ]; then
+  echo "⚠  Este comando APAGA do CRM tudo que saiu do código."
+  echo "   Rode antes o plano (./publicar-paineis.sh) e confira a linha 'to destroy'."
+  printf "   Digite APAGAR para continuar: "
+  read -r RESPOSTA
+  if [ "$RESPOSTA" != "APAGAR" ]; then echo "cancelado."; exit 1; fi
+fi
 
 # `export` é obrigatório: o `docker run -e TWENTY_API_KEY` (sem valor) lê do
 # AMBIENTE, e variável de shell não exportada chega vazia lá dentro.
@@ -54,11 +64,17 @@ docker run --rm \
     yarn twenty remote:add --url https://crm.petbeetools.com.br \
       --api-key "$TWENTY_API_KEY" --as petbee | tail -3
 
-    if [ "$ACAO" = "apply" ]; then
+    if [ "$ACAO" = "remover" ]; then
+      echo "→ PUBLICANDO no CRM, com REMOCOES autorizadas…"
+      # O `-f` autoriza os deletes sem perguntar. O container nao tem terminal
+      # interativo, entao sem ele o CLI travaria na pergunta de confirmacao.
+      # Fica num comando separado pra ninguem apagar sem querer.
+      yarn twenty apply -f
+    elif [ "$ACAO" = "apply" ]; then
       echo "→ PUBLICANDO no CRM…"
       # Sem flag: mudanca nao-destrutiva aplica direto. O `-f` do CLI serve so
-      # pra autorizar REMOCOES sem perguntar — de proposito nao usamos, pra que
-      # um plano com "to destroy" pare e apareca em vez de passar batido.
+      # pra autorizar REMOCOES sem perguntar — de proposito nao usamos aqui, pra
+      # que um plano com "to destroy" pare e apareca em vez de passar batido.
       yarn twenty apply
     else
       echo "→ plano (nada será escrito):"
