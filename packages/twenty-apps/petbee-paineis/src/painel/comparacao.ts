@@ -59,7 +59,7 @@ export const buscarComparacao = async (periodo: Periodo): Promise<Comparacao> =>
   const [
     lead,
     venda,
-    ganhosDaSafra,
+    ganhosDoCohort,
     semOrigem,
     perdasComConversa,
     criadosPorDia,
@@ -160,7 +160,7 @@ export const buscarComparacao = async (periodo: Periodo): Promise<Comparacao> =>
       vendas: venda.totalCount,
       receita: deMicros(venda.sumAmountAmountMicros) ?? 0,
       ticketMedio: deMicros(venda.avgAmountAmountMicros),
-      ganhosDaSafra: ganhosDaSafra.totalCount,
+      ganhosDoCohort: ganhosDoCohort.totalCount,
       semOrigem: semOrigem.totalCount,
     },
     perdasComConversa: perdasComConversa.totalCount,

@@ -27,9 +27,9 @@ Abaixo do seletor, quatro visões, como abas **dentro do quadro**:
 | Visão | Conteúdo |
 |---|---|
 | **Visão geral** | seis números, duas linhas do tempo por dia, barras por origem e canal |
-| **Funil** | funil por etapa lido do histórico: fluxo do período e safra dos que negociaram |
+| **Funil** | funil por etapa lido do histórico: fluxo do período, a tabela "de cada etapa, para onde foi" (com as lentes próximo passo e situação hoje) e o cohort dos que negociaram |
 | **Vendedores** | a tabela por vendedor (recebidos, ganhos, perdidos, em aberto, taxa), pipeline em aberto, sem dono, em negociação, perdas com conversa, pipeline por dono, vendas por vendedor, pipeline por etapa e dono, motivos de perda |
-| **Safra** | conversão por lote de leads entregues aos vendedores, por semana (quarta a terça) ou mês, e a grade vendedor × safra. Aqui o período é a data em que o lead **chegou no vendedor** |
+| **Cohort** | conversão por lote de leads entregues aos vendedores, por semana (quarta a terça) ou mês, e a grade vendedor × cohort. Aqui o período é a data em que o lead **chegou no vendedor** |
 
 Diferente do gráfico nativo, o vazio aparece como barra própria ("Sem origem",
 "Sem canal", "Sem dono").
@@ -92,13 +92,17 @@ São **duas medidas diferentes**, separadas na tela de propósito:
 - **Fluxo** ("O que aconteceu no período"): negócios que passaram por cada degrau
   DENTRO do período. A razão entre um degrau e outro **não é conversão** — um negócio
   ganho em setembro pode ter entrado em negociação em agosto.
-- **Safra** ("Dos que entraram em negociação no período, como estão hoje"): essa sim é
+- **Cohort** ("Dos que entraram em negociação no período, como estão hoje"): esse sim é
   conversão. Mesmo grupo de negócios, olhado agora: ganhos, perdidos, ainda em aberto.
 
 Quatro cuidados:
 
 - **Conta negócio distinto, não evento.** Um negócio que volta para negociação depois
   de um Break geraria duas linhas no histórico; contar as duas inflaria o funil.
+- **"De Ganho para Ganho" não é entrada.** Existe linha no histórico em que a etapa de
+  antes e de depois são iguais: alguém editou outro campo e o CRM gravou a etapa junto.
+  Em setembro/2026 foi 1 em 36 linhas de "ganho", e contava como venda nova até
+  17/09. Toda contagem de entrada passa por `entrouEm`, que exige mudança de verdade.
 - **O histórico começa em 18/08/2026.** Antes disso o CRM não gravava. Período que
   comece antes mostra um aviso laranja, porque os números sairiam por baixo.
 - **Paginação por `offset`, não por cursor, e conferida contra `totalCount`.** A
@@ -116,6 +120,46 @@ Quatro cuidados:
   depois da qualificação". A ressalva vai na tela: negócio repassado conta para quem
   está com ele hoje, e quem está em aberto ainda não é veredito.
 
+### De cada etapa, para onde foi (a jornada)
+
+Uma linha por etapa de partida (Novo Lead, Em qualificação, Em negociação, Fechamento,
+Break), uma coluna por destino, e cada linha soma 100%: são os negócios que **entraram
+naquela etapa dentro do período**. Responde "quantos novos leads vão para qualificação
+ou direto para ganho", "quantos de negociação vão para Break e depois viram o quê", e
+por aí. Pedido do dono do painel em 17/09/2026; `src/painel/jornada.ts` conta,
+`tabela-jornada.tsx` desenha.
+
+Como a conta é feita: o CRM grava uma linha na linha do tempo a cada mudança de etapa,
+com hora, etapa de antes e de depois. Para cada negócio as linhas são ordenadas por
+hora e lidas como uma história. Duas lentes sobre o mesmo lote, num botão:
+
+- **Próximo passo**: para cada entrada na etapa, a linha seguinte da história. Conta
+  entradas, então quem voltou para negociação depois de um Break conta duas vezes na
+  linha "Em negociação" (foram dois passos de verdade). Sem linha seguinte, "Ainda aqui".
+- **Situação hoje**: dos negócios que entraram na etapa, onde cada um está agora. Conta
+  negócios distintos. É a lente que responde "foi para Break e depois virou Ganho ou
+  Perdido?".
+
+Regras que valem para as duas: "entrar em Novo Lead" é ser criado; a etapa inicial é o
+"antes" do primeiro passo (ou a etapa de hoje, se nunca mudou), e quem nasceu já em
+outra etapa aparece numa nota abaixo da tabela e conta na linha da etapa em que nasceu.
+Só mudança de verdade conta como entrada (ver "Ganho para Ganho" abaixo). Os passos
+dados depois do fim do período entram na conta do próximo passo, senão toda entrada de
+fim de mês pareceria "ainda aqui".
+
+As linhas **não fecham em cadeia**: um negócio criado em 30/08 que entrou em qualificação
+em 02/09 está na linha "Em qualificação" de setembro e não na "Novo Lead". Com o piso
+de 01/09 (abaixo) a diferença é só a virada do mês.
+
+### O piso do histórico: 01/09/2026
+
+O CRM grava a linha do tempo desde 18/08/2026, mas até o fim de agosto o processo ainda
+estava sendo ajustado depois da migração. Por decisão do dono do painel em 17/09/2026,
+**tudo que lê o histórico** (Funil, Cohort e a jornada) conta a partir de 01/09/2026:
+`recortarNoHistorico` em `periodo.ts` recorta o início do período e a visão avisa em
+laranja quando a data escolhida era anterior. A Visão geral e a tabela por vendedor não
+leem o histórico e não são recortadas. O botão "Desde 01/09" é o mesmo piso.
+
 ### A tabela por vendedor
 
 É a pergunta principal do painel, e as colunas seguem regras diferentes de propósito,
@@ -123,8 +167,8 @@ combinadas com o dono do painel em 16/09/2026:
 
 | Coluna | Regra | De onde vem |
 |---|---|---|
-| Recebidos | entraram em negociação **no período** | safra (`funil.ts`) |
-| Em aberto | recebidos que hoje ainda não são Ganho nem Perdido | safra (`funil.ts`) |
+| Recebidos | entraram em negociação **no período** | cohort (`funil.ts`) |
+| Em aberto | recebidos que hoje ainda não são Ganho nem Perdido | cohort (`funil.ts`) |
 | Ganhos | viraram Ganho no período (data de fechamento), **tendo passado por negociação em qualquer data** | desfechos (`desfechos.ts`) |
 | Perdidos | viraram Perdido no período (evento do histórico), idem, **e continuam em Perdido hoje** | desfechos (`desfechos.ts`) |
 | Taxa | ganhos ÷ (ganhos + perdidos) | conta na tela |
@@ -148,39 +192,48 @@ sai do evento "virou Perdido" no histórico, e por isso obedece ao início do hi
 para Break ou virou Ganho) **não** conta como perdido: a coluna exige que ele continue em
 Perdido hoje. Foi decisão do dono do painel em 17/09/2026; até então contava pelo evento.
 
-### A visão Safra: a medida justa de conversão por vendedor
+### A visão Cohort: a medida justa de conversão por vendedor
 
-A tabela por vendedor responde "como foi o mês". A Safra responde "quem converte
+A tabela por vendedor responde "como foi o mês". O Cohort responde "quem converte
 melhor", e para isso muda a pergunta: **dos leads que chegaram nesta pessoa nesta
 semana, quantos viraram venda?** Em cima e embaixo da fração estão os mesmos leads,
 e por isso a taxa não mexe quando a cadência encerra leads antigos em lote, coisa que
 derruba a taxa do mês sem ninguém ter vendido pior. Foi a escolha do dono do painel em
 17/09/2026, depois de comparar os dois jeitos.
 
-Como funciona, em `src/painel/safra.ts` (busca) e `src/painel/safras.ts` (contas):
+Como funciona, em `src/painel/cohort.ts` (busca) e `src/painel/cohorts.ts` (contas):
 
 - **Recebido** = entrou em "Em negociação" ou "Fechamento" pela **primeira vez** dentro
   do período. É o instante em que a IA entrega o lead a uma pessoa (dono e etapa mudam
   na mesma linha do histórico). Cada negócio conta uma vez; quem voltou do Break não é
-  lead novo. Quem já tinha entrado antes do período pertence à safra de lá, e por isso
+  lead novo. Quem já tinha entrado antes do período pertence ao cohort de lá, e por isso
   há uma segunda consulta ao histórico só para excluir esses veteranos.
 - **Ganho / Perdido / Em aberto** = a situação de **hoje** desses mesmos negócios.
   Conversão = ganhos ÷ recebidos. Receita e ticket médio são dos ganhos. "Até vender"
   é a média de dias entre chegar no vendedor e virar venda.
-- **Semana comercial de quarta a terça**, como a Petbee trabalha. A primeira safra do
+- **Semana comercial de quarta a terça**, como a Petbee trabalha. O primeiro cohort do
   histórico (19 a 25/08) só tem 3 dias de dados, porque o histórico começa em 23/08; o
   aviso laranja do início do histórico cobre isso.
 - **Maturidade.** Quem vai comprar compra em 1 ou 2 dias; quem não vai, a cadência
   encerra em até duas semanas (medido em 17/09: 90% das perdas em 11 dias, máximo 17).
-  Então uma safra fechada há 14 dias ou mais aparece como "madura"; antes disso mostra
+  Então um cohort fechado há 14 dias ou mais aparece como "maduro"; antes disso mostra
   "X% decididos" em laranja, e a semana corrente aparece como "em andamento".
-- **"Parcial"** marca a safra que o período escolhido cortou no meio, deixando dias já
+- **"Parcial"** marca o cohort que o período escolhido cortou no meio, deixando dias já
   passados de fora. A semana corrente não é parcial: ela só ainda não acabou.
-- **Poucos leads.** Na grade vendedor × safra, célula com menos de 30 leads sai em cinza
-  e itálico: a taxa ali é sorte, não desempenho.
+- **Poucos leads.** Na grade vendedor × cohort, taxa com menos de 30 leads sai em cinza
+  e itálico: é sorte, não desempenho. Contagem (recebidos, ganhos, em aberto, receita)
+  não recebe a marca, porque contagem não depende de volume para valer.
+- **"Mostrar", na grade.** Troca o número da célula sem nova consulta: Conversão
+  (padrão), Sobre decididos (ganhos ÷ ganhos + perdidos, para cohort que ainda não
+  amadureceu), Recebidos, Ganhos, Em aberto, Receita. A fração embaixo mostra de onde a
+  taxa saiu.
+- **Detalhe de uma pessoa.** Botões com os nomes abaixo da grade abrem a tabela completa
+  daquela pessoa, cohort a cohort, com as mesmas colunas do time mais **"vs. time"**: a
+  conversão dela menos a do time no mesmo cohort, em pontos percentuais. É o que separa
+  "ela foi bem" de "o mês foi bom para todo mundo". Abre por padrão em quem mais recebeu.
 - **Lead que volta.** A prática da Petbee é criar negócio novo quando um lead perdido
-  ou ganho reaparece. O negócio velho fica na safra dele; o novo entra na safra em que
-  chegou. Se em vez disso alguém reabrir o negócio velho, a safra antiga ganha um Ganho
+  ou ganho reaparece. O negócio velho fica no cohort dele; o novo entra no cohort em que
+  chegou. Se em vez disso alguém reabrir o negócio velho, o cohort antigo ganha um Ganho
   tardio, porque a situação é sempre a de hoje. Os dois fecham a conta; o que não
   convém é misturar.
 - **Conta tudo**, inclusive os leads que a IA deixou passar e a vendedora perdeu por
@@ -251,11 +304,11 @@ busca os dados. O resto está em `src/painel/`:
 |---|---|
 | `periodo.ts` | contas de data e a regra do período anterior |
 | `crm.ts` | as consultas ao GraphQL |
-| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `safra.ts`, `safras.ts` | as perguntas e as contas derivadas |
+| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts` | as perguntas e as contas derivadas |
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `secao-safra.tsx`, `tabela-safras.tsx`, `grade-safras.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx` | as partes da tela |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.
 
@@ -288,7 +341,7 @@ Duas regras do servidor que custaram um deploy cada:
   contra o texto do JSON, e é assim que ele sai: `{"diff": {"stage": {"after": "WON",
   "before": "EM_NEGOCIACAO"}}}` — com espaço depois dos dois-pontos, o que importa para
   o `like` casar. Paginação por `pageInfo.endCursor`.
-- **`id: { in: [...] }` funciona** no filtro de negócio: é assim que a safra pergunta
+- **`id: { in: [...] }` funciona** no filtro de negócio: é assim que o cohort pergunta
   "como estão hoje" para uma lista de identificadores.
 
 Números de agosto/2026 pela API, para conferir o seletor em "Mês passado": 622 criados,
@@ -437,7 +490,7 @@ negócio, sem olhar nome de cliente:
 
 Então, com "Este mês", a coluna **Ganhos** deve mostrar **Vitoria 7** (6 + 1) e
 **Lucas 0**, enquanto "Vendas por vendedor" segue mostrando 13 e 15. A versão anterior
-da tabela (só safra) mostrava Vitoria 6, porque deixava de fora a venda delegada em
+da tabela (só cohort) mostrava Vitoria 6, porque deixava de fora a venda delegada em
 agosto — foi exatamente o caso que o dono do painel pediu para entrar.
 
 As 15 vendas do Lucas são venda direta: foram de "Novo Lead" a Ganho sem passar por
@@ -463,13 +516,15 @@ Os seis que saem na regra final são todos da Vitoria: quatro voltaram para nego
 foi para Break e um virou Ganho. Com "Este mês" a tela deve mostrar Perdidos 147 / 6 / 3
 e taxa da Vitoria 7 ÷ (7 + 147) = 4,5%.
 
-## Conferência da visão Safra
+## Conferência da visão Cohort
 
 Contas refeitas por fora do painel em 17/09/2026, negócio por negócio, com os 259
-negócios que entraram em negociação desde 23/08 (261 no histórico, 2 apagados). Com o
-botão "8 semanas" e "Agrupar por: Semana", a tela deve mostrar:
+negócios que entraram em negociação desde 23/08 (261 no histórico, 2 apagados). Foi
+**antes do piso de 01/09**; com o piso, as duas primeiras linhas somem e a de 26/08 a
+01/09 fica só com o dia 01/09. Com o botão "8 semanas" e "Agrupar por: Semana", a tela
+mostrava:
 
-| Safra | Recebidos | Ganhos | Perdidos | Em aberto | Conversão | Receita | Ticket médio | Até vender |
+| Cohort | Recebidos | Ganhos | Perdidos | Em aberto | Conversão | Receita | Ticket médio | Até vender |
 |---|---|---|---|---|---|---|---|---|
 | 19 a 25/08 | 57 | 5 | 43 | 9 | 8,8% | R$ 919,30 | R$ 183,86 | 2,4 d |
 | 26/08 a 01/09 | 59 | 1 | 57 | 1 | 1,7% | R$ 109,90 | R$ 109,90 | 1,1 d |
@@ -478,11 +533,11 @@ botão "8 semanas" e "Agrupar por: Semana", a tela deve mostrar:
 | 16 a 22/09 | 10 | 0 | 1 | 9 | 0% | R$ 0,00 | — | — |
 | Total | 259 | 12 | 175 | 72 | 4,6% | R$ 1.988,60 | R$ 165,72 | 1,7 d |
 
-Os números de "em aberto" e das safras recentes mudam sozinhos com o tempo; os das
-safras maduras (até 01/09) devem bater exatamente. As três semanas de 29/07 a 18/08
+Os números de "em aberto" e dos cohorts recentes mudam sozinhos com o tempo; os das
+cohorts maduros (até 01/09) devem bater exatamente. As três semanas de 29/07 a 18/08
 saem zeradas, porque o histórico não existia.
 
-Grade vendedor × safra (ganhos/recebidos):
+Grade vendedor × cohort (ganhos/recebidos):
 
 | Vendedor | 19 a 25/08 | 26/08 a 01/09 | 02 a 08/09 | 09 a 15/09 | 16 a 22/09 | Total |
 |---|---|---|---|---|---|---|
@@ -498,6 +553,16 @@ Dois achados dessa conferência, para o dono do painel olhar: dois negócios ent
 negociação e viraram venda **sem dono**; e na semana de 26/08 a 01/09 a conversão foi
 1,7% contra 4 a 9% nas outras.
 
+## Conferência da jornada
+
+Só uma ordem de grandeza, medida pela API em 17/09 com as linhas de setembro (01 a 16):
+das 316 linhas "virou Perdido", 161 vinham de Em negociação, 93 de Em qualificação, 53 de
+Novo Lead, 7 de Break e 1 de Fechamento; das 36 linhas "virou Ganho", 23 vinham de Novo
+Lead (venda direta), 8 de Em negociação, 2 de Em qualificação, 2 de Perdido (reaberto e
+vendido) e 1 era "Ganho para Ganho", que não conta. Na lente "próximo passo" as colunas
+Ganho e Perdido devem ficar perto disso; não iguais, porque a tabela conta pela data da
+entrada e não pela data da saída.
+
 ## O que ainda não está aqui
 
 - **Quem clicou em cada mudança de etapa.** A maioria é a automação; o campo de pessoa
@@ -505,11 +570,11 @@ negociação e viraram venda **sem dono**; e na semana de 26/08 a 01/09 a conver
 - **Tempo até fechar** (dias entre entrar em negociação e virar Ganho). Dá para tirar do
   mesmo histórico; ainda não foi pedido.
 - **Vendas diretas, que não passam por negociação.** Hoje ficam fora da tabela por
-  vendedor e da Safra e só aparecem em "Vendas por vendedor". Se um dia devem entrar, e
+  vendedor e do Cohort e só aparecem em "Vendas por vendedor". Se um dia devem entrar, e
   como, é decisão de processo que o dono do painel adiou.
-- **Na Safra: motivos de perda por vendedor, receita por lead recebido e um gráfico de
-  linha da conversão por safra.** Foram discutidos em 17/09/2026 e deixados de fora de
-  propósito; a linha faz sentido quando houver umas oito safras.
+- **No Cohort: motivos de perda por vendedor, receita por lead recebido e um gráfico de
+  linha da conversão por cohort.** Foram discutidos em 17/09/2026 e deixados de fora de
+  propósito; a linha faz sentido quando houver uns oito cohorts.
 - **"Sem origem" como categoria de verdade.** São ~70 negócios por mês sem origem
   preenchida. Depende de mexer no rastreamento, que está congelado até 22/09/2026.
 

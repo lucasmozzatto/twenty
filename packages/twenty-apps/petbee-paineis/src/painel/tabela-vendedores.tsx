@@ -4,7 +4,7 @@
 import { Cartao } from 'src/painel/cartoes';
 import { type DesfechoPorVendedor } from 'src/painel/desfechos';
 import { formatarInteiro, formatarPercentual, formatarReais } from 'src/painel/formato';
-import { type SafraPorVendedor } from 'src/painel/funil';
+import { type CohortPorVendedor } from 'src/painel/funil';
 import { type Tema } from 'src/painel/tema';
 
 export type LinhaVendedor = {
@@ -17,11 +17,11 @@ export type LinhaVendedor = {
   ticketMedio: number | null;
 };
 
-// Junta as duas fontes por dono: recebidos e em aberto vêm da safra (entraram
+// Junta as duas fontes por dono: recebidos e em aberto vêm do cohort (entraram
 // em negociação no período); ganhos, perdidos, receita e ticket vêm dos
 // desfechos (fecharam ou perderam no período, tendo passado por negociação).
 export const montarLinhas = (
-  safra: SafraPorVendedor[],
+  cohort: CohortPorVendedor[],
   desfechos: DesfechoPorVendedor[],
 ): LinhaVendedor[] => {
   const porDono = new Map<string | null, LinhaVendedor>();
@@ -45,7 +45,7 @@ export const montarLinhas = (
     return nova;
   };
 
-  for (const item of safra) {
+  for (const item of cohort) {
     const alvo = linha(item.chave);
 
     alvo.recebidos = item.recebidos;

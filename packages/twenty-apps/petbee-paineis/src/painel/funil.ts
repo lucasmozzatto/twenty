@@ -10,7 +10,7 @@
 //   FLUXO  — o que aconteceu dentro do período. Um negócio ganho em setembro
 //            pode ter entrado em negociação em agosto, então a razão entre um
 //            degrau e outro NÃO é taxa de conversão.
-//   SAFRA  — dos que entraram em negociação DENTRO do período, como estão
+//   COHORT  — dos que entraram em negociação DENTRO do período, como estão
 //            hoje. Essa sim é conversão, e é a que responde "falamos com
 //            quantos e fechamos quantos".
 import { agrupar, consultar } from 'src/painel/crm';
@@ -21,10 +21,10 @@ import {
   negociosQueEntraramEm,
   SO_NEGOCIOS,
 } from 'src/painel/linha-do-tempo';
-import { limitesIso, type Periodo } from 'src/painel/periodo';
+import { limitesIso, type Periodo, recortarNoHistorico } from 'src/painel/periodo';
 import { ETAPAS_EM_NEGOCIACAO } from 'src/painel/rotulos';
 
-export type SafraPorVendedor = {
+export type CohortPorVendedor = {
   chave: string | null;
   recebidos: number;
   ganhos: number;
@@ -38,23 +38,30 @@ export type Funil = {
   entrouNegociacao: number;
   virouGanho: number;
   virouPerdido: number;
-  // Safra: como estão HOJE os que entraram em negociação dentro do período.
+  // Cohort: como estão HOJE os que entraram em negociação dentro do período.
   negociacaoTotal: number;
   negociacaoGanhos: number;
   negociacaoPerdidos: number;
   negociacaoEmAberto: number;
-  // A mesma safra, aberta por dono. Ordenada por recebidos; "Sem dono" no fim.
-  porVendedor: SafraPorVendedor[];
+  // O mesmo cohort, aberto por dono. Ordenado por recebidos; "Sem dono" no fim.
+  porVendedor: CohortPorVendedor[];
   // Antes desta data não existe histórico: o CRM não gravava ainda.
   historicoComecaEm: string | null;
   // Verdadeiro quando o período pedido começa antes do histórico existir.
   periodoIncompleto: boolean;
+  // O período de fato contado, já com o piso de 01/09/2026 aplicado.
+  periodo: Periodo;
+  // Verdadeiro quando o período pedido começava antes do piso.
+  cortadoNoInicio: boolean;
   // Verdadeiro quando bateu no teto de páginas e os números estão por baixo.
   truncado: boolean;
   falhas: Falha[];
 };
 
-const FUNIL_VAZIO: Omit<Funil, 'historicoComecaEm' | 'periodoIncompleto' | 'falhas'> = {
+const FUNIL_VAZIO: Omit<
+  Funil,
+  'historicoComecaEm' | 'periodoIncompleto' | 'periodo' | 'cortadoNoInicio' | 'falhas'
+> = {
   entrouQualificacao: 0,
   entrouNegociacao: 0,
   virouGanho: 0,
@@ -87,13 +94,13 @@ const buscarInicioDoHistorico = async (): Promise<string | null> => {
   return minimo === null ? null : minimo.slice(0, 10);
 };
 
-// Como estão HOJE os negócios da safra. Dono e etapa juntos num agrupamento
-// só: dele saem o total da safra e a tabela por vendedor.
+// Como estão HOJE os negócios do cohort. Dono e etapa juntos num agrupamento
+// só: dele saem o total do cohort e a tabela por vendedor.
 type Situacao = {
   ganhos: number;
   perdidos: number;
   emAberto: number;
-  porVendedor: SafraPorVendedor[];
+  porVendedor: CohortPorVendedor[];
 };
 
 const SITUACAO_VAZIA: Situacao = {
@@ -111,7 +118,7 @@ const situacaoDeHoje = async (negocios: string[]): Promise<Situacao> => {
     { stage: true },
   ]);
 
-  const porDono = new Map<string | null, SafraPorVendedor>();
+  const porDono = new Map<string | null, CohortPorVendedor>();
 
   for (const grupo of grupos) {
     const dono = grupo.chaves[0] ?? null;
@@ -151,9 +158,10 @@ const situacaoDeHoje = async (negocios: string[]): Promise<Situacao> => {
   };
 };
 
-export const buscarFunil = async (periodo: Periodo): Promise<Funil> => {
+export const buscarFunil = async (periodoPedido: Periodo): Promise<Funil> => {
   const falhas: Falha[] = [];
 
+  const { periodo, cortado } = recortarNoHistorico(periodoPedido);
   const { inicio, fim } = limitesIso(periodo);
 
   const [historicoComecaEm, coleta] = await Promise.all([
@@ -178,8 +186,8 @@ export const buscarFunil = async (periodo: Periodo): Promise<Funil> => {
     ETAPAS_EM_NEGOCIACAO,
   );
 
-  const safra = await tentar(
-    'situação da safra em negociação',
+  const cohort = await tentar(
+    'situação do cohort em negociação',
     situacaoDeHoje([...emNegociacao]),
     SITUACAO_VAZIA,
     falhas,
@@ -194,13 +202,15 @@ export const buscarFunil = async (periodo: Periodo): Promise<Funil> => {
     virouGanho: negociosQueEntraramEm(coleta.mudancas, ['WON']).size,
     virouPerdido: negociosQueEntraramEm(coleta.mudancas, ['LOST']).size,
     negociacaoTotal: emNegociacao.size,
-    negociacaoGanhos: safra.ganhos,
-    negociacaoPerdidos: safra.perdidos,
-    negociacaoEmAberto: safra.emAberto,
-    porVendedor: safra.porVendedor,
+    negociacaoGanhos: cohort.ganhos,
+    negociacaoPerdidos: cohort.perdidos,
+    negociacaoEmAberto: cohort.emAberto,
+    porVendedor: cohort.porVendedor,
     historicoComecaEm,
     periodoIncompleto:
       historicoComecaEm !== null && periodo.de < historicoComecaEm,
+    periodo,
+    cortadoNoInicio: cortado,
     truncado: coleta.truncado,
     falhas,
   };

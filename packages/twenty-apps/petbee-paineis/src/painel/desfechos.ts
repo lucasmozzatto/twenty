@@ -1,7 +1,7 @@
 // Os desfechos do período por vendedor: vendas e perdas que PASSARAM por
 // negociação em algum momento, mesmo que tenham entrado lá antes do período.
 //
-// É diferente da safra do funil de propósito. A safra pergunta "dos que
+// É diferente do cohort do funil de propósito. O cohort pergunta "dos que
 // entraram em negociação NESTE período, como estão hoje". Aqui a pergunta é
 // "o que cada vendedor fechou e perdeu NESTE período, entre os leads que
 // passaram pela mão dele". Um lead delegado em agosto e vendido em setembro

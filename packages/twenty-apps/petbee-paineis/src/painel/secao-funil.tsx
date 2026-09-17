@@ -1,9 +1,11 @@
 // O funil pelo histórico de etapa. Duas medidas diferentes, separadas de
-// propósito na tela: o FLUXO do período e a SAFRA dos que negociaram.
+// propósito na tela: o FLUXO do período e o COHORT dos que negociaram.
 import { BarrasEmpilhadas } from 'src/painel/barras-empilhadas';
 import { Cartao, Numero, Titulo } from 'src/painel/cartoes';
 import { formatarDia, formatarInteiro, formatarPercentual } from 'src/painel/formato';
 import { type Funil } from 'src/painel/funil';
+import { type Jornada } from 'src/painel/jornada';
+import { TabelaJornada } from 'src/painel/tabela-jornada';
 import { type Tema } from 'src/painel/tema';
 
 type Degrau = { rotulo: string; valor: number; nota?: string };
@@ -86,10 +88,12 @@ const Degraus = ({
 
 export const SecaoFunil = ({
   funil,
+  jornada,
   criadosNoPeriodo,
   tema,
 }: {
   funil: Funil;
+  jornada: Jornada | null;
   criadosNoPeriodo: number;
   tema: Tema;
 }) => (
@@ -99,6 +103,22 @@ export const SecaoFunil = ({
       nota="Lido do histórico de mudanças de etapa, que o gráfico comum não alcança. Conta negócios distintos: quem voltou para negociação depois de um Break conta uma vez só."
       tema={tema}
     />
+
+    {funil.cortadoNoInicio ? (
+      <div
+        style={{
+          padding: '8px 10px',
+          borderRadius: '6px',
+          border: `1px solid ${tema.laranja}`,
+          color: tema.laranja,
+          fontSize: '12px',
+        }}
+      >
+        <b>Atenção:</b> contando a partir de {formatarDia(funil.periodo.de)}, por
+        decisão do dono do painel: antes disso o processo ainda estava sendo
+        ajustado. O período escolhido começava antes e foi recortado.
+      </div>
+    ) : null}
 
     {funil.periodoIncompleto && funil.historicoComecaEm !== null ? (
       <div
@@ -153,7 +173,7 @@ export const SecaoFunil = ({
         rotulo="Ainda em aberto"
         valor={formatarInteiro(funil.negociacaoEmAberto)}
         cor={tema.azul}
-        nota="da mesma safra, sem desfecho até agora"
+        nota="do mesmo cohort, sem desfecho até agora"
         tema={tema}
       />
     </div>
@@ -172,9 +192,11 @@ export const SecaoFunil = ({
       tema={tema}
     />
 
+    {jornada === null ? null : <TabelaJornada jornada={jornada} tema={tema} />}
+
     <BarrasEmpilhadas
       titulo="Dos que entraram em negociação no período, como estão hoje"
-      nota="Esta sim é conversão: a mesma safra de negócios, olhada agora. Quem está em aberto ainda pode virar qualquer coisa."
+      nota="Esta sim é conversão: o mesmo cohort de negócios, olhado agora. Quem está em aberto ainda pode virar qualquer coisa."
       linhas={[
         {
           rotulo: 'Situação hoje',

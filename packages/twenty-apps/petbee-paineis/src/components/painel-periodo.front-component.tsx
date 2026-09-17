@@ -1,18 +1,14 @@
 // Quadro com seletor de período: a única forma de ter filtro de data global no
 // painel, porque os gráficos nativos só leem o filtro gravado em cada um.
 //
-// Um seletor de período em cima e quatro visões embaixo: Visão geral, Funil,
-// Vendedores e Safra. São abas DENTRO do quadro, não abas do CRM, de
-// propósito: cada aba do CRM seria um quadro independente com o próprio
-// seletor, e a pessoa escolheria o período quatro vezes. Aqui escolhe uma
-// vez e troca de visão. Na Safra o período muda de sentido (é a data em que
-// o lead chegou no vendedor), e a própria visão avisa isso na primeira linha.
-// Este arquivo cuida só do seletor e de buscar os dados; quem desenha são
-// os arquivos `secao-*.tsx` em `src/painel/`.
+// Um seletor em cima e quatro visões embaixo (Visão geral, Funil, Vendedores,
+// Cohort), como abas DENTRO do quadro: abas do CRM seriam quadros separados,
+// cada um com o próprio seletor. No Cohort o período muda de sentido (é a
+// data em que o lead chegou no vendedor) e a visão avisa isso na primeira
+// linha. Este arquivo só busca os dados; quem desenha são os `secao-*.tsx`.
 //
-// Busca os dados direto do GraphQL do CRM, como a régua da cadência faz: o
-// runtime injeta TWENTY_API_URL e o token do app. O papel do app é somente
-// leitura, então este código não consegue alterar nada nem por bug.
+// Lê o GraphQL do CRM direto: o runtime injeta TWENTY_API_URL e o token do
+// app, cujo papel é somente leitura. Nem por bug este código altera algo.
 import { useCallback, useEffect, useState } from 'react';
 import { defineFrontComponent } from 'twenty-sdk/define';
 import { useColorScheme } from 'twenty-sdk/front-component';
@@ -23,7 +19,8 @@ import { buscarComparacao, type Comparacao } from 'src/painel/comparacao';
 import { buscarDados, type Dados } from 'src/painel/dados';
 import { buscarDesfechos, type Desfechos } from 'src/painel/desfechos';
 import { buscarFunil, type Funil } from 'src/painel/funil';
-import { buscarSafra, type Safra } from 'src/painel/safra';
+import { buscarJornada, type Jornada } from 'src/painel/jornada';
+import { buscarCohort, type Cohort } from 'src/painel/cohort';
 import {
   hojeEmBrasilia,
   periodoAnterior,
@@ -36,18 +33,18 @@ import {
   NumerosComerciais,
 } from 'src/painel/secao-comercial';
 import { SecaoFunil } from 'src/painel/secao-funil';
-import { SecaoSafra } from 'src/painel/secao-safra';
+import { SecaoCohort } from 'src/painel/secao-cohort';
 import { SecaoVendedores } from 'src/painel/secao-vendedores';
 import { Seletor } from 'src/painel/seletor';
 import { construirTema } from 'src/painel/tema';
 
-type Visao = 'geral' | 'funil' | 'vendedores' | 'safra';
+type Visao = 'geral' | 'funil' | 'vendedores' | 'cohort';
 
 const VISOES: { valor: Visao; rotulo: string }[] = [
   { valor: 'geral', rotulo: 'Visão geral' },
   { valor: 'funil', rotulo: 'Funil' },
   { valor: 'vendedores', rotulo: 'Vendedores' },
-  { valor: 'safra', rotulo: 'Safra' },
+  { valor: 'cohort', rotulo: 'Cohort' },
 ];
 
 const PainelPeriodo = () => {
@@ -63,7 +60,8 @@ const PainelPeriodo = () => {
   const [comparacao, setComparacao] = useState<Comparacao | null>(null);
   const [funil, setFunil] = useState<Funil | null>(null);
   const [desfechos, setDesfechos] = useState<Desfechos | null>(null);
-  const [safra, setSafra] = useState<Safra | null>(null);
+  const [cohort, setCohort] = useState<Cohort | null>(null);
+  const [jornada, setJornada] = useState<Jornada | null>(null);
   const [visao, setVisao] = useState<Visao>('geral');
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
@@ -80,20 +78,28 @@ const PainelPeriodo = () => {
     try {
       // As duas buscas vão juntas: o painel aparece de uma vez, sem os
       // rodapés de comparação chegando depois e empurrando a tela.
-      const [novosDados, novaComparacao, novoFunil, novosDesfechos, novaSafra] =
-        await Promise.all([
-          buscarDados(periodo),
-          comparar ? buscarComparacao(anterior) : Promise.resolve(null),
-          buscarFunil(periodo),
-          buscarDesfechos(periodo),
-          buscarSafra(periodo),
-        ]);
+      const [
+        novosDados,
+        novaComparacao,
+        novoFunil,
+        novosDesfechos,
+        novoCohort,
+        novaJornada,
+      ] = await Promise.all([
+        buscarDados(periodo),
+        comparar ? buscarComparacao(anterior) : Promise.resolve(null),
+        buscarFunil(periodo),
+        buscarDesfechos(periodo),
+        buscarCohort(periodo),
+        buscarJornada(periodo),
+      ]);
 
       setDados(novosDados);
       setComparacao(novaComparacao);
       setFunil(novoFunil);
       setDesfechos(novosDesfechos);
-      setSafra(novaSafra);
+      setCohort(novoCohort);
+      setJornada(novaJornada);
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : String(falha));
     } finally {
@@ -130,7 +136,8 @@ const PainelPeriodo = () => {
     ...(comparacao?.falhas ?? []),
     ...(funil?.falhas ?? []),
     ...(desfechos?.falhas ?? []),
-    ...(safra?.falhas ?? []),
+    ...(cohort?.falhas ?? []),
+    ...(jornada?.falhas ?? []),
   ];
 
   return (
@@ -246,6 +253,7 @@ const PainelPeriodo = () => {
         {visao === 'funil' && dados && funil && !periodoInvalido ? (
           <SecaoFunil
             funil={funil}
+            jornada={jornada}
             criadosNoPeriodo={dados.numeros.criados}
             tema={tema}
           />
@@ -262,9 +270,9 @@ const PainelPeriodo = () => {
           />
         ) : null}
 
-        {visao === 'safra' && safra && !periodoInvalido ? (
-          <SecaoSafra
-            safra={safra}
+        {visao === 'cohort' && cohort && !periodoInvalido ? (
+          <SecaoCohort
+            cohort={cohort}
             funil={funil}
             periodo={periodo}
             hoje={hoje}

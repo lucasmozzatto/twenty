@@ -6,7 +6,21 @@
 const DESLOCAMENTO_BRASILIA = '-03:00';
 
 export const FUSO = 'America/Sao_Paulo';
+
+export type Periodo = { de: string; ate: string };
+
+// Piso de tudo que lê o histórico de etapas (Funil, Cohort, jornada). O CRM
+// grava desde 18/08/2026, mas até o fim de agosto o processo ainda estava
+// sendo ajustado depois da migração, e o dono do painel pediu em 17/09/2026
+// para contar só a partir daqui. É também o botão "Desde 01/09".
 export const INICIO_HISTORICO = '2026-09-01';
+
+export const recortarNoHistorico = (
+  periodo: Periodo,
+): { periodo: Periodo; cortado: boolean } =>
+  periodo.de < INICIO_HISTORICO
+    ? { periodo: { de: INICIO_HISTORICO, ate: periodo.ate }, cortado: true }
+    : { periodo, cortado: false };
 
 export type Predefinido =
   | 'este-mes'
@@ -16,8 +30,6 @@ export type Predefinido =
   | '8-semanas'
   | 'desde-inicio'
   | 'personalizado';
-
-export type Periodo = { de: string; ate: string };
 
 export const PREDEFINIDOS: { valor: Predefinido; rotulo: string }[] = [
   { valor: 'este-mes', rotulo: 'Este mês' },
@@ -87,7 +99,7 @@ export const periodoPredefinido = (qual: Predefinido, hoje: string): Periodo => 
     case 'ultimos-30':
       return { de: somarDias(hoje, -29), ate: hoje };
     // A semana atual mais as sete anteriores, começando numa quarta: é o
-    // recorte natural da visão Safra.
+    // recorte natural da visão Cohort.
     case '8-semanas':
       return { de: somarDias(inicioDaSemana(hoje), -49), ate: hoje };
     case 'desde-inicio':

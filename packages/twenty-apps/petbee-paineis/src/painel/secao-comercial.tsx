@@ -94,23 +94,23 @@ export const NumerosComerciais = ({
       />
       <Numero
         rotulo="Conversão"
-        valor={n ? formatarPercentual(n.ganhosDaSafra, n.criados) : null}
+        valor={n ? formatarPercentual(n.ganhosDoCohort, n.criados) : null}
         cor={tema.texto}
         nota={
           n
-            ? `${formatarInteiro(n.ganhosDaSafra)} ganhos entre os ${formatarInteiro(n.criados)} criados`
+            ? `${formatarInteiro(n.ganhosDoCohort)} ganhos entre os ${formatarInteiro(n.criados)} criados`
             : 'ganhos entre os criados no período'
         }
         comparacao={
           n && antes
             ? {
-                antes: formatarPercentual(antes.ganhosDaSafra, antes.criados),
+                antes: formatarPercentual(antes.ganhosDoCohort, antes.criados),
                 variacao:
-                  taxa(n.ganhosDaSafra, n.criados) -
-                  taxa(antes.ganhosDaSafra, antes.criados),
+                  taxa(n.ganhosDoCohort, n.criados) -
+                  taxa(antes.ganhosDoCohort, antes.criados),
                 texto: formatarPontos(
-                  taxa(n.ganhosDaSafra, n.criados) -
-                    taxa(antes.ganhosDaSafra, antes.criados),
+                  taxa(n.ganhosDoCohort, n.criados) -
+                    taxa(antes.ganhosDoCohort, antes.criados),
                 ),
               }
             : undefined

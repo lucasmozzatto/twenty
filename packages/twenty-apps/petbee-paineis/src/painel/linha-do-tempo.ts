@@ -71,6 +71,23 @@ export const filtroDeEntradaEm = (etapas: readonly string[]): Filtro => ({
 
 export const SO_NEGOCIOS: Filtro = { targetOpportunityId: { is: 'NOT_NULL' } };
 
+// Uma linha do histórico é entrada de verdade na etapa só se a etapa mudou.
+// Existe linha com "de Ganho para Ganho": alguém editou outro campo e o CRM
+// gravou a etapa junto. Em setembro/2026 foi 1 em 36 "ganhos"; sem esta
+// checagem ela contaria como venda nova.
+export const entrouEm = (
+  mudanca: MudancaDeEtapa,
+  etapas: readonly string[],
+): boolean => {
+  const etapa = mudanca.properties?.diff?.stage;
+
+  return (
+    etapa?.after !== undefined &&
+    etapa.after !== etapa.before &&
+    etapas.includes(etapa.after)
+  );
+};
+
 // Negócios DISTINTOS que entraram nestas etapas. Distinto importa: um negócio
 // pode voltar para negociação depois de um Break, e contar duas vezes inflaria
 // o funil.
@@ -81,13 +98,7 @@ export const negociosQueEntraramEm = (
   const negocios = new Set<string>();
 
   for (const mudanca of mudancas) {
-    const depois = mudanca.properties?.diff?.stage?.after;
-
-    if (
-      depois !== undefined &&
-      etapas.includes(depois) &&
-      mudanca.targetOpportunityId !== null
-    ) {
+    if (entrouEm(mudanca, etapas) && mudanca.targetOpportunityId !== null) {
       negocios.add(mudanca.targetOpportunityId);
     }
   }
