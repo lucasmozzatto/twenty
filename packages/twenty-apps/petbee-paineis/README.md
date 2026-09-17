@@ -221,8 +221,10 @@ a regra do campo dá 11 (10 Comercial + 1 vazia marcada à mão), e deixa 2 vazi
 compra automática pelo site fora, apontadas na lista.
 
 Perdidos seguem o funil, não o campo: perderam no período, tendo passado por negociação,
-e continuam em Perdido. A Taxa (ganhos ÷ ganhos + perdidos) mistura as duas réguas de
-propósito: é "vendas comissionáveis sobre leads trabalhados e perdidos".
+e continuam em Perdido. Como vêm do histórico, obedecem ao piso de 01/09/2026 (as vendas,
+que vêm da data de fechamento do negócio, não). A Taxa (ganhos ÷ ganhos + perdidos)
+mistura as duas réguas de propósito: é "vendas comissionáveis sobre leads trabalhados e
+perdidos".
 
 Perda tem duas ressalvas. O negócio não guarda data de perda, então "perdeu no período"
 sai do evento "virou Perdido" no histórico, e por isso obedece ao início do histórico
