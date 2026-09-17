@@ -1,0 +1,26 @@
+{
+  "name": "petbee-conferencia",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=22.6.0",
+    "npm": "please-use-yarn",
+    "yarn": ">=4.0.2"
+  },
+  "packageManager": "yarn@4.9.2",
+  "scripts": {
+    "twenty": "twenty",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "twenty-client-sdk": "^2.14.0",
+    "twenty-sdk": "^2.14.0",
+    "typescript": "^5.9.3"
+  }
+}
