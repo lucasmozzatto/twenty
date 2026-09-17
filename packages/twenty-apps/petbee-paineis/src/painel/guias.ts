@@ -32,8 +32,10 @@ export const GUIA_FUNIL = [
 
 export const GUIA_VENDEDORES = [
   'A tabela do topo responde "o que cada vendedor fechou neste período".',
-  'Recebidos: leads que a IA entregou à pessoa no período. Ganhos e Perdidos: fecharam ou perderam no período, tendo passado por negociação em algum momento, mesmo que recebidos antes. Por isso Recebidos − Ganhos − Perdidos não dá Em aberto.',
-  'Perdido que foi reaberto não conta como perdido. Venda direta, que não passou por vendedor, fica fora desta tabela e aparece só em "Vendas por vendedor".',
+  'Ganhos: vendas do período (data de fechamento) que o campo Fechamento do negócio marca como Comercial, para o dono do card. Direto e Recompra ficam fora. É a regra de comissão: o campo é preenchido pela automação da venda e conferido pelo gerente comercial.',
+  'Venda sem o campo Fechamento entra só se passou por negociação ou se um vendedor marcou o Ganho à mão, e aparece numa lista laranja abaixo da tabela para o gerente preencher no CRM.',
+  'Recebidos: leads que a IA entregou à pessoa no período. Perdidos: perderam no período, tendo passado por negociação, e continuam em Perdido. Por isso Recebidos − Ganhos − Perdidos não dá Em aberto.',
+  'Venda direta, que não passou pelo comercial, fica fora desta tabela e aparece só em "Vendas por vendedor".',
   'Taxa: ganhos sobre ganhos + perdidos. Receita e Ticket médio: só dos ganhos.',
   'Pipeline (em aberto, sem dono, em negociação, por dono, por etapa) é foto de agora e não muda com o período.',
   'O lead conta para o dono atual: se foi repassado, conta para quem está com ele hoje.',

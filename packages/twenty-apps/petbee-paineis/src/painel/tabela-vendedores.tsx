@@ -2,7 +2,10 @@
 // no período, entre os leads que passaram pela mão dele. Uma tabela, porque
 // sete números por pessoa lidos lado a lado dizem mais que sete barras.
 import { Cartao } from 'src/painel/cartoes';
-import { type DesfechoPorVendedor } from 'src/painel/desfechos';
+import {
+  type DesfechoPorVendedor,
+  type VendaSemClassificacao,
+} from 'src/painel/desfechos';
 import { formatarInteiro, formatarPercentual, formatarReais } from 'src/painel/formato';
 import { type CohortPorVendedor } from 'src/painel/funil';
 import { type Tema } from 'src/painel/tema';
@@ -85,11 +88,13 @@ const GRADE = 'minmax(110px, 1.4fr) repeat(5, minmax(66px, 1fr)) repeat(2, minma
 export const TabelaVendedores = ({
   linhas,
   nomes,
+  semClassificacao,
   truncado,
   tema,
 }: {
   linhas: LinhaVendedor[];
   nomes: Record<string, string>;
+  semClassificacao: VendaSemClassificacao[];
   truncado: boolean;
   tema: Tema;
 }) => {
@@ -163,7 +168,7 @@ export const TabelaVendedores = ({
   return (
     <Cartao
       titulo="Por vendedor, no período"
-      nota="Recebidos: entraram em negociação no período. Ganhos e Perdidos: fecharam ou perderam no período, tendo passado por negociação em algum momento — um lead delegado mês passado e vendido agora conta agora. Perdido que foi reaberto não conta. Em aberto: recebidos ainda sem desfecho. Taxa: ganhos sobre ganhos + perdidos. Receita e ticket: dos ganhos."
+      nota='Recebidos: entraram em negociação no período. Ganhos: vendas do período (data de fechamento) com o campo Fechamento = Comercial, para o dono do card; Direto e Recompra ficam fora; sem o campo, conta só se passou por negociação ou se um vendedor marcou o Ganho à mão. Perdidos: perderam no período, tendo passado por negociação, e continuam em Perdido. Em aberto: recebidos ainda sem desfecho. Taxa: ganhos sobre ganhos + perdidos. Receita e ticket: dos ganhos.'
       tema={tema}
     >
       {truncado ? (
@@ -206,6 +211,29 @@ export const TabelaVendedores = ({
           )}
         </>
       )}
+      {semClassificacao.length > 0 ? (
+        <div style={{ fontSize: '11px', color: tema.laranja, marginTop: '8px' }}>
+          <b>{semClassificacao.length}</b> venda(s) do período sem o campo
+          Fechamento preenchido:{' '}
+          {semClassificacao.filter((venda) => venda.contada).length} contada(s)
+          pela regra automática e{' '}
+          {semClassificacao.filter((venda) => !venda.contada).length} fora da
+          tabela. Para a comissão sair certa, preencha o campo no CRM:{' '}
+          {semClassificacao.slice(0, 20).map((venda, indice) => (
+            <span key={venda.id}>
+              {indice > 0 ? ', ' : ''}
+              <a
+                href={`/object/opportunity/${venda.id}`}
+                style={{ color: tema.laranja, textDecoration: 'underline' }}
+              >
+                {venda.id.slice(0, 8)}
+              </a>
+              {venda.contada ? '' : ' (fora)'}
+            </span>
+          ))}
+          {semClassificacao.length > 20 ? ' e outras' : ''}.
+        </div>
+      ) : null}
     </Cartao>
   );
 };
