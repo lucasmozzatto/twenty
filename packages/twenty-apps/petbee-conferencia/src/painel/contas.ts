@@ -10,13 +10,21 @@ import {
 export type Resumo = {
   vendas: number;
   receita: number;
-  // Assinaturas cobradas: fora as cortesias. É o lado do banco que tem dinheiro.
+  // Soma do "Valor no banco" das vendas: o que o banco confirma delas. Venda
+  // sem assinatura casada entra com zero, e por isso pesa inteira na diferença.
+  valorBanco: number;
+  // Receita do CRM menos o valor no banco das mesmas vendas. Zero é o
+  // objetivo. É a soma da coluna "Diferença" da lista de vendas; comparar com
+  // o MRR de todas as assinaturas misturava assinatura sem venda na conta.
+  diferenca: number;
+  // Vendas com outro negócio ganho do mesmo cliente no período.
+  duplicadas: number;
+  // Assinaturas cobradas: fora as de valor zero. É o lado do banco que tem
+  // dinheiro.
   assinaturas: number;
   mrr: number;
   cortesias: number;
   canceladas: number;
-  // Receita do CRM menos MRR do banco. Zero é o objetivo.
-  diferenca: number;
   vereditosVenda: Record<VereditoVenda, number>;
   vereditosAssinatura: Record<VereditoAssinatura, number>;
 };
@@ -36,10 +44,14 @@ export const resumir = (vendas: Venda[], assinaturas: Assinatura[]): Resumo => {
   };
 
   let receita = 0;
+  let valorBanco = 0;
+  let duplicadas = 0;
 
   for (const venda of vendas) {
     vereditosVenda[venda.veredito] += 1;
     receita += venda.valorCrm ?? 0;
+    valorBanco += venda.valorBanco ?? 0;
+    if (venda.duplicada) duplicadas += 1;
   }
 
   let mrr = 0;
@@ -63,11 +75,13 @@ export const resumir = (vendas: Venda[], assinaturas: Assinatura[]): Resumo => {
   return {
     vendas: vendas.length,
     receita,
+    valorBanco,
+    diferenca: receita - valorBanco,
+    duplicadas,
     assinaturas: cobradas,
     mrr,
     cortesias,
     canceladas,
-    diferenca: receita - mrr,
     vereditosVenda,
     vereditosAssinatura,
   };
