@@ -12,10 +12,11 @@ export default defineApplication({
   displayName: APP_DISPLAY_NAME,
   description: APP_DESCRIPTION,
   applicationVariables: {
-    // "todos" libera a página para qualquer membro. Para restringir, troque
-    // por e-mails separados por vírgula em Settings → Applications →
-    // Conferência Petbee, sem republicar nada. Isto esconde a página; não é
-    // trava de dado: o que o painel lê vem com o papel do app (ver README).
+    // "todos" libera a página para qualquer membro; e-mails separados por
+    // vírgula restringem. Ressalva desta versão do CRM: o valor chega ao
+    // componente de tela CIFRADO, então hoje quem manda é a lista
+    // LIBERADOS_NO_CODIGO em src/painel/acesso.ts (ver README). A variável
+    // passa a valer sozinha quando o CRM entregar o valor legível à tela.
     CONFERENCIA_LIBERADO_PARA: {
       universalIdentifier: LIBERADO_PARA_VARIABLE_UNIVERSAL_IDENTIFIER,
       description:
