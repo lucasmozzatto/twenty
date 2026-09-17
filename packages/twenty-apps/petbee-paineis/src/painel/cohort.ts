@@ -10,6 +10,7 @@
 import { deMicros, listarNegocios } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
 import {
+  entrouEm,
   filtroDeEntradaEm,
   listarMudancas,
   type MudancaDeEtapa,
@@ -91,10 +92,8 @@ export const buscarCohort = async (periodo: Periodo): Promise<Cohort> => {
   const primeiraEntrada = new Map<string, string>();
 
   for (const mudanca of entradas.mudancas) {
-    const depois = mudanca.properties?.diff?.stage?.after;
-
-    if (mudanca.targetOpportunityId === null || depois === undefined) continue;
-    if (!ETAPAS_EM_NEGOCIACAO.includes(depois)) continue;
+    if (mudanca.targetOpportunityId === null) continue;
+    if (!entrouEm(mudanca, ETAPAS_EM_NEGOCIACAO)) continue;
     if (!primeiraEntrada.has(mudanca.targetOpportunityId)) {
       primeiraEntrada.set(mudanca.targetOpportunityId, mudanca.happensAt);
     }
