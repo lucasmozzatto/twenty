@@ -13,6 +13,7 @@ export type Predefinido =
   | 'mes-passado'
   | 'ultimos-7'
   | 'ultimos-30'
+  | '8-semanas'
   | 'desde-inicio'
   | 'personalizado';
 
@@ -23,16 +24,20 @@ export const PREDEFINIDOS: { valor: Predefinido; rotulo: string }[] = [
   { valor: 'mes-passado', rotulo: 'Mês passado' },
   { valor: 'ultimos-7', rotulo: 'Últimos 7 dias' },
   { valor: 'ultimos-30', rotulo: 'Últimos 30 dias' },
+  { valor: '8-semanas', rotulo: '8 semanas' },
   { valor: 'desde-inicio', rotulo: 'Desde 01/09' },
 ];
 
-export const hojeEmBrasilia = (): string =>
+// O dia do calendário em Brasília de um instante qualquer.
+export const diaEmBrasilia = (instante: Date): string =>
   new Intl.DateTimeFormat('en-CA', {
     timeZone: FUSO,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date());
+  }).format(instante);
+
+export const hojeEmBrasilia = (): string => diaEmBrasilia(new Date());
 
 export const somarDias = (dia: string, quantidade: number): string => {
   const [ano, mes, diaDoMes] = dia.split('-').map(Number);
@@ -42,11 +47,22 @@ export const somarDias = (dia: string, quantidade: number): string => {
     .slice(0, 10);
 };
 
-const primeiroDiaDoMes = (dia: string): string => `${dia.slice(0, 7)}-01`;
+export const primeiroDiaDoMes = (dia: string): string => `${dia.slice(0, 7)}-01`;
+
+// A semana comercial da Petbee vai de quarta a terça, escolha do dono do
+// painel em 17/09/2026. 3 é quarta na contagem do Date (0 = domingo).
+const DIA_QUE_ABRE_A_SEMANA = 3;
+
+export const inicioDaSemana = (dia: string): string => {
+  const [ano, mes, diaDoMes] = dia.split('-').map(Number);
+  const diaDaSemana = new Date(Date.UTC(ano, mes - 1, diaDoMes)).getUTCDay();
+
+  return somarDias(dia, -((diaDaSemana - DIA_QUE_ABRE_A_SEMANA + 7) % 7));
+};
 
 // Dia 0 do mês seguinte é o último dia deste mês, e o próprio Date resolve a
 // virada de ano.
-const ultimoDiaDoMes = (dia: string): string => {
+export const ultimoDiaDoMes = (dia: string): string => {
   const [ano, mes] = dia.split('-').map(Number);
 
   return new Date(Date.UTC(ano, mes, 0)).toISOString().slice(0, 10);
@@ -70,6 +86,10 @@ export const periodoPredefinido = (qual: Predefinido, hoje: string): Periodo => 
       return { de: somarDias(hoje, -6), ate: hoje };
     case 'ultimos-30':
       return { de: somarDias(hoje, -29), ate: hoje };
+    // A semana atual mais as sete anteriores, começando numa quarta: é o
+    // recorte natural da visão Safra.
+    case '8-semanas':
+      return { de: somarDias(inicioDaSemana(hoje), -49), ate: hoje };
     case 'desde-inicio':
       return { de: INICIO_HISTORICO, ate: hoje };
     case 'personalizado':
