@@ -194,6 +194,10 @@ combinadas com o dono do painel em 16/09/2026:
 | Receita | soma do valor dos ganhos | desfechos |
 | Ticket médio | média do valor dos ganhos (sem valor não entra); no Total é receita ÷ ganhos | desfechos |
 
+Todo membro do workspace tem linha, mesmo zerado: num dia parado, uma pessoa que some da
+tabela parece erro, e a lista completa é o que permite comparar. "Sem dono" só aparece
+quando tem algo. Pedido do dono do painel em 17/09/2026.
+
 O ponto que muda tudo: **Ganhos e Perdidos não se limitam aos recebidos do período**.
 Um lead delegado em agosto e vendido em setembro conta em setembro. É por isso que
 Recebidos − Ganhos − Perdidos **não** dá Em aberto, e a tela diz isso na nota do quadro.

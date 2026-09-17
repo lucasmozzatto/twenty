@@ -64,7 +64,11 @@ export const SecaoVendedores = ({
 
       {funil === null && desfechos === null ? null : (
         <TabelaVendedores
-          linhas={montarLinhas(funil?.porVendedor ?? [], desfechos?.porVendedor ?? [])}
+          linhas={montarLinhas(
+            funil?.porVendedor ?? [],
+            desfechos?.porVendedor ?? [],
+            Object.keys(nomes),
+          )}
           nomes={nomes}
           semClassificacao={desfechos?.semClassificacao ?? []}
           truncado={desfechos?.truncado ?? false}

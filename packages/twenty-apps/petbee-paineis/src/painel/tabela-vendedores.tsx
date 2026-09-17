@@ -22,10 +22,13 @@ export type LinhaVendedor = {
 
 // Junta as duas fontes por dono: recebidos e em aberto vêm do cohort (entraram
 // em negociação no período); ganhos, perdidos, receita e ticket vêm dos
-// desfechos (fecharam ou perderam no período, tendo passado por negociação).
+// desfechos. Todo membro do time ganha linha, mesmo zerado: uma pessoa que
+// some da tabela num dia parado parece erro, e a lista completa é o que
+// permite comparar. "Sem dono" só aparece quando tem algo.
 export const montarLinhas = (
   cohort: CohortPorVendedor[],
   desfechos: DesfechoPorVendedor[],
+  membros: string[],
 ): LinhaVendedor[] => {
   const porDono = new Map<string | null, LinhaVendedor>();
   const linha = (chave: string | null): LinhaVendedor => {
@@ -47,6 +50,8 @@ export const montarLinhas = (
 
     return nova;
   };
+
+  for (const membro of membros) linha(membro);
 
   for (const item of cohort) {
     const alvo = linha(item.chave);
