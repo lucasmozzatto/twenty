@@ -114,16 +114,29 @@ dos clientes dela. O banco não sabe quem vendeu; a ponte é o negócio.
 
 ## Acesso
 
-A variável do app `CONFERENCIA_LIBERADO_PARA` diz quem abre a página: `todos`
-(padrão) ou e-mails separados por vírgula. Edita-se em Settings → Applications
-→ Conferência Petbee, sem republicar. Quem não está na lista vê "Sem acesso".
+Quem pode abrir a página vem de dois lugares, em `src/painel/acesso.ts`:
 
-Isso **esconde a página, não tranca o dado**: o que o painel busca vem com o
-token do app, e o servidor aplica o papel do app (somente leitura, lê tudo),
-não o papel de quem olha. Qualquer membro logado consegue pedir esse token pela
-API. Serve para tirar da frente de quem não precisa, que é o caso comum. Se um
-dia houver membro que não pode ler negócios ou assinaturas, o papel do app
-precisa ser estreitado em `src/default-role.ts` (`objectPermissions`).
+1. **A variável do app `CONFERENCIA_LIBERADO_PARA`**, se o CRM entregar o valor
+   legível: `todos` (padrão) ou e-mails separados por vírgula, editável em
+   Settings → Applications → Conferência Petbee, sem republicar.
+2. **A lista `LIBERADOS_NO_CODIGO`**, quando a variável não vem legível ou está
+   vazia. Vazia = todos. Mudar exige republicar o app.
+
+**Hoje quem manda é a lista no código.** Nesta versão do CRM o valor de toda
+variável de app é gravado cifrado (`enc:v2:…`) e o componente de tela o recebe
+assim, sem decifrar; só as funções de servidor recebem decifrado. Foi o que fez
+a página abrir em "Sem acesso" no primeiro publish (17/09/2026): o texto
+cifrado foi lido como lista de e-mails. Agora valor cifrado conta como
+ilegível, e a lista do código vale. Quando o CRM passar a decifrar para a tela,
+a variável passa a valer sem mexer no código.
+
+Quem não está na lista vê "Sem acesso". Isso **esconde a página, não tranca o
+dado**: o que o painel busca vem com o token do app, e o servidor aplica o
+papel do app (somente leitura, lê tudo), não o papel de quem olha. Qualquer
+membro logado consegue pedir esse token pela API. Serve para tirar da frente de
+quem não precisa, que é o caso comum. Se um dia houver membro que não pode ler
+negócios ou assinaturas, o papel do app precisa ser estreitado em
+`src/default-role.ts` (`objectPermissions`).
 
 ## Como publicar
 
@@ -187,6 +200,8 @@ página: a conciliação só olha 30 dias para trás pela data de criação.
   `tutor { name }`): dispensa uma segunda busca por pessoa.
 - **`navigate` do SDK** é o jeito de o componente abrir um registro; um link
   comum não sai do quadro.
+- **Variável de app chega cifrada ao componente de tela** (`enc:v2:…`), mesmo
+  não sendo segredo. Ver "Acesso".
 
 ## O que ainda não está aqui
 
