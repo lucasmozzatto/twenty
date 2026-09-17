@@ -118,7 +118,7 @@ export const TabelaSafras = ({
   return (
     <Cartao
       titulo="Safras do time"
-      nota={`Cada linha é um lote de leads que chegou nos vendedores naquela semana ou mês, olhado como está hoje. Conversão: ganhos ÷ recebidos. "Madura" = fechou há ${DIAS_PARA_AMADURECER} dias ou mais; antes disso o número ainda muda. "Até vender": dias médios entre chegar no vendedor e virar venda.`}
+      nota={`Cada linha é um lote de leads que chegou nos vendedores naquela semana ou mês, olhado como está hoje. Conversão: ganhos sobre recebidos. "Madura" = fechou há ${DIAS_PARA_AMADURECER} dias ou mais; antes disso o número ainda muda. "Até vender": dias médios entre chegar no vendedor e virar venda.`}
       tema={tema}
     >
       {linhas.length === 0 ? (
