@@ -207,3 +207,33 @@ export const gradePorVendedor = (
     return b.total.recebidos - a.total.recebidos;
   });
 };
+
+// Recebidos e em aberto por vendedor, para a tabela da visão Vendedores. São
+// os mesmos negócios da Cohort, contados do mesmo jeito (a primeira entrada
+// em negociação, sem contar de novo quem voltou do Break), para as duas
+// visões baterem. Decisão do dono do painel em 17/09/2026.
+export type RecebidosPorVendedor = {
+  chave: string | null;
+  recebidos: number;
+  emAberto: number;
+};
+
+export const recebidosPorVendedor = (
+  negocios: NegocioDoCohort[],
+): RecebidosPorVendedor[] => {
+  const linhas = new Map<string | null, RecebidosPorVendedor>();
+
+  for (const negocio of negocios) {
+    const linha = linhas.get(negocio.ownerId) ?? {
+      chave: negocio.ownerId,
+      recebidos: 0,
+      emAberto: 0,
+    };
+
+    linha.recebidos += 1;
+    if (negocio.stage !== 'WON' && negocio.stage !== 'LOST') linha.emAberto += 1;
+    linhas.set(negocio.ownerId, linha);
+  }
+
+  return [...linhas.values()];
+};

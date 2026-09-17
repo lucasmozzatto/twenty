@@ -12,9 +12,10 @@ import { type Comparacao } from 'src/painel/comparacao';
 import { ComoLer } from 'src/painel/como-ler';
 import { GUIA_VENDEDORES } from 'src/painel/guias';
 import { type Contagem, type Dados } from 'src/painel/dados';
-import { formatarInteiro, variacao } from 'src/painel/formato';
+import { formatarDia, formatarInteiro, variacao } from 'src/painel/formato';
 import { type Desfechos } from 'src/painel/desfechos';
-import { type Funil } from 'src/painel/funil';
+import { type Cohort } from 'src/painel/cohort';
+import { recebidosPorVendedor } from 'src/painel/cohorts';
 import { gradeDeCartoes } from 'src/painel/grade';
 import { rotuloEtapa, rotuloMotivoLost } from 'src/painel/rotulos';
 import { montarLinhas, TabelaVendedores } from 'src/painel/tabela-vendedores';
@@ -23,14 +24,14 @@ import { corDaSerie, type Tema } from 'src/painel/tema';
 export const SecaoVendedores = ({
   dados,
   comparacao,
-  funil,
+  cohort,
   desfechos,
   nomes,
   tema,
 }: {
   dados: Dados;
   comparacao: Comparacao | null;
-  funil: Funil | null;
+  cohort: Cohort | null;
   desfechos: Desfechos | null;
   nomes: Record<string, string>;
   tema: Tema;
@@ -62,16 +63,33 @@ export const SecaoVendedores = ({
 
       <ComoLer itens={GUIA_VENDEDORES} tema={tema} />
 
-      {funil === null && desfechos === null ? null : (
+      {cohort?.cortadoNoInicio ? (
+        <div
+          style={{
+            padding: '8px 10px',
+            borderRadius: '6px',
+            border: `1px solid ${tema.laranja}`,
+            color: tema.laranja,
+            fontSize: '12px',
+          }}
+        >
+          <b>Atenção:</b> Recebidos, Perdidos e Em aberto contam a partir de{' '}
+          {formatarDia(cohort.periodo.de)}, por decisão do dono do painel: antes
+          disso o processo ainda estava sendo ajustado. O período escolhido
+          começava antes e foi recortado. Ganhos seguem o período inteiro.
+        </div>
+      ) : null}
+
+      {cohort === null && desfechos === null ? null : (
         <TabelaVendedores
           linhas={montarLinhas(
-            funil?.porVendedor ?? [],
+            recebidosPorVendedor(cohort?.negocios ?? []),
             desfechos?.porVendedor ?? [],
             Object.keys(nomes),
           )}
           nomes={nomes}
           semClassificacao={desfechos?.semClassificacao ?? []}
-          truncado={desfechos?.truncado ?? false}
+          truncado={(cohort?.truncado ?? false) || (desfechos?.truncado ?? false)}
           tema={tema}
         />
       )}

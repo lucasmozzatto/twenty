@@ -24,14 +24,6 @@ import {
 import { limitesIso, type Periodo, recortarNoHistorico } from 'src/painel/periodo';
 import { ETAPAS_EM_NEGOCIACAO } from 'src/painel/rotulos';
 
-export type CohortPorVendedor = {
-  chave: string | null;
-  recebidos: number;
-  ganhos: number;
-  perdidos: number;
-  emAberto: number;
-};
-
 export type Funil = {
   // Fluxo: negócios distintos que ENTRARAM em cada etapa dentro do período.
   entrouQualificacao: number;
@@ -43,8 +35,6 @@ export type Funil = {
   negociacaoGanhos: number;
   negociacaoPerdidos: number;
   negociacaoEmAberto: number;
-  // O mesmo cohort, aberto por dono. Ordenado por recebidos; "Sem dono" no fim.
-  porVendedor: CohortPorVendedor[];
   // Antes desta data não existe histórico: o CRM não gravava ainda.
   historicoComecaEm: string | null;
   // Verdadeiro quando o período pedido começa antes do histórico existir.
@@ -70,7 +60,6 @@ const FUNIL_VAZIO: Omit<
   negociacaoGanhos: 0,
   negociacaoPerdidos: 0,
   negociacaoEmAberto: 0,
-  porVendedor: [],
   truncado: false,
 };
 
@@ -94,68 +83,32 @@ const buscarInicioDoHistorico = async (): Promise<string | null> => {
   return minimo === null ? null : minimo.slice(0, 10);
 };
 
-// Como estão HOJE os negócios do cohort. Dono e etapa juntos num agrupamento
-// só: dele saem o total do cohort e a tabela por vendedor.
+// Como estão HOJE os negócios que entraram em negociação no período: daqui
+// saem os totais do cohort desta visão. A abertura por vendedor mora na visão
+// Cohort e na tabela de Vendedores, que leem `cohort.ts`.
 type Situacao = {
   ganhos: number;
   perdidos: number;
   emAberto: number;
-  porVendedor: CohortPorVendedor[];
 };
 
-const SITUACAO_VAZIA: Situacao = {
-  ganhos: 0,
-  perdidos: 0,
-  emAberto: 0,
-  porVendedor: [],
-};
+const SITUACAO_VAZIA: Situacao = { ganhos: 0, perdidos: 0, emAberto: 0 };
 
 const situacaoDeHoje = async (negocios: string[]): Promise<Situacao> => {
   if (negocios.length === 0) return SITUACAO_VAZIA;
 
-  const grupos = await agrupar({ id: { in: negocios } }, [
-    { ownerId: true },
-    { stage: true },
-  ]);
-
-  const porDono = new Map<string | null, CohortPorVendedor>();
+  const grupos = await agrupar({ id: { in: negocios } }, [{ stage: true }]);
+  const situacao = { ...SITUACAO_VAZIA };
 
   for (const grupo of grupos) {
-    const dono = grupo.chaves[0] ?? null;
-    const etapa = grupo.chaves[1];
-    const linha = porDono.get(dono) ?? {
-      chave: dono,
-      recebidos: 0,
-      ganhos: 0,
-      perdidos: 0,
-      emAberto: 0,
-    };
+    const etapa = grupo.chaves[0];
 
-    linha.recebidos += grupo.contagem;
-    if (etapa === 'WON') linha.ganhos += grupo.contagem;
-    else if (etapa === 'LOST') linha.perdidos += grupo.contagem;
-    else linha.emAberto += grupo.contagem;
-
-    porDono.set(dono, linha);
+    if (etapa === 'WON') situacao.ganhos += grupo.contagem;
+    else if (etapa === 'LOST') situacao.perdidos += grupo.contagem;
+    else situacao.emAberto += grupo.contagem;
   }
 
-  // Quem recebeu mais primeiro; "Sem dono" sempre no fim, porque não é pessoa.
-  const porVendedor = [...porDono.values()].sort((a, b) => {
-    if (a.chave === null) return 1;
-    if (b.chave === null) return -1;
-
-    return b.recebidos - a.recebidos;
-  });
-
-  const somar = (campo: 'ganhos' | 'perdidos' | 'emAberto') =>
-    porVendedor.reduce((total, linha) => total + linha[campo], 0);
-
-  return {
-    ganhos: somar('ganhos'),
-    perdidos: somar('perdidos'),
-    emAberto: somar('emAberto'),
-    porVendedor,
-  };
+  return situacao;
 };
 
 export const buscarFunil = async (periodoPedido: Periodo): Promise<Funil> => {
@@ -205,7 +158,6 @@ export const buscarFunil = async (periodoPedido: Periodo): Promise<Funil> => {
     negociacaoGanhos: cohort.ganhos,
     negociacaoPerdidos: cohort.perdidos,
     negociacaoEmAberto: cohort.emAberto,
-    porVendedor: cohort.porVendedor,
     historicoComecaEm,
     periodoIncompleto:
       historicoComecaEm !== null && periodo.de < historicoComecaEm,
