@@ -23,8 +23,32 @@ const LENTES: { valor: Lente; rotulo: string }[] = [
 
 const GRADE = `minmax(110px, 1.3fr) repeat(${DESTINOS.length}, minmax(58px, 1fr)) minmax(64px, 1fr)`;
 
-const rotuloDestino = (destino: Destino): string =>
-  destino === 'AINDA_AQUI' ? 'Ainda aqui' : rotuloEtapa(destino);
+// Na lente "próximo passo" o destino é para onde FOI, com seta. Na lente
+// "situação hoje" é onde ESTÁ, e a seta enganava: "→ Perdido" parecia "foi
+// perdido nesta etapa", quando é "está perdido hoje, perdido onde for".
+const ONDE_ESTA: Record<Destino, string> = {
+  NOVO_LEAD: 'em Novo Lead',
+  EM_QUALIFICACAO: 'em qualificação',
+  EM_NEGOCIACAO: 'em negociação',
+  FECHAMENTO: 'em Fechamento',
+  BREAK: 'no Break',
+  WON: 'Ganho',
+  LOST: 'Perdido',
+  AINDA_AQUI: 'Ainda aqui',
+};
+
+const rotuloDestino = (destino: Destino, lente: Lente): string => {
+  if (lente === 'situacao-hoje') return ONDE_ESTA[destino];
+
+  return destino === 'AINDA_AQUI' ? 'Ainda aqui' : `→ ${rotuloEtapa(destino)}`;
+};
+
+const LEITURA: Record<Lente, string> = {
+  'proximo-passo':
+    'Leia cada célula como "entrou nesta etapa e a primeira porta que pegou foi esta". Conta entradas: quem voltou para negociação depois de um Break conta duas vezes na linha Em negociação.',
+  'situacao-hoje':
+    'Leia cada célula como "entrou nesta etapa no período e hoje está aqui". É uma foto de agora, não importa o caminho: um lead perdido depois de passar por negociação aparece como Perdido também na linha Em qualificação.',
+};
 
 export const TabelaJornada = ({
   jornada,
@@ -94,15 +118,10 @@ export const TabelaJornada = ({
     </button>
   );
 
-  const explicacao =
-    lente === 'proximo-passo'
-      ? 'Próximo passo: para cada entrada na etapa dentro do período, a linha seguinte do histórico. Conta entradas, então quem voltou para negociação depois de um Break conta duas vezes ali.'
-      : 'Situação hoje: dos negócios que entraram na etapa no período, onde cada um está agora. Conta negócios distintos. É a lente que responde "foi para Break e depois virou o quê?".';
-
   return (
     <Cartao
       titulo="De cada etapa, para onde foi"
-      nota={`Cada linha soma 100%: são os negócios que entraram naquela etapa dentro do período. "Entrar em Novo Lead" é ser criado. ${explicacao}`}
+      nota='Cada linha soma 100%: são os negócios que entraram naquela etapa dentro do período. "Entrar em Novo Lead" é ser criado. Próximo passo mostra a primeira porta que o lead pegou; Situação hoje mostra a sala onde ele está agora. As duas lentes não se subtraem.'
       tema={tema}
     >
       <div
@@ -131,8 +150,7 @@ export const TabelaJornada = ({
         <div>Entrou em</div>
         {DESTINOS.map((destino) => (
           <div key={destino} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-            {destino === 'AINDA_AQUI' ? '' : '→ '}
-            {rotuloDestino(destino)}
+            {rotuloDestino(destino, lente)}
           </div>
         ))}
         <div style={{ textAlign: 'right' }}>Entraram</div>
@@ -165,6 +183,10 @@ export const TabelaJornada = ({
           </div>
         </div>
       ))}
+
+      <div style={{ fontSize: '11px', color: tema.suave, marginTop: '8px' }}>
+        {LEITURA[lente]}
+      </div>
 
       {jornada.criadosEmOutraEtapa.length > 0 ? (
         <div style={{ fontSize: '11px', color: tema.suave, marginTop: '8px' }}>

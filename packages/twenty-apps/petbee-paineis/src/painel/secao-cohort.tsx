@@ -5,6 +5,8 @@
 import { useState } from 'react';
 
 import { Titulo } from 'src/painel/cartoes';
+import { ComoLer } from 'src/painel/como-ler';
+import { GUIA_COHORT } from 'src/painel/guias';
 import { formatarDia } from 'src/painel/formato';
 import { type Funil } from 'src/painel/funil';
 import { GradeCohorts } from 'src/painel/grade-cohorts';
@@ -92,6 +94,8 @@ export const SecaoCohort = ({
         nota={`Aqui o período é a data em que o lead ENTROU EM NEGOCIAÇÃO, ou seja, chegou num vendedor: ${formatarDia(periodoContado.de)} a ${formatarDia(periodoContado.ate)}. A situação de cada lead é a de hoje. Venda direta, que não passa por vendedor, fica fora.`}
         tema={tema}
       />
+
+      <ComoLer itens={GUIA_COHORT} tema={tema} />
 
       {cohort.cortadoNoInicio
         ? aviso(

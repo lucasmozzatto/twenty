@@ -14,11 +14,14 @@ import { defineFrontComponent } from 'twenty-sdk/define';
 import { useColorScheme } from 'twenty-sdk/front-component';
 
 import { PAINEL_PERIODO_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/constants/universal-identifiers';
+import { Abas, AvisoDeErro, AvisoDeFalhas } from 'src/painel/avisos';
+import { ComoLer } from 'src/painel/como-ler';
 import { buscarNomes } from 'src/painel/crm';
 import { buscarComparacao, type Comparacao } from 'src/painel/comparacao';
 import { buscarDados, type Dados } from 'src/painel/dados';
 import { buscarDesfechos, type Desfechos } from 'src/painel/desfechos';
 import { buscarFunil, type Funil } from 'src/painel/funil';
+import { GUIA_PAINEL, GUIA_VISAO_GERAL } from 'src/painel/guias';
 import { buscarJornada, type Jornada } from 'src/painel/jornada';
 import { buscarCohort, type Cohort } from 'src/painel/cohort';
 import {
@@ -168,63 +171,15 @@ const PainelPeriodo = () => {
       />
 
       {erro ? (
-        <div style={{ color: tema.vermelho, fontSize: '12px' }}>
-          Não consegui ler o CRM ({erro}).{' '}
-          <a
-            onClick={recarregar}
-            style={{ cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            Tentar de novo
-          </a>
-        </div>
+        <AvisoDeErro erro={erro} aoTentarDeNovo={recarregar} tema={tema} />
       ) : null}
 
-      {/* Um quadro que falhou aparece zerado, então o aviso é obrigatório:
-          sem ele um zero por erro pareceria um zero de verdade. */}
-      {falhas.length > 0 ? (
-        <div
-          style={{
-            padding: '8px 10px',
-            borderRadius: '6px',
-            border: `1px solid ${tema.laranja}`,
-            color: tema.laranja,
-            fontSize: '12px',
-          }}
-        >
-          <b>Atenção:</b> estes quadros não carregaram e estão zerados —{' '}
-          {falhas.map((falha) => falha.onde).join(', ')}. Motivo do primeiro:{' '}
-          {falhas[0].motivo}
-        </div>
-      ) : null}
+      <AvisoDeFalhas falhas={falhas} tema={tema} />
+
+      <ComoLer titulo="Como ler este painel" itens={GUIA_PAINEL} tema={tema} />
 
       {/* As visões, como abas dentro do quadro. */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '2px',
-          borderBottom: `1px solid ${tema.borda}`,
-        }}
-      >
-        {VISOES.map((item) => (
-          <button
-            key={item.valor}
-            onClick={() => setVisao(item.valor)}
-            style={{
-              padding: '8px 14px',
-              border: 'none',
-              borderBottom: `2px solid ${visao === item.valor ? tema.texto : 'transparent'}`,
-              marginBottom: '-1px',
-              background: 'transparent',
-              color: visao === item.valor ? tema.texto : tema.suave,
-              fontWeight: visao === item.valor ? 700 : 500,
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            {item.rotulo}
-          </button>
-        ))}
-      </div>
+      <Abas opcoes={VISOES} ativa={visao} aoEscolher={setVisao} tema={tema} />
 
       {/* Enquanto recarrega, os números velhos ficam esmaecidos em vez de
           desaparecer: trocar o período não faz a tela pular. */}
@@ -238,6 +193,7 @@ const PainelPeriodo = () => {
       >
         {visao === 'geral' ? (
           <>
+            <ComoLer itens={GUIA_VISAO_GERAL} tema={tema} />
             <NumerosComerciais dados={dados} comparacao={comparacao} tema={tema} />
             {dados && !periodoInvalido ? (
               <GraficosComerciais

@@ -9,6 +9,8 @@ import { type Barra, Barras } from 'src/painel/barras';
 import { Numero, Titulo } from 'src/painel/cartoes';
 import { type Grupo } from 'src/painel/crm';
 import { type Comparacao } from 'src/painel/comparacao';
+import { ComoLer } from 'src/painel/como-ler';
+import { GUIA_VENDEDORES } from 'src/painel/guias';
 import { type Contagem, type Dados } from 'src/painel/dados';
 import { formatarInteiro, variacao } from 'src/painel/formato';
 import { type Desfechos } from 'src/painel/desfechos';
@@ -57,6 +59,8 @@ export const SecaoVendedores = ({
         nota="A tabela e as vendas seguem o período. Pipeline é foto de agora e não muda com o período."
         tema={tema}
       />
+
+      <ComoLer itens={GUIA_VENDEDORES} tema={tema} />
 
       {funil === null && desfechos === null ? null : (
         <TabelaVendedores
