@@ -200,6 +200,14 @@ Todo membro do workspace tem linha, mesmo zerado: num dia parado, uma pessoa que
 tabela parece erro, e a lista completa é o que permite comparar. "Sem dono" só aparece
 quando tem algo. Pedido do dono do painel em 17/09/2026.
 
+A exceção é quem não vende: `src/painel/equipe.ts` lista esses membros, e eles só
+aparecem se algum número cair no nome deles no período — aí a linha é o aviso de que um
+lead ou uma venda foi parar em quem não é do comercial. A lista mora no código porque o
+CRM não tem onde guardar isso: "Membros do workspace" é objeto de **sistema** e não
+aceita campo novo, e as Funções do CRM são de permissão, servidas num endereço que exige
+a permissão `ROLES` — que o papel somente-leitura do painel não tem, e que não vale a
+pena conceder só para isso. Quando o time mudar, edite o arquivo e publique.
+
 Recebidos e Em aberto usam a mesma base da visão Cohort desde 17/09/2026, por decisão do
 dono do painel, para as duas telas baterem. Antes, a tabela lia o Funil, que contava
 qualquer entrada em negociação no período: um lead que chegou em agosto, foi para o Break

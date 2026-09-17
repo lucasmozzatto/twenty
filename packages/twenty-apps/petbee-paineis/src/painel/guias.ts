@@ -39,6 +39,7 @@ export const GUIA_VENDEDORES = [
   'Venda direta, que não passou pelo comercial, fica fora desta tabela e aparece só em "Vendas por vendedor".',
   'Taxa: ganhos sobre recebidos, ou seja, vendas do período sobre leads que chegaram no período. Uma venda de lead do mês passado conta em cima e não embaixo, então leia a Taxa junto com Recebidos: se chegaram menos leads, a Taxa sobe sozinha. Receita e Ticket médio: só dos ganhos.',
   'A linha cinza embaixo da tabela é o termômetro do processo: quantas vendas pularam a etapa de negociação e quantas estão sem o campo Fechamento. Clique para ver os cards.',
+  'Todo vendedor tem linha, mesmo zerado. Quem não é do comercial só aparece se algum número cair no nome dele, e aí a linha é o aviso de que um lead ou uma venda foi parar no lugar errado.',
   'Pipeline (em aberto, sem dono, em negociação, por dono, por etapa) é foto de agora e não muda com o período.',
   'O lead conta para o dono atual: se foi repassado, conta para quem está com ele hoje.',
   'Para comparar pessoas com justiça, use a visão Cohort: lá o de cima e o de baixo da fração são os mesmos leads.',
