@@ -13,26 +13,17 @@
 //   SAFRA  — dos que entraram em negociação DENTRO do período, como estão
 //            hoje. Essa sim é conversão, e é a que responde "falamos com
 //            quantos e fechamos quantos".
-import { agrupar, consultar, type Filtro } from 'src/painel/crm';
+import { agrupar, consultar } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
+import {
+  listarMudancas,
+  type MudancaDeEtapa,
+  negociosQueEntraramEm,
+  SO_NEGOCIOS,
+} from 'src/painel/linha-do-tempo';
 import { limitesIso, type Periodo } from 'src/painel/periodo';
 import { ETAPAS_EM_NEGOCIACAO } from 'src/painel/rotulos';
 
-// 200 é o teto do servidor por consulta (QUERY_MAX_RECORDS). O teto de páginas
-// evita pendurar a tela num intervalo gigante: hoje são ~900 mudanças por mês,
-// então 40 páginas dão folga para uns três anos.
-const POR_PAGINA = 200;
-const MAXIMO_DE_PAGINAS = 40;
-
-type MudancaDeEtapa = {
-  targetOpportunityId: string | null;
-  properties: { diff?: { stage?: { after?: string; before?: string } } } | null;
-};
-
-// Uma linha por dono na safra. "Recebidos" são os negócios que entraram em
-// negociação no período e estão com essa pessoa HOJE: no processo da Petbee a
-// automação delega o lead ao vendedor no mesmo instante em que o passa para
-// negociação, então o dono atual é quem trabalhou o negócio.
 export type SafraPorVendedor = {
   chave: string | null;
   recebidos: number;
@@ -79,85 +70,6 @@ const FUNIL_VAZIO: Omit<Funil, 'historicoComecaEm' | 'periodoIncompleto' | 'falh
 // Paginação por `offset` com ordem fixa, e não por cursor: o cursor parou na
 // primeira página em produção e o funil saiu por baixo sem avisar. `totalCount`
 // vem junto de propósito — é ele que permite saber se lemos tudo.
-const CONSULTA_MUDANCAS = `
-  query Mudancas($filter: TimelineActivityFilterInput, $offset: Int) {
-    timelineActivities(
-      filter: $filter
-      first: ${POR_PAGINA}
-      offset: $offset
-      orderBy: [{ happensAt: AscNullsLast }]
-    ) {
-      totalCount
-      edges { node { targetOpportunityId properties } }
-    }
-  }
-`;
-
-const buscarMudancas = async (
-  periodo: Periodo,
-): Promise<{ mudancas: MudancaDeEtapa[]; truncado: boolean }> => {
-  const { inicio, fim } = limitesIso(periodo);
-  const filter: Filtro = {
-    and: [
-      { targetOpportunityId: { is: 'NOT_NULL' } },
-      // O JSON vira texto na busca, e é assim que ele sai: `"stage": {...}`.
-      { properties: { like: '%"stage"%' } },
-      { happensAt: { gte: inicio } },
-      { happensAt: { lt: fim } },
-    ],
-  };
-
-  const mudancas: MudancaDeEtapa[] = [];
-  let total = 0;
-
-  for (let pagina = 0; pagina < MAXIMO_DE_PAGINAS; pagina += 1) {
-    const dados = await consultar<{
-      timelineActivities: {
-        totalCount: number;
-        edges: { node: MudancaDeEtapa }[];
-      };
-    }>(CONSULTA_MUDANCAS, { filter, offset: mudancas.length });
-
-    const conexao = dados.timelineActivities;
-
-    total = conexao.totalCount;
-
-    for (const borda of conexao.edges) mudancas.push(borda.node);
-
-    // Página incompleta significa fim da lista. Página vazia também, e a
-    // checagem evita laço infinito se o servidor devolver nada.
-    if (conexao.edges.length < POR_PAGINA) break;
-  }
-
-  // Compara o que foi lido com o que existe. Antes isso era um `false` fixo, e
-  // por isso uma leitura pela metade passou como se fosse completa.
-  return { mudancas, truncado: mudancas.length < total };
-};
-
-// Negócios DISTINTOS que entraram nestas etapas. Distinto importa: um negócio
-// pode voltar para negociação depois de um Break, e contar duas vezes inflaria
-// o funil.
-const negociosQueEntraramEm = (
-  mudancas: MudancaDeEtapa[],
-  etapas: string[],
-): Set<string> => {
-  const negocios = new Set<string>();
-
-  for (const mudanca of mudancas) {
-    const depois = mudanca.properties?.diff?.stage?.after;
-
-    if (
-      depois !== undefined &&
-      etapas.includes(depois) &&
-      mudanca.targetOpportunityId !== null
-    ) {
-      negocios.add(mudanca.targetOpportunityId);
-    }
-  }
-
-  return negocios;
-};
-
 // A data em que a linha do tempo começou a gravar. Antes disso o histórico
 // simplesmente não existe, e um funil daquele período sairia por baixo.
 const buscarInicioDoHistorico = async (): Promise<string | null> => {
@@ -242,11 +154,20 @@ const situacaoDeHoje = async (negocios: string[]): Promise<Situacao> => {
 export const buscarFunil = async (periodo: Periodo): Promise<Funil> => {
   const falhas: Falha[] = [];
 
+  const { inicio, fim } = limitesIso(periodo);
+
   const [historicoComecaEm, coleta] = await Promise.all([
     tentar('início do histórico', buscarInicioDoHistorico(), null, falhas),
     tentar(
       'histórico de etapas',
-      buscarMudancas(periodo),
+      listarMudancas({
+        and: [
+          SO_NEGOCIOS,
+          { properties: { like: '%"stage"%' } },
+          { happensAt: { gte: inicio } },
+          { happensAt: { lt: fim } },
+        ],
+      }),
       { mudancas: [] as MudancaDeEtapa[], truncado: false },
       falhas,
     ),
