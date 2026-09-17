@@ -40,9 +40,42 @@ export const SecaoCohort = ({
   tema: Tema;
 }) => {
   const [agrupamento, setAgrupamento] = useState<Agrupamento>('semana');
+  // Quem está aberto no detalhe. "Sem dono" vira texto para caber no estado.
+  const [escolhido, setEscolhido] = useState<string | null>(null);
 
   const cohorts = agruparCohorts(cohort.negocios, periodo, agrupamento, hoje);
   const grade = gradePorVendedor(cohort.negocios, cohorts);
+
+  // Se a pessoa escolhida sumiu do período (ou nada foi escolhido), abre a
+  // primeira da grade, que é quem mais recebeu.
+  const chaveDe = (dono: string | null) => dono ?? 'sem-dono';
+  const vendedorAberto =
+    grade.find((linha) => chaveDe(linha.chave) === escolhido) ?? grade[0];
+  const negociosDoVendedor =
+    vendedorAberto === undefined
+      ? []
+      : cohort.negocios.filter((negocio) => negocio.ownerId === vendedorAberto.chave);
+  const nomeDe = (dono: string | null) =>
+    dono === null ? 'Sem dono' : (nomes[dono] ?? 'Membro removido');
+
+  const botao = (rotulo: string, ativo: boolean, aoClicar: () => void) => (
+    <button
+      key={rotulo}
+      onClick={aoClicar}
+      style={{
+        padding: '5px 10px',
+        borderRadius: '6px',
+        border: `1px solid ${ativo ? tema.texto : tema.borda}`,
+        background: ativo ? tema.destaque : 'transparent',
+        color: tema.texto,
+        fontWeight: ativo ? 700 : 500,
+        fontSize: '12px',
+        cursor: 'pointer',
+      }}
+    >
+      {rotulo}
+    </button>
+  );
 
   const aviso = (texto: string) => (
     <div style={{ fontSize: '12px', color: tema.laranja }}>
@@ -71,24 +104,11 @@ export const SecaoCohort = ({
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <span style={{ fontSize: '12px', color: tema.suave }}>Agrupar por</span>
-        {AGRUPAMENTOS.map((item) => (
-          <button
-            key={item.valor}
-            onClick={() => setAgrupamento(item.valor)}
-            style={{
-              padding: '5px 10px',
-              borderRadius: '6px',
-              border: `1px solid ${agrupamento === item.valor ? tema.texto : tema.borda}`,
-              background: agrupamento === item.valor ? tema.destaque : 'transparent',
-              color: tema.texto,
-              fontWeight: agrupamento === item.valor ? 700 : 500,
-              fontSize: '12px',
-              cursor: 'pointer',
-            }}
-          >
-            {item.rotulo}
-          </button>
-        ))}
+        {AGRUPAMENTOS.map((item) =>
+          botao(item.rotulo, agrupamento === item.valor, () =>
+            setAgrupamento(item.valor),
+          ),
+        )}
       </div>
 
       <TabelaCohorts
@@ -98,6 +118,38 @@ export const SecaoCohort = ({
       />
 
       <GradeCohorts linhas={grade} cohorts={cohorts} nomes={nomes} tema={tema} />
+
+      {/* O detalhe de uma pessoa: a mesma tabela do time, só com os leads
+          dela, mais a coluna que a compara com o time no mesmo cohort. */}
+      {vendedorAberto === undefined ? null : (
+        <>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <span style={{ fontSize: '12px', color: tema.suave }}>Detalhe de</span>
+            {grade.map((linha) =>
+              botao(
+                nomeDe(linha.chave),
+                chaveDe(linha.chave) === chaveDe(vendedorAberto.chave),
+                () => setEscolhido(chaveDe(linha.chave)),
+              ),
+            )}
+          </div>
+          <TabelaCohorts
+            titulo={`Cohorts de ${nomeDe(vendedorAberto.chave)}`}
+            nota={`Só os leads que chegaram em ${nomeDe(vendedorAberto.chave)}, cohort a cohort. "vs. time": a conversão dela ou dele menos a do time inteiro no mesmo cohort, em pontos percentuais. Verde é acima do time, vermelho é abaixo.`}
+            linhas={agruparCohorts(negociosDoVendedor, periodo, agrupamento, hoje)}
+            total={resumirCohort(negociosDoVendedor)}
+            time={{ linhas: cohorts, total: resumirCohort(cohort.negocios) }}
+            tema={tema}
+          />
+        </>
+      )}
 
       <div style={{ fontSize: '11px', color: tema.suave }}>
         Regras: cada negócio conta uma vez, no cohort em que entrou em negociação

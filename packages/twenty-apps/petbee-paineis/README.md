@@ -176,8 +176,17 @@ Como funciona, em `src/painel/cohort.ts` (busca) e `src/painel/cohorts.ts` (cont
   "X% decididos" em laranja, e a semana corrente aparece como "em andamento".
 - **"Parcial"** marca o cohort que o período escolhido cortou no meio, deixando dias já
   passados de fora. A semana corrente não é parcial: ela só ainda não acabou.
-- **Poucos leads.** Na grade vendedor × cohort, célula com menos de 30 leads sai em cinza
-  e itálico: a taxa ali é sorte, não desempenho.
+- **Poucos leads.** Na grade vendedor × cohort, taxa com menos de 30 leads sai em cinza
+  e itálico: é sorte, não desempenho. Contagem (recebidos, ganhos, em aberto, receita)
+  não recebe a marca, porque contagem não depende de volume para valer.
+- **"Mostrar", na grade.** Troca o número da célula sem nova consulta: Conversão
+  (padrão), Sobre decididos (ganhos ÷ ganhos + perdidos, para cohort que ainda não
+  amadureceu), Recebidos, Ganhos, Em aberto, Receita. A fração embaixo mostra de onde a
+  taxa saiu.
+- **Detalhe de uma pessoa.** Botões com os nomes abaixo da grade abrem a tabela completa
+  daquela pessoa, cohort a cohort, com as mesmas colunas do time mais **"vs. time"**: a
+  conversão dela menos a do time no mesmo cohort, em pontos percentuais. É o que separa
+  "ela foi bem" de "o mês foi bom para todo mundo". Abre por padrão em quem mais recebeu.
 - **Lead que volta.** A prática da Petbee é criar negócio novo quando um lead perdido
   ou ganho reaparece. O negócio velho fica no cohort dele; o novo entra no cohort em que
   chegou. Se em vez disso alguém reabrir o negócio velho, o cohort antigo ganha um Ganho

@@ -151,7 +151,22 @@ export const agruparCohorts = (
     maturidade: maturidadeDe(intervalo.fim, hoje),
   }));
 
-export type Celula = { recebidos: number; ganhos: number };
+// Tudo que a grade precisa para mostrar qualquer métrica sem nova consulta.
+export type Celula = {
+  recebidos: number;
+  ganhos: number;
+  perdidos: number;
+  receita: number;
+};
+
+const CELULA_VAZIA: Celula = { recebidos: 0, ganhos: 0, perdidos: 0, receita: 0 };
+
+const somar = (celula: Celula, negocio: NegocioDoCohort): Celula => ({
+  recebidos: celula.recebidos + 1,
+  ganhos: celula.ganhos + (negocio.stage === 'WON' ? 1 : 0),
+  perdidos: celula.perdidos + (negocio.stage === 'LOST' ? 1 : 0),
+  receita: celula.receita + (negocio.stage === 'WON' ? (negocio.valor ?? 0) : 0),
+});
 
 export type LinhaDaGrade = {
   chave: string | null;
@@ -174,19 +189,14 @@ export const gradePorVendedor = (
     const linha = linhas.get(negocio.ownerId) ?? {
       chave: negocio.ownerId,
       porCohort: {},
-      total: { recebidos: 0, ganhos: 0 },
+      total: CELULA_VAZIA,
     };
-    const celula = linha.porCohort[cohort.chave] ?? { recebidos: 0, ganhos: 0 };
-    const ganhou = negocio.stage === 'WON' ? 1 : 0;
 
-    linha.porCohort[cohort.chave] = {
-      recebidos: celula.recebidos + 1,
-      ganhos: celula.ganhos + ganhou,
-    };
-    linha.total = {
-      recebidos: linha.total.recebidos + 1,
-      ganhos: linha.total.ganhos + ganhou,
-    };
+    linha.porCohort[cohort.chave] = somar(
+      linha.porCohort[cohort.chave] ?? CELULA_VAZIA,
+      negocio,
+    );
+    linha.total = somar(linha.total, negocio);
     linhas.set(negocio.ownerId, linha);
   }
 
