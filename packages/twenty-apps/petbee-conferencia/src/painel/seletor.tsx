@@ -22,7 +22,7 @@ const dias = (periodo: Periodo): string => {
 };
 
 // Se o período é um mês do calendário (inteiro, ou este mês até hoje), o
-// cabeçalho diz o nome do mês, que é como o time fala do bônus.
+// cabeçalho diz o nome do mês, que é como o time fala do fechamento.
 const nomeDoMes = (periodo: Periodo, hoje: string): string | null => {
   const inteiro = periodo.ate === ultimoDiaDoMes(periodo.de);
   const ateHoje =

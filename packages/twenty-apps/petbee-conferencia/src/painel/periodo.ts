@@ -3,7 +3,7 @@
 //
 // Cópia enxuta de `petbee-paineis/src/painel/periodo.ts`: sem a regra de
 // "período anterior" (a conferência não compara períodos) e com o passo de
-// mês em mês, que é o jeito de fechar o bônus de agosto estando em setembro.
+// mês em mês, que é o jeito de conferir agosto estando em setembro.
 
 // Brasília não tem horário de verão desde 2019, então o deslocamento é fixo.
 // Se um dia voltar, este é o único lugar a mexer.
@@ -40,6 +40,15 @@ export const hojeEmBrasilia = (): string => diaDeBrasilia.format(new Date());
 // de Brasília já é o dia seguinte em UTC.
 export const diaEmBrasilia = (instante: string): string =>
   diaDeBrasilia.format(new Date(instante));
+
+// Data de fechamento gravada "só data" (meia-noite UTC, como a inbox grava ao
+// marcar Ganho) é a própria data: passar pelo fuso devolveria 21:00 do dia
+// anterior, e uma venda do dia 1º cairia no mês errado. Instante de verdade
+// vira o dia de Brasília. É a mesma leitura que a conciliação faz.
+const SO_DATA = /T00:00:00(\.000)?Z$/;
+
+export const diaCivil = (instante: string): string =>
+  SO_DATA.test(instante) ? instante.slice(0, 10) : diaEmBrasilia(instante);
 
 export const somarDias = (dia: string, quantidade: number): string => {
   const [ano, mes, diaDoMes] = dia.split('-').map(Number);
@@ -120,9 +129,12 @@ export const reconhecerPredefinido = (
 
 // Intervalo fechado em dias vira [início do primeiro dia, início do dia
 // seguinte ao último), no horário de Brasília. É o mesmo corte que os
-// gráficos nativos usam.
+// gráficos nativos usam. `inicioSoData` começa 3 horas antes: é onde fica o
+// fechamento "só data" do primeiro dia (ver `diaCivil`); quem busca com ele
+// recorta depois pelo dia civil.
 export const limitesIso = ({ de, ate }: Periodo) => ({
   inicio: new Date(`${de}T00:00:00${DESLOCAMENTO_BRASILIA}`).toISOString(),
+  inicioSoData: new Date(`${de}T00:00:00Z`).toISOString(),
   fim: new Date(
     `${somarDias(ate, 1)}T00:00:00${DESLOCAMENTO_BRASILIA}`,
   ).toISOString(),
@@ -143,7 +155,7 @@ export const contarDias = ({ de, ate }: Periodo): number => {
 };
 
 // "Setembro de 2026", para o cabeçalho quando o período é um mês do
-// calendário: é como o time fala do bônus.
+// calendário: é como o time fala do fechamento.
 export const rotuloDoMes = (dia: string): string => {
   const texto = new Intl.DateTimeFormat('pt-BR', {
     month: 'long',

@@ -5,12 +5,12 @@
 //   ASSINATURA → data de INÍCIO no período (qualquer status)
 //
 // Fechamento, e não criação, de propósito: a venda acontece quando fecha. Um
-// negócio criado em agosto e ganho em setembro é venda de setembro, e é assim
-// que o bônus conta. Qualquer funil e qualquer status porque a pergunta é "o
-// que existe de cada lado"; as fichas da tela recortam depois.
+// negócio criado em agosto e ganho em setembro é venda de setembro. Qualquer
+// funil e qualquer status porque a pergunta é "o que existe de cada lado"; as
+// fichas da tela recortam depois.
 import { resumir, porVendedor, type LinhaVendedor, type Resumo } from 'src/painel/contas';
 import { ASSINATURAS, deMicros, type Filtro, listar, NEGOCIOS } from 'src/painel/crm';
-import { diaEmBrasilia, limitesIso, type Periodo } from 'src/painel/periodo';
+import { diaCivil, limitesIso, type Periodo } from 'src/painel/periodo';
 
 export type VereditoVenda =
   | 'CONFERIDA'
@@ -27,7 +27,7 @@ export type VereditoAssinatura =
 export type Venda = {
   id: string;
   cliente: string;
-  // Dia de Brasília do fechamento, AAAA-MM-DD.
+  // Dia civil do fechamento, AAAA-MM-DD (ver `diaCivil`).
   fechamento: string;
   vendedorId: string | null;
   tutorId: string | null;
@@ -39,6 +39,8 @@ export type Venda = {
   valorCrm: number | null;
   // Soma das assinaturas que a conciliação encontrou para esta venda.
   valorBanco: number | null;
+  // Há outro negócio ganho do mesmo cliente no período.
+  duplicada: boolean;
 };
 
 export type Assinatura = {
@@ -109,16 +111,36 @@ const vereditoDaVenda = (bruto: string | null): VereditoVenda =>
     ? bruto
     : 'AGUARDANDO';
 
+// Duas vendas ganhas do mesmo cliente no período quase sempre são o mesmo
+// negócio cadastrado duas vezes (o card do vendedor e o que o checkout cria;
+// em agosto de 2026 foram 25 pares). Contam duas vezes na receita e casam com
+// as mesmas assinaturas, então a página avisa para alguém apagar uma.
+const marcarDuplicadas = (vendas: Venda[]): Venda[] => {
+  const porCliente = new Map<string, number>();
+
+  for (const venda of vendas) {
+    if (venda.tutorId === null) continue;
+    porCliente.set(venda.tutorId, (porCliente.get(venda.tutorId) ?? 0) + 1);
+  }
+
+  return vendas.map((venda) => ({
+    ...venda,
+    duplicada: venda.tutorId !== null && (porCliente.get(venda.tutorId) ?? 0) > 1,
+  }));
+};
+
 export const buscarVendas = async (
   periodo: Periodo,
 ): Promise<{ vendas: Venda[]; truncado: boolean }> => {
-  const { inicio, fim } = limitesIso(periodo);
+  const { inicioSoData, fim } = limitesIso(periodo);
   // Um operador por campo, em entradas separadas do `and`: o servidor recusa
   // `{ gte, lt }` no mesmo objeto ("must have exactly one operator").
+  // A busca começa 3 horas antes do período para alcançar o fechamento "só
+  // data" do primeiro dia; o dia civil, abaixo, recorta o que sobrou de fora.
   const filter: Filtro = {
     and: [
       { stage: { eq: 'WON' } },
-      { closeDate: { gte: inicio } },
+      { closeDate: { gte: inicioSoData } },
       { closeDate: { lt: fim } },
     ],
   };
@@ -130,14 +152,14 @@ export const buscarVendas = async (
     CAMPOS_VENDA,
   );
 
-  return {
-    vendas: nos.map((no) => {
+  const vendas = nos
+    .map((no): Venda => {
       const tutorNome = nomeCompleto(no.pointOfContact?.name ?? null);
 
       return {
         id: no.id,
         cliente: no.name?.trim() || tutorNome || 'Sem nome',
-        fechamento: diaEmBrasilia(no.closeDate ?? no.createdAt),
+        fechamento: diaCivil(no.closeDate ?? no.createdAt),
         vendedorId: no.ownerId,
         tutorId: no.pointOfContactId,
         tutorNome,
@@ -147,10 +169,12 @@ export const buscarVendas = async (
         veredito: vereditoDaVenda(no.conferenciaBanco),
         valorCrm: deMicros(no.amount?.amountMicros),
         valorBanco: deMicros(no.valorBanco?.amountMicros),
+        duplicada: false,
       };
-    }),
-    truncado,
-  };
+    })
+    .filter((venda) => venda.fechamento >= periodo.de && venda.fechamento <= periodo.ate);
+
+  return { vendas: marcarDuplicadas(vendas), truncado };
 };
 
 type NoAssinatura = {
@@ -169,10 +193,10 @@ type NoAssinatura = {
 const CAMPOS_ASSINATURA =
   'id name status dataInicio cortesia conferenciaFunil subsIdPetbee tutorId valorMensal { amountMicros } tutor { id name { firstName lastName } }';
 
-// Cortesia é o que a conciliação chama de cortesia: marcada como tal, ou com
-// valor zero. Fica fora da conta de dinheiro.
-export const ehCortesia = (cortesia: boolean | null, mrr: number | null): boolean =>
-  cortesia === true || (mrr ?? 0) === 0;
+// Só o valor manda, igual à conciliação desde 17/09/2026: assinatura a R$ 0
+// fica fora da conta de dinheiro; a marca "cortesia" do banco com valor
+// cobrado é assinatura normal e precisa bater com a venda.
+export const ehCortesia = (mrr: number | null): boolean => (mrr ?? 0) === 0;
 
 const vereditoDaAssinatura = (bruto: string | null): VereditoAssinatura =>
   bruto === 'COM_VENDA' || bruto === 'SEM_VENDA' || bruto === 'CORTESIA'
@@ -205,7 +229,7 @@ export const buscarAssinaturas = async (
         tutorNome: nomeCompleto(no.tutor?.name ?? null),
         inicio: no.dataInicio ?? periodo.de,
         status: no.status,
-        cortesia: ehCortesia(no.cortesia, mrr),
+        cortesia: ehCortesia(mrr),
         veredito: vereditoDaAssinatura(no.conferenciaFunil),
         mrr,
         idPetbee: no.subsIdPetbee,

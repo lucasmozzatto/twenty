@@ -1,4 +1,4 @@
-// A pergunta do bônus: quanto cada vendedor vendeu no período, e quanto disso
+// A pergunta por pessoa: quanto cada vendedor vendeu no período, e quanto disso
 // o banco confirma. Uma tabela, porque sete números por pessoa lidos lado a
 // lado dizem mais que sete barras.
 import { Cartao } from 'src/painel/cartoes';

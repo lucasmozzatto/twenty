@@ -1,7 +1,6 @@
 // A Conferência: o lado do CRM (negócios ganhos) e o lado do banco da Petbee
 // (assinaturas sincronizadas) no mesmo período, com o veredito da conciliação
-// diária em cada linha. Serve para fechar o mês, e o bônus de cada vendedor,
-// com os dois lados iguais.
+// diária em cada linha. Serve para fechar o mês com os dois lados iguais.
 //
 // Este arquivo cuida do seletor, do acesso e de buscar os dados; quem desenha
 // são os arquivos em `src/painel/`. Os dados vêm do GraphQL do CRM com o token
@@ -189,7 +188,7 @@ const Conferencia = () => {
 
         <Titulo
           texto="Por vendedor"
-          nota="Vendas ganhas no período, pelo dono atual do negócio, e o que o banco confirma de cada uma. É a base do bônus."
+          nota="Vendas ganhas no período, pelo dono atual do negócio, e o que o banco confirma de cada uma."
           tema={tema}
         />
         <TabelaVendedores linhas={dados?.porVendedor ?? []} nomes={nomes} tema={tema} />
