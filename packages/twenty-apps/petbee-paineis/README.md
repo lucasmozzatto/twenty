@@ -188,7 +188,7 @@ combinadas com o dono do painel em 16/09/2026:
 |---|---|---|
 | Recebidos | entraram em negociação **no período** | cohort (`funil.ts`) |
 | Em aberto | recebidos que hoje ainda não são Ganho nem Perdido | cohort (`funil.ts`) |
-| Ganhos | viraram Ganho no período (data de fechamento), **tendo passado por negociação em qualquer data** | desfechos (`desfechos.ts`) |
+| Ganhos | viraram Ganho no período (data de fechamento) e o campo **Fechamento** diz Comercial; Direto e Recompra ficam fora; sem o campo, só se passou por negociação ou se um vendedor marcou à mão | desfechos (`desfechos.ts`) |
 | Perdidos | viraram Perdido no período (evento do histórico), idem, **e continuam em Perdido hoje** | desfechos (`desfechos.ts`) |
 | Taxa | ganhos ÷ (ganhos + perdidos) | conta na tela |
 | Receita | soma do valor dos ganhos | desfechos |
@@ -198,12 +198,27 @@ O ponto que muda tudo: **Ganhos e Perdidos não se limitam aos recebidos do per�
 Um lead delegado em agosto e vendido em setembro conta em setembro. É por isso que
 Recebidos − Ganhos − Perdidos **não** dá Em aberto, e a tela diz isso na nota do quadro.
 
-O filtro "passou por negociação" é o que separa venda de vendedor de venda direta: a
-tabela pergunta ao histórico, para cada venda e perda do período, se aquele negócio
-entrou alguma vez em "Em negociação" ou "Fechamento". Uma venda que foi de "Novo Lead"
-direto para Ganho não aparece aqui (aparece em "Vendas por vendedor", logo abaixo, que
-é por data de fechamento sem essa exigência). O que fazer com essas vendas diretas no
-processo é decisão adiada pelo dono do painel.
+**Ganhos seguem o campo "Fechamento" do negócio**, decisão do dono do painel em
+17/09/2026, porque esta tabela serve para comissão e a regra tem que ser do negócio, não
+uma dedução do painel. O campo é preenchido pela automação da venda (o painel do
+vendedor) e conferido pelo gerente comercial nos ganhos do mês. Comercial conta para o
+dono do card; Direto (fechou sem passar pelo comercial) e Recompra (não dá comissão)
+ficam fora. Venda com o campo vazio entra só com evidência forte de que um vendedor
+trabalhou nela: passou por "Em negociação" ou "Fechamento" em alguma data, ou um
+vendedor marcou o Ganho à mão (o histórico registra quem clicou e se foi manual). Todas
+as vazias aparecem numa lista laranja abaixo da tabela, com link para o negócio, para o
+gerente preencher o campo no CRM. A ideia é que, com o tempo, a comissão vire 100% o
+campo.
+
+A motivação foi setembro/2026: das 13 vendas da vendedora, 7 tinham passado por
+negociação e 6 não, e duas dessas seis foram vendas de verdade que ela marcou à mão
+porque o WhatsApp estava fora e o card não foi movido. Só "passou por negociação" dava 7;
+a regra do campo dá 11 (10 Comercial + 1 vazia marcada à mão), e deixa 2 vazias de
+compra automática pelo site fora, apontadas na lista.
+
+Perdidos seguem o funil, não o campo: perderam no período, tendo passado por negociação,
+e continuam em Perdido. A Taxa (ganhos ÷ ganhos + perdidos) mistura as duas réguas de
+propósito: é "vendas comissionáveis sobre leads trabalhados e perdidos".
 
 Perda tem duas ressalvas. O negócio não guarda data de perda, então "perdeu no período"
 sai do evento "virou Perdido" no histórico, e por isso obedece ao início do histórico

@@ -66,6 +66,7 @@ export const SecaoVendedores = ({
         <TabelaVendedores
           linhas={montarLinhas(funil?.porVendedor ?? [], desfechos?.porVendedor ?? [])}
           nomes={nomes}
+          semClassificacao={desfechos?.semClassificacao ?? []}
           truncado={desfechos?.truncado ?? false}
           tema={tema}
         />

@@ -11,7 +11,27 @@ const MAXIMO_DE_PAGINAS = 40;
 export type MudancaDeEtapa = {
   targetOpportunityId: string | null;
   happensAt: string;
-  properties: { diff?: { stage?: { after?: string; before?: string } } } | null;
+  properties: {
+    diff?: {
+      stage?: { after?: string; before?: string };
+      // Quem fez a mudança: "MANUAL" com membro é gente clicando; "API" é
+      // a automação. Só vem quando o autor mudou em relação à linha anterior.
+      updatedBy?: {
+        after?: { source?: string; workspaceMemberId?: string | null };
+      };
+    };
+  } | null;
+};
+
+// Verdadeiro quando a linha foi feita por uma pessoa do time, na mão.
+export const feitaPorPessoa = (mudanca: MudancaDeEtapa): boolean => {
+  const autor = mudanca.properties?.diff?.updatedBy?.after;
+
+  return (
+    autor?.source === 'MANUAL' &&
+    autor.workspaceMemberId !== null &&
+    autor.workspaceMemberId !== undefined
+  );
 };
 
 // Paginação por `offset` com ordem fixa, e não por cursor: o cursor parou na
