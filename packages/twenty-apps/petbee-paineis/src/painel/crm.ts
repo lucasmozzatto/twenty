@@ -127,6 +127,29 @@ export const listarNegocios = async <TNo,>(
   return { nos, truncado: nos.length < total };
 };
 
+// Os mesmos negócios, pedidos pelo identificador, em lotes: a lista de ids
+// numa consulta só não pode crescer sem limite. Negócio apagado não volta.
+export const listarNegociosPorId = async <TNo,>(
+  ids: string[],
+  campos: string,
+): Promise<{ nos: TNo[]; truncado: boolean }> => {
+  const TAMANHO_DO_LOTE = 150;
+  const nos: TNo[] = [];
+  let truncado = false;
+
+  for (let inicio = 0; inicio < ids.length; inicio += TAMANHO_DO_LOTE) {
+    const pagina = await listarNegocios<TNo>(
+      { id: { in: ids.slice(inicio, inicio + TAMANHO_DO_LOTE) } },
+      campos,
+    );
+
+    nos.push(...pagina.nos);
+    truncado = truncado || pagina.truncado;
+  }
+
+  return { nos, truncado };
+};
+
 // Vendedor vem como id de membro do workspace; o nome é buscado uma vez só.
 export const buscarNomes = async (): Promise<Record<string, string>> => {
   const dados = await consultar<{

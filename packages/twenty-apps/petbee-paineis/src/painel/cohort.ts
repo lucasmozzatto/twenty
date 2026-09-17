@@ -7,7 +7,7 @@
 // Cada negócio é uma unidade, não a pessoa: lead que voltou meses depois e
 // ganhou negócio novo entra no cohort em que o negócio novo chegou. Foi assim
 // que o dono do painel definiu em 17/09/2026.
-import { deMicros, listarNegocios } from 'src/painel/crm';
+import { deMicros, listarNegociosPorId } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
 import {
   entrouEm,
@@ -17,7 +17,12 @@ import {
   negociosQuePassaramPor,
   SO_NEGOCIOS,
 } from 'src/painel/linha-do-tempo';
-import { diaEmBrasilia, limitesIso, type Periodo } from 'src/painel/periodo';
+import {
+  diaEmBrasilia,
+  limitesIso,
+  type Periodo,
+  recortarNoHistorico,
+} from 'src/painel/periodo';
 import { ETAPAS_EM_NEGOCIACAO } from 'src/painel/rotulos';
 
 export type NegocioDoCohort = {
@@ -33,6 +38,9 @@ export type NegocioDoCohort = {
 
 export type Cohort = {
   negocios: NegocioDoCohort[];
+  // O período de fato contado, já com o piso de 01/09/2026 aplicado.
+  periodo: Periodo;
+  cortadoNoInicio: boolean;
   truncado: boolean;
   falhas: Falha[];
 };
@@ -45,31 +53,8 @@ type SituacaoDoNegocio = {
   amount: { amountMicros: number | null } | null;
 };
 
-const TAMANHO_DO_LOTE = 150;
-
-// Situação de hoje dos negócios, em lotes. Negócio apagado não volta, e por
-// isso some do cohort: não dá para contar o que não existe mais.
-const situacaoDosNegocios = async (
-  ids: string[],
-): Promise<{ negocios: SituacaoDoNegocio[]; truncado: boolean }> => {
-  const negocios: SituacaoDoNegocio[] = [];
-  let truncado = false;
-
-  for (let inicio = 0; inicio < ids.length; inicio += TAMANHO_DO_LOTE) {
-    const lote = ids.slice(inicio, inicio + TAMANHO_DO_LOTE);
-    const pagina = await listarNegocios<SituacaoDoNegocio>(
-      { id: { in: lote } },
-      'id ownerId stage closeDate amount { amountMicros }',
-    );
-
-    negocios.push(...pagina.nos);
-    truncado = truncado || pagina.truncado;
-  }
-
-  return { negocios, truncado };
-};
-
-export const buscarCohort = async (periodo: Periodo): Promise<Cohort> => {
+export const buscarCohort = async (periodoPedido: Periodo): Promise<Cohort> => {
+  const { periodo, cortado } = recortarNoHistorico(periodoPedido);
   const { inicio, fim } = limitesIso(periodo);
   const falhas: Falha[] = [];
 
@@ -114,14 +99,19 @@ export const buscarCohort = async (periodo: Periodo): Promise<Cohort> => {
 
   const novos = [...primeiraEntrada.keys()].filter((id) => !veteranos.has(id));
 
+  // Negócio apagado não volta, e por isso some do cohort: não dá para contar
+  // o que não existe mais.
   const situacao = await tentar(
     'situação dos negócios do cohort',
-    situacaoDosNegocios(novos),
-    { negocios: [] as SituacaoDoNegocio[], truncado: false },
+    listarNegociosPorId<SituacaoDoNegocio>(
+      novos,
+      'id ownerId stage closeDate amount { amountMicros }',
+    ),
+    { nos: [] as SituacaoDoNegocio[], truncado: false },
     falhas,
   );
 
-  const negocios = situacao.negocios.map((negocio) => {
+  const negocios = situacao.nos.map((negocio) => {
     const entrouEm = primeiraEntrada.get(negocio.id) ?? '';
 
     return {
@@ -137,6 +127,8 @@ export const buscarCohort = async (periodo: Periodo): Promise<Cohort> => {
 
   return {
     negocios,
+    periodo,
+    cortadoNoInicio: cortado,
     truncado: entradas.truncado || situacao.truncado,
     falhas,
   };

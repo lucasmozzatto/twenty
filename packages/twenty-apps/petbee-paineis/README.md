@@ -27,7 +27,7 @@ Abaixo do seletor, quatro visões, como abas **dentro do quadro**:
 | Visão | Conteúdo |
 |---|---|
 | **Visão geral** | seis números, duas linhas do tempo por dia, barras por origem e canal |
-| **Funil** | funil por etapa lido do histórico: fluxo do período e cohort dos que negociaram |
+| **Funil** | funil por etapa lido do histórico: fluxo do período, a tabela "de cada etapa, para onde foi" (com as lentes próximo passo e situação hoje) e o cohort dos que negociaram |
 | **Vendedores** | a tabela por vendedor (recebidos, ganhos, perdidos, em aberto, taxa), pipeline em aberto, sem dono, em negociação, perdas com conversa, pipeline por dono, vendas por vendedor, pipeline por etapa e dono, motivos de perda |
 | **Cohort** | conversão por lote de leads entregues aos vendedores, por semana (quarta a terça) ou mês, e a grade vendedor × cohort. Aqui o período é a data em que o lead **chegou no vendedor** |
 
@@ -99,6 +99,10 @@ Quatro cuidados:
 
 - **Conta negócio distinto, não evento.** Um negócio que volta para negociação depois
   de um Break geraria duas linhas no histórico; contar as duas inflaria o funil.
+- **"De Ganho para Ganho" não é entrada.** Existe linha no histórico em que a etapa de
+  antes e de depois são iguais: alguém editou outro campo e o CRM gravou a etapa junto.
+  Em setembro/2026 foi 1 em 36 linhas de "ganho", e contava como venda nova até
+  17/09. Toda contagem de entrada passa por `entrouEm`, que exige mudança de verdade.
 - **O histórico começa em 18/08/2026.** Antes disso o CRM não gravava. Período que
   comece antes mostra um aviso laranja, porque os números sairiam por baixo.
 - **Paginação por `offset`, não por cursor, e conferida contra `totalCount`.** A
@@ -115,6 +119,46 @@ Quatro cuidados:
   vendedor usa o **dono atual** do negócio, e isso responde "quantos a Vitoria vendeu
   depois da qualificação". A ressalva vai na tela: negócio repassado conta para quem
   está com ele hoje, e quem está em aberto ainda não é veredito.
+
+### De cada etapa, para onde foi (a jornada)
+
+Uma linha por etapa de partida (Novo Lead, Em qualificação, Em negociação, Fechamento,
+Break), uma coluna por destino, e cada linha soma 100%: são os negócios que **entraram
+naquela etapa dentro do período**. Responde "quantos novos leads vão para qualificação
+ou direto para ganho", "quantos de negociação vão para Break e depois viram o quê", e
+por aí. Pedido do dono do painel em 17/09/2026; `src/painel/jornada.ts` conta,
+`tabela-jornada.tsx` desenha.
+
+Como a conta é feita: o CRM grava uma linha na linha do tempo a cada mudança de etapa,
+com hora, etapa de antes e de depois. Para cada negócio as linhas são ordenadas por
+hora e lidas como uma história. Duas lentes sobre o mesmo lote, num botão:
+
+- **Próximo passo**: para cada entrada na etapa, a linha seguinte da história. Conta
+  entradas, então quem voltou para negociação depois de um Break conta duas vezes na
+  linha "Em negociação" (foram dois passos de verdade). Sem linha seguinte, "Ainda aqui".
+- **Situação hoje**: dos negócios que entraram na etapa, onde cada um está agora. Conta
+  negócios distintos. É a lente que responde "foi para Break e depois virou Ganho ou
+  Perdido?".
+
+Regras que valem para as duas: "entrar em Novo Lead" é ser criado; a etapa inicial é o
+"antes" do primeiro passo (ou a etapa de hoje, se nunca mudou), e quem nasceu já em
+outra etapa aparece numa nota abaixo da tabela e conta na linha da etapa em que nasceu.
+Só mudança de verdade conta como entrada (ver "Ganho para Ganho" abaixo). Os passos
+dados depois do fim do período entram na conta do próximo passo, senão toda entrada de
+fim de mês pareceria "ainda aqui".
+
+As linhas **não fecham em cadeia**: um negócio criado em 30/08 que entrou em qualificação
+em 02/09 está na linha "Em qualificação" de setembro e não na "Novo Lead". Com o piso
+de 01/09 (abaixo) a diferença é só a virada do mês.
+
+### O piso do histórico: 01/09/2026
+
+O CRM grava a linha do tempo desde 18/08/2026, mas até o fim de agosto o processo ainda
+estava sendo ajustado depois da migração. Por decisão do dono do painel em 17/09/2026,
+**tudo que lê o histórico** (Funil, Cohort e a jornada) conta a partir de 01/09/2026:
+`recortarNoHistorico` em `periodo.ts` recorta o início do período e a visão avisa em
+laranja quando a data escolhida era anterior. A Visão geral e a tabela por vendedor não
+leem o histórico e não são recortadas. O botão "Desde 01/09" é o mesmo piso.
 
 ### A tabela por vendedor
 
@@ -260,11 +304,11 @@ busca os dados. O resto está em `src/painel/`:
 |---|---|
 | `periodo.ts` | contas de data e a regra do período anterior |
 | `crm.ts` | as consultas ao GraphQL |
-| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts` | as perguntas e as contas derivadas |
+| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts` | as perguntas e as contas derivadas |
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx` | as partes da tela |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.
 
@@ -475,8 +519,10 @@ e taxa da Vitoria 7 ÷ (7 + 147) = 4,5%.
 ## Conferência da visão Cohort
 
 Contas refeitas por fora do painel em 17/09/2026, negócio por negócio, com os 259
-negócios que entraram em negociação desde 23/08 (261 no histórico, 2 apagados). Com o
-botão "8 semanas" e "Agrupar por: Semana", a tela deve mostrar:
+negócios que entraram em negociação desde 23/08 (261 no histórico, 2 apagados). Foi
+**antes do piso de 01/09**; com o piso, as duas primeiras linhas somem e a de 26/08 a
+01/09 fica só com o dia 01/09. Com o botão "8 semanas" e "Agrupar por: Semana", a tela
+mostrava:
 
 | Cohort | Recebidos | Ganhos | Perdidos | Em aberto | Conversão | Receita | Ticket médio | Até vender |
 |---|---|---|---|---|---|---|---|---|
@@ -506,6 +552,16 @@ até 16/09, 144 recebidos, 6 ganhos, 76 perdidos, 62 em aberto (4,2%).
 Dois achados dessa conferência, para o dono do painel olhar: dois negócios entraram em
 negociação e viraram venda **sem dono**; e na semana de 26/08 a 01/09 a conversão foi
 1,7% contra 4 a 9% nas outras.
+
+## Conferência da jornada
+
+Só uma ordem de grandeza, medida pela API em 17/09 com as linhas de setembro (01 a 16):
+das 316 linhas "virou Perdido", 161 vinham de Em negociação, 93 de Em qualificação, 53 de
+Novo Lead, 7 de Break e 1 de Fechamento; das 36 linhas "virou Ganho", 23 vinham de Novo
+Lead (venda direta), 8 de Em negociação, 2 de Em qualificação, 2 de Perdido (reaberto e
+vendido) e 1 era "Ganho para Ganho", que não conta. Na lente "próximo passo" as colunas
+Ganho e Perdido devem ficar perto disso; não iguais, porque a tabela conta pela data da
+entrada e não pela data da saída.
 
 ## O que ainda não está aqui
 

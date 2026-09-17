@@ -21,7 +21,7 @@ import {
   negociosQueEntraramEm,
   SO_NEGOCIOS,
 } from 'src/painel/linha-do-tempo';
-import { limitesIso, type Periodo } from 'src/painel/periodo';
+import { limitesIso, type Periodo, recortarNoHistorico } from 'src/painel/periodo';
 import { ETAPAS_EM_NEGOCIACAO } from 'src/painel/rotulos';
 
 export type CohortPorVendedor = {
@@ -49,12 +49,19 @@ export type Funil = {
   historicoComecaEm: string | null;
   // Verdadeiro quando o período pedido começa antes do histórico existir.
   periodoIncompleto: boolean;
+  // O período de fato contado, já com o piso de 01/09/2026 aplicado.
+  periodo: Periodo;
+  // Verdadeiro quando o período pedido começava antes do piso.
+  cortadoNoInicio: boolean;
   // Verdadeiro quando bateu no teto de páginas e os números estão por baixo.
   truncado: boolean;
   falhas: Falha[];
 };
 
-const FUNIL_VAZIO: Omit<Funil, 'historicoComecaEm' | 'periodoIncompleto' | 'falhas'> = {
+const FUNIL_VAZIO: Omit<
+  Funil,
+  'historicoComecaEm' | 'periodoIncompleto' | 'periodo' | 'cortadoNoInicio' | 'falhas'
+> = {
   entrouQualificacao: 0,
   entrouNegociacao: 0,
   virouGanho: 0,
@@ -151,9 +158,10 @@ const situacaoDeHoje = async (negocios: string[]): Promise<Situacao> => {
   };
 };
 
-export const buscarFunil = async (periodo: Periodo): Promise<Funil> => {
+export const buscarFunil = async (periodoPedido: Periodo): Promise<Funil> => {
   const falhas: Falha[] = [];
 
+  const { periodo, cortado } = recortarNoHistorico(periodoPedido);
   const { inicio, fim } = limitesIso(periodo);
 
   const [historicoComecaEm, coleta] = await Promise.all([
@@ -201,6 +209,8 @@ export const buscarFunil = async (periodo: Periodo): Promise<Funil> => {
     historicoComecaEm,
     periodoIncompleto:
       historicoComecaEm !== null && periodo.de < historicoComecaEm,
+    periodo,
+    cortadoNoInicio: cortado,
     truncado: coleta.truncado,
     falhas,
   };

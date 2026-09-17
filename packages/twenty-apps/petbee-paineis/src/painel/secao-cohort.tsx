@@ -43,7 +43,9 @@ export const SecaoCohort = ({
   // Quem está aberto no detalhe. "Sem dono" vira texto para caber no estado.
   const [escolhido, setEscolhido] = useState<string | null>(null);
 
-  const cohorts = agruparCohorts(cohort.negocios, periodo, agrupamento, hoje);
+  // O período que vale aqui é o já recortado no piso do histórico.
+  const periodoContado = cohort.periodo;
+  const cohorts = agruparCohorts(cohort.negocios, periodoContado, agrupamento, hoje);
   const grade = gradePorVendedor(cohort.negocios, cohorts);
 
   // Se a pessoa escolhida sumiu do período (ou nada foi escolhido), abre a
@@ -87,9 +89,15 @@ export const SecaoCohort = ({
     <>
       <Titulo
         texto="Cohort"
-        nota={`Aqui o período é a data em que o lead ENTROU EM NEGOCIAÇÃO, ou seja, chegou num vendedor: ${formatarDia(periodo.de)} a ${formatarDia(periodo.ate)}. A situação de cada lead é a de hoje. Venda direta, que não passa por vendedor, fica fora.`}
+        nota={`Aqui o período é a data em que o lead ENTROU EM NEGOCIAÇÃO, ou seja, chegou num vendedor: ${formatarDia(periodoContado.de)} a ${formatarDia(periodoContado.ate)}. A situação de cada lead é a de hoje. Venda direta, que não passa por vendedor, fica fora.`}
         tema={tema}
       />
+
+      {cohort.cortadoNoInicio
+        ? aviso(
+            `contando a partir de ${formatarDia(periodoContado.de)}, por decisão do dono do painel: antes disso o processo ainda estava sendo ajustado. O período escolhido (desde ${formatarDia(periodo.de)}) foi recortado.`,
+          )
+        : null}
 
       {funil?.periodoIncompleto && funil.historicoComecaEm !== null
         ? aviso(
@@ -143,7 +151,7 @@ export const SecaoCohort = ({
           <TabelaCohorts
             titulo={`Cohorts de ${nomeDe(vendedorAberto.chave)}`}
             nota={`Só os leads que chegaram em ${nomeDe(vendedorAberto.chave)}, cohort a cohort. "vs. time": a conversão dela ou dele menos a do time inteiro no mesmo cohort, em pontos percentuais. Verde é acima do time, vermelho é abaixo.`}
-            linhas={agruparCohorts(negociosDoVendedor, periodo, agrupamento, hoje)}
+            linhas={agruparCohorts(negociosDoVendedor, periodoContado, agrupamento, hoje)}
             total={resumirCohort(negociosDoVendedor)}
             time={{ linhas: cohorts, total: resumirCohort(cohort.negocios) }}
             tema={tema}
