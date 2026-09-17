@@ -10,6 +10,7 @@ const MAXIMO_DE_PAGINAS = 40;
 
 export type MudancaDeEtapa = {
   targetOpportunityId: string | null;
+  happensAt: string;
   properties: { diff?: { stage?: { after?: string; before?: string } } } | null;
 };
 
@@ -25,7 +26,7 @@ const CONSULTA_MUDANCAS = `
       orderBy: [{ happensAt: AscNullsLast }]
     ) {
       totalCount
-      edges { node { targetOpportunityId properties } }
+      edges { node { targetOpportunityId happensAt properties } }
     }
   }
 `;
@@ -94,12 +95,13 @@ export const negociosQueEntraramEm = (
   return negocios;
 };
 
-// Quais destes negócios passaram por alguma destas etapas em QUALQUER data.
-// Em lotes, para a lista de identificadores não crescer sem limite numa
-// consulta só.
+// Quais destes negócios passaram por alguma destas etapas em QUALQUER data,
+// ou só nas datas que `condicoes` limitar. Em lotes, para a lista de
+// identificadores não crescer sem limite numa consulta só.
 export const negociosQuePassaramPor = async (
   negocios: string[],
   etapas: readonly string[],
+  condicoes: Filtro[] = [],
 ): Promise<Set<string>> => {
   const passaram = new Set<string>();
   const TAMANHO_DO_LOTE = 150;
@@ -107,7 +109,11 @@ export const negociosQuePassaramPor = async (
   for (let inicio = 0; inicio < negocios.length; inicio += TAMANHO_DO_LOTE) {
     const lote = negocios.slice(inicio, inicio + TAMANHO_DO_LOTE);
     const { mudancas } = await listarMudancas({
-      and: [{ targetOpportunityId: { in: lote } }, filtroDeEntradaEm(etapas)],
+      and: [
+        { targetOpportunityId: { in: lote } },
+        filtroDeEntradaEm(etapas),
+        ...condicoes,
+      ],
     });
 
     for (const id of negociosQueEntraramEm(mudancas, etapas)) passaram.add(id);

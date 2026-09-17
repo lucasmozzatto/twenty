@@ -1,10 +1,12 @@
 // Quadro com seletor de período: a única forma de ter filtro de data global no
 // painel, porque os gráficos nativos só leem o filtro gravado em cada um.
 //
-// Um seletor de período em cima e três visões embaixo: Visão geral, Funil e
-// Vendedores. São abas DENTRO do quadro, não abas do CRM, de propósito: cada
-// aba do CRM seria um quadro independente com o próprio seletor, e a pessoa
-// escolheria o período três vezes. Aqui escolhe uma vez e troca de visão.
+// Um seletor de período em cima e quatro visões embaixo: Visão geral, Funil,
+// Vendedores e Safra. São abas DENTRO do quadro, não abas do CRM, de
+// propósito: cada aba do CRM seria um quadro independente com o próprio
+// seletor, e a pessoa escolheria o período quatro vezes. Aqui escolhe uma
+// vez e troca de visão. Na Safra o período muda de sentido (é a data em que
+// o lead chegou no vendedor), e a própria visão avisa isso na primeira linha.
 // Este arquivo cuida só do seletor e de buscar os dados; quem desenha são
 // os arquivos `secao-*.tsx` em `src/painel/`.
 //
@@ -21,6 +23,7 @@ import { buscarComparacao, type Comparacao } from 'src/painel/comparacao';
 import { buscarDados, type Dados } from 'src/painel/dados';
 import { buscarDesfechos, type Desfechos } from 'src/painel/desfechos';
 import { buscarFunil, type Funil } from 'src/painel/funil';
+import { buscarSafra, type Safra } from 'src/painel/safra';
 import {
   hojeEmBrasilia,
   periodoAnterior,
@@ -33,16 +36,18 @@ import {
   NumerosComerciais,
 } from 'src/painel/secao-comercial';
 import { SecaoFunil } from 'src/painel/secao-funil';
+import { SecaoSafra } from 'src/painel/secao-safra';
 import { SecaoVendedores } from 'src/painel/secao-vendedores';
 import { Seletor } from 'src/painel/seletor';
 import { construirTema } from 'src/painel/tema';
 
-type Visao = 'geral' | 'funil' | 'vendedores';
+type Visao = 'geral' | 'funil' | 'vendedores' | 'safra';
 
 const VISOES: { valor: Visao; rotulo: string }[] = [
   { valor: 'geral', rotulo: 'Visão geral' },
   { valor: 'funil', rotulo: 'Funil' },
   { valor: 'vendedores', rotulo: 'Vendedores' },
+  { valor: 'safra', rotulo: 'Safra' },
 ];
 
 const PainelPeriodo = () => {
@@ -58,6 +63,7 @@ const PainelPeriodo = () => {
   const [comparacao, setComparacao] = useState<Comparacao | null>(null);
   const [funil, setFunil] = useState<Funil | null>(null);
   const [desfechos, setDesfechos] = useState<Desfechos | null>(null);
+  const [safra, setSafra] = useState<Safra | null>(null);
   const [visao, setVisao] = useState<Visao>('geral');
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
@@ -74,18 +80,20 @@ const PainelPeriodo = () => {
     try {
       // As duas buscas vão juntas: o painel aparece de uma vez, sem os
       // rodapés de comparação chegando depois e empurrando a tela.
-      const [novosDados, novaComparacao, novoFunil, novosDesfechos] =
+      const [novosDados, novaComparacao, novoFunil, novosDesfechos, novaSafra] =
         await Promise.all([
           buscarDados(periodo),
           comparar ? buscarComparacao(anterior) : Promise.resolve(null),
           buscarFunil(periodo),
           buscarDesfechos(periodo),
+          buscarSafra(periodo),
         ]);
 
       setDados(novosDados);
       setComparacao(novaComparacao);
       setFunil(novoFunil);
       setDesfechos(novosDesfechos);
+      setSafra(novaSafra);
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : String(falha));
     } finally {
@@ -122,6 +130,7 @@ const PainelPeriodo = () => {
     ...(comparacao?.falhas ?? []),
     ...(funil?.falhas ?? []),
     ...(desfechos?.falhas ?? []),
+    ...(safra?.falhas ?? []),
   ];
 
   return (
@@ -248,6 +257,17 @@ const PainelPeriodo = () => {
             comparacao={comparacao}
             funil={funil}
             desfechos={desfechos}
+            nomes={nomes}
+            tema={tema}
+          />
+        ) : null}
+
+        {visao === 'safra' && safra && !periodoInvalido ? (
+          <SecaoSafra
+            safra={safra}
+            funil={funil}
+            periodo={periodo}
+            hoje={hoje}
             nomes={nomes}
             tema={tema}
           />

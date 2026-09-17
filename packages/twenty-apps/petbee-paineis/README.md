@@ -19,15 +19,17 @@ tem permissão de escrita nenhuma, então não consegue alterar um negócio nem 
 
 Uma página chamada **Painel Comercial** no menu lateral, com uma aba só,
 **Por período**: um quadro com seletor de datas (este mês, mês passado, 7 dias,
-30 dias, desde 01/09, ou De/Até livre) e botão de comparar com o período anterior.
+30 dias, 8 semanas, desde 01/09, ou De/Até livre) e botão de comparar com o período
+anterior.
 
-Abaixo do seletor, três visões, como abas **dentro do quadro**:
+Abaixo do seletor, quatro visões, como abas **dentro do quadro**:
 
 | Visão | Conteúdo |
 |---|---|
 | **Visão geral** | seis números, duas linhas do tempo por dia, barras por origem e canal |
 | **Funil** | funil por etapa lido do histórico: fluxo do período e safra dos que negociaram |
 | **Vendedores** | a tabela por vendedor (recebidos, ganhos, perdidos, em aberto, taxa), pipeline em aberto, sem dono, em negociação, perdas com conversa, pipeline por dono, vendas por vendedor, pipeline por etapa e dono, motivos de perda |
+| **Safra** | conversão por lote de leads entregues aos vendedores, por semana (quarta a terça) ou mês, e a grade vendedor × safra. Aqui o período é a data em que o lead **chegou no vendedor** |
 
 Diferente do gráfico nativo, o vazio aparece como barra própria ("Sem origem",
 "Sem canal", "Sem dono").
@@ -146,6 +148,53 @@ sai do evento "virou Perdido" no histórico, e por isso obedece ao início do hi
 para Break ou virou Ganho) **não** conta como perdido: a coluna exige que ele continue em
 Perdido hoje. Foi decisão do dono do painel em 17/09/2026; até então contava pelo evento.
 
+### A visão Safra: a medida justa de conversão por vendedor
+
+A tabela por vendedor responde "como foi o mês". A Safra responde "quem converte
+melhor", e para isso muda a pergunta: **dos leads que chegaram nesta pessoa nesta
+semana, quantos viraram venda?** Em cima e embaixo da fração estão os mesmos leads,
+e por isso a taxa não mexe quando a cadência encerra leads antigos em lote, coisa que
+derruba a taxa do mês sem ninguém ter vendido pior. Foi a escolha do dono do painel em
+17/09/2026, depois de comparar os dois jeitos.
+
+Como funciona, em `src/painel/safra.ts` (busca) e `src/painel/safras.ts` (contas):
+
+- **Recebido** = entrou em "Em negociação" ou "Fechamento" pela **primeira vez** dentro
+  do período. É o instante em que a IA entrega o lead a uma pessoa (dono e etapa mudam
+  na mesma linha do histórico). Cada negócio conta uma vez; quem voltou do Break não é
+  lead novo. Quem já tinha entrado antes do período pertence à safra de lá, e por isso
+  há uma segunda consulta ao histórico só para excluir esses veteranos.
+- **Ganho / Perdido / Em aberto** = a situação de **hoje** desses mesmos negócios.
+  Conversão = ganhos ÷ recebidos. Receita e ticket médio são dos ganhos. "Até vender"
+  é a média de dias entre chegar no vendedor e virar venda.
+- **Semana comercial de quarta a terça**, como a Petbee trabalha. A primeira safra do
+  histórico (19 a 25/08) é parcial, porque o histórico começa em 23/08.
+- **Maturidade.** Quem vai comprar compra em 1 ou 2 dias; quem não vai, a cadência
+  encerra em até duas semanas (medido em 17/09: 90% das perdas em 11 dias, máximo 17).
+  Então uma safra fechada há 14 dias ou mais aparece como "madura"; antes disso mostra
+  "X% decididos" em laranja, e a semana corrente aparece como "em andamento".
+- **"Parcial"** marca a safra que o período escolhido cortou no meio, deixando dias já
+  passados de fora. A semana corrente não é parcial: ela só ainda não acabou.
+- **Poucos leads.** Na grade vendedor × safra, célula com menos de 30 leads sai em cinza
+  e itálico: a taxa ali é sorte, não desempenho.
+- **Lead que volta.** A prática da Petbee é criar negócio novo quando um lead perdido
+  ou ganho reaparece. O negócio velho fica na safra dele; o novo entra na safra em que
+  chegou. Se em vez disso alguém reabrir o negócio velho, a safra antiga ganha um Ganho
+  tardio, porque a situação é sempre a de hoje. Os dois fecham a conta; o que não
+  convém é misturar.
+- **Conta tudo**, inclusive os leads que a IA deixou passar e a vendedora perdeu por
+  "desqualificado", "região" ou "pet". Decisão do dono do painel: é legado da migração
+  e a qualificação já está mais afinada. Cerca de 14% das perdas pós-vendedor eram
+  assim em 17/09.
+- **Negócio apagado** não aparece: o agrupamento só enxerga o que existe.
+- Venda direta, que vai de "Novo Lead" a Ganho sem passar por vendedor, fica fora, como
+  na tabela por vendedor.
+
+Por que uma visão separada, e não mais uma tabela em Vendedores: o seletor do topo
+passa a significar outra coisa ("chegou no vendedor" em vez de "fechou"), e duas
+tabelas com o mesmo seletor e sentidos diferentes numa tela só é pegadinha. A visão diz
+o sentido na primeira linha.
+
 ### A comparação com o período anterior
 
 Ligada pelo botão, cada número ganha um rodapé com o valor de antes e a variação.
@@ -201,11 +250,11 @@ busca os dados. O resto está em `src/painel/`:
 |---|---|
 | `periodo.ts` | contas de data e a regra do período anterior |
 | `crm.ts` | as consultas ao GraphQL |
-| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts` | as perguntas e as contas derivadas |
+| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `safra.ts`, `safras.ts` | as perguntas e as contas derivadas |
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `secao-safra.tsx`, `tabela-safras.tsx`, `grade-safras.tsx` | as partes da tela |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.
 
@@ -413,6 +462,41 @@ Os seis que saem na regra final são todos da Vitoria: quatro voltaram para nego
 foi para Break e um virou Ganho. Com "Este mês" a tela deve mostrar Perdidos 147 / 6 / 3
 e taxa da Vitoria 7 ÷ (7 + 147) = 4,5%.
 
+## Conferência da visão Safra
+
+Contas refeitas por fora do painel em 17/09/2026, negócio por negócio, com os 259
+negócios que entraram em negociação desde 23/08 (261 no histórico, 2 apagados). Com o
+botão "8 semanas" e "Agrupar por: Semana", a tela deve mostrar:
+
+| Safra | Recebidos | Ganhos | Perdidos | Em aberto | Conversão | Receita | Ticket médio | Até vender |
+|---|---|---|---|---|---|---|---|---|
+| 19 a 25/08 (parcial) | 57 | 5 | 43 | 9 | 8,8% | R$ 919,30 | R$ 183,86 | 2,4 d |
+| 26/08 a 01/09 | 59 | 1 | 57 | 1 | 1,7% | R$ 109,90 | R$ 109,90 | 1,1 d |
+| 02 a 08/09 | 48 | 2 | 35 | 11 | 4,2% | R$ 239,80 | R$ 119,90 | 1,5 d |
+| 09 a 15/09 | 85 | 4 | 39 | 42 | 4,7% | R$ 719,60 | R$ 179,90 | 1,0 d |
+| 16 a 22/09 | 10 | 0 | 1 | 9 | 0% | R$ 0,00 | — | — |
+| Total | 259 | 12 | 175 | 72 | 4,6% | R$ 1.988,60 | R$ 165,72 | 1,7 d |
+
+Os números de "em aberto" e das safras recentes mudam sozinhos com o tempo; os das
+safras maduras (até 01/09) devem bater exatamente. As três semanas de 29/07 a 18/08
+saem zeradas, porque o histórico não existia.
+
+Grade vendedor × safra (ganhos/recebidos):
+
+| Vendedor | 19 a 25/08 | 26/08 a 01/09 | 02 a 08/09 | 09 a 15/09 | 16 a 22/09 | Total |
+|---|---|---|---|---|---|---|
+| Vitoria | 5/55 | 0/54 | 1/46 | 4/73 | 0/8 | 10/236 |
+| Rodrigo | — | 0/4 | 0/1 | 0/11 | — | 0/16 |
+| Lucas | 0/2 | — | — | 0/1 | 0/2 | 0/5 |
+| Sem dono | — | 1/1 | 1/1 | — | — | 2/2 |
+
+Por mês: agosto 115 recebidos, 6 ganhos, 99 perdidos, 10 em aberto (5,2%); setembro
+até 16/09, 144 recebidos, 6 ganhos, 76 perdidos, 62 em aberto (4,2%).
+
+Dois achados dessa conferência, para o dono do painel olhar: dois negócios entraram em
+negociação e viraram venda **sem dono**; e na semana de 26/08 a 01/09 a conversão foi
+1,7% contra 4 a 9% nas outras.
+
 ## O que ainda não está aqui
 
 - **Quem clicou em cada mudança de etapa.** A maioria é a automação; o campo de pessoa
@@ -420,8 +504,11 @@ e taxa da Vitoria 7 ÷ (7 + 147) = 4,5%.
 - **Tempo até fechar** (dias entre entrar em negociação e virar Ganho). Dá para tirar do
   mesmo histórico; ainda não foi pedido.
 - **Vendas diretas, que não passam por negociação.** Hoje ficam fora da tabela por
-  vendedor e só aparecem em "Vendas por vendedor". Se um dia devem entrar, e como, é
-  decisão de processo que o dono do painel adiou.
+  vendedor e da Safra e só aparecem em "Vendas por vendedor". Se um dia devem entrar, e
+  como, é decisão de processo que o dono do painel adiou.
+- **Na Safra: motivos de perda por vendedor, receita por lead recebido e um gráfico de
+  linha da conversão por safra.** Foram discutidos em 17/09/2026 e deixados de fora de
+  propósito; a linha faz sentido quando houver umas oito safras.
 - **"Sem origem" como categoria de verdade.** São ~70 negócios por mês sem origem
   preenchida. Depende de mexer no rastreamento, que está congelado até 22/09/2026.
 
