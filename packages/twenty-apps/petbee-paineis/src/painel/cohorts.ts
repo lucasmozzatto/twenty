@@ -1,6 +1,6 @@
-// As contas da visão Safra: corta o período em semanas ou meses, põe cada
-// negócio na safra em que entrou em negociação e resume cada safra. Sem
-// consulta nenhuma aqui: é só aritmética em cima do que `safra.ts` trouxe.
+// As contas da visão Cohort: corta o período em semanas ou meses, põe cada
+// negócio no cohort em que entrou em negociação e resume cada cohort. Sem
+// consulta nenhuma aqui: é só aritmética em cima do que `cohort.ts` trouxe.
 import {
   inicioDaSemana,
   type Periodo,
@@ -8,21 +8,21 @@ import {
   somarDias,
   ultimoDiaDoMes,
 } from 'src/painel/periodo';
-import { type NegocioDaSafra } from 'src/painel/safra';
+import { type NegocioDoCohort } from 'src/painel/cohort';
 
 export type Agrupamento = 'semana' | 'mes';
 
 // Quem vai comprar compra em 1 ou 2 dias; quem não vai, a cadência encerra em
 // até duas semanas (medido em 17/09/2026: 90% das perdas em 11 dias, máximo
-// 17). Depois de 14 dias a safra está madura o bastante para ser julgada.
+// 17). Depois de 14 dias o cohort está maduro o bastante para ser julgado.
 export const DIAS_PARA_AMADURECER = 14;
 
 // Abaixo disso a taxa é sorte, não desempenho.
 export const POUCOS_LEADS = 30;
 
-export type Maturidade = 'em-andamento' | 'amadurecendo' | 'madura';
+export type Maturidade = 'em-andamento' | 'amadurecendo' | 'maduro';
 
-export type ResumoDaSafra = {
+export type ResumoDoCohort = {
   recebidos: number;
   ganhos: number;
   perdidos: number;
@@ -32,12 +32,12 @@ export type ResumoDaSafra = {
   diasAteVender: number | null;
 };
 
-export type LinhaSafra = ResumoDaSafra & {
+export type LinhaCohort = ResumoDoCohort & {
   chave: string;
   rotulo: string;
   inicio: string;
   fim: string;
-  // O período escolhido corta a safra no meio e deixou dias de fora.
+  // O período escolhido corta o cohort no meio e deixou dias de fora.
   parcial: boolean;
   maturidade: Maturidade;
 };
@@ -53,7 +53,7 @@ const diaEMes = (dia: string): string => `${dia.slice(8, 10)}/${dia.slice(5, 7)}
 
 // "19 a 25/08" dentro do mês; "26/08 a 01/09" quando a semana cruza o mês,
 // senão o "26" fica sem mês.
-export const rotuloDaSafra = (
+export const rotuloDoCohort = (
   { inicio, fim }: Intervalo,
   agrupamento: Agrupamento,
 ): string => {
@@ -78,7 +78,7 @@ export const listarIntervalos = (
       ? primeiroDiaDoMes(periodo.de)
       : inicioDaSemana(periodo.de);
 
-  // Teto de 120 safras: mais de dois anos de semanas, além do histórico.
+  // Teto de 120 cohorts: mais de dois anos de semanas, além do histórico.
   while (inicio <= periodo.ate && intervalos.length < 120) {
     const fim =
       agrupamento === 'mes' ? ultimoDiaDoMes(inicio) : somarDias(inicio, 6);
@@ -94,12 +94,12 @@ const MILISSEGUNDOS_POR_DIA = 86_400_000;
 
 const maturidadeDe = (fim: string, hoje: string): Maturidade => {
   if (fim >= hoje) return 'em-andamento';
-  if (somarDias(fim, DIAS_PARA_AMADURECER) <= hoje) return 'madura';
+  if (somarDias(fim, DIAS_PARA_AMADURECER) <= hoje) return 'maduro';
 
   return 'amadurecendo';
 };
 
-export const resumirSafra = (negocios: NegocioDaSafra[]): ResumoDaSafra => {
+export const resumirCohort = (negocios: NegocioDoCohort[]): ResumoDoCohort => {
   const ganhos = negocios.filter((negocio) => negocio.stage === 'WON');
   const perdidos = negocios.filter((negocio) => negocio.stage === 'LOST');
   const comValor = ganhos.filter((negocio) => negocio.valor !== null);
@@ -129,25 +129,25 @@ export const resumirSafra = (negocios: NegocioDaSafra[]): ResumoDaSafra => {
   };
 };
 
-const dentro = (negocio: NegocioDaSafra, { inicio, fim }: Intervalo): boolean =>
+const dentro = (negocio: NegocioDoCohort, { inicio, fim }: Intervalo): boolean =>
   negocio.entrouNoDia >= inicio && negocio.entrouNoDia <= fim;
 
-export const agruparSafras = (
-  negocios: NegocioDaSafra[],
+export const agruparCohorts = (
+  negocios: NegocioDoCohort[],
   periodo: Periodo,
   agrupamento: Agrupamento,
   hoje: string,
-): LinhaSafra[] =>
+): LinhaCohort[] =>
   listarIntervalos(periodo, agrupamento).map((intervalo) => ({
     chave: intervalo.inicio,
-    rotulo: rotuloDaSafra(intervalo, agrupamento),
+    rotulo: rotuloDoCohort(intervalo, agrupamento),
     ...intervalo,
     // Parcial só quando ficaram dias de fora que já existiram: a semana
     // corrente termina no futuro e isso não é corte, é "em andamento".
     parcial:
       intervalo.inicio < periodo.de ||
       (intervalo.fim > periodo.ate && periodo.ate < hoje),
-    ...resumirSafra(negocios.filter((negocio) => dentro(negocio, intervalo))),
+    ...resumirCohort(negocios.filter((negocio) => dentro(negocio, intervalo))),
     maturidade: maturidadeDe(intervalo.fim, hoje),
   }));
 
@@ -155,31 +155,31 @@ export type Celula = { recebidos: number; ganhos: number };
 
 export type LinhaDaGrade = {
   chave: string | null;
-  porSafra: Record<string, Celula>;
+  porCohort: Record<string, Celula>;
   total: Celula;
 };
 
-// Uma linha por vendedor, uma célula por safra. "Sem dono" por último.
+// Uma linha por vendedor, uma célula por cohort. "Sem dono" por último.
 export const gradePorVendedor = (
-  negocios: NegocioDaSafra[],
-  safras: LinhaSafra[],
+  negocios: NegocioDoCohort[],
+  cohorts: LinhaCohort[],
 ): LinhaDaGrade[] => {
   const linhas = new Map<string | null, LinhaDaGrade>();
 
   for (const negocio of negocios) {
-    const safra = safras.find((candidata) => dentro(negocio, candidata));
+    const cohort = cohorts.find((candidato) => dentro(negocio, candidato));
 
-    if (safra === undefined) continue;
+    if (cohort === undefined) continue;
 
     const linha = linhas.get(negocio.ownerId) ?? {
       chave: negocio.ownerId,
-      porSafra: {},
+      porCohort: {},
       total: { recebidos: 0, ganhos: 0 },
     };
-    const celula = linha.porSafra[safra.chave] ?? { recebidos: 0, ganhos: 0 };
+    const celula = linha.porCohort[cohort.chave] ?? { recebidos: 0, ganhos: 0 };
     const ganhou = negocio.stage === 'WON' ? 1 : 0;
 
-    linha.porSafra[safra.chave] = {
+    linha.porCohort[cohort.chave] = {
       recebidos: celula.recebidos + 1,
       ganhos: celula.ganhos + ganhou,
     };

@@ -1,5 +1,5 @@
 // O funil pelo histórico de etapa. Duas medidas diferentes, separadas de
-// propósito na tela: o FLUXO do período e a SAFRA dos que negociaram.
+// propósito na tela: o FLUXO do período e o COHORT dos que negociaram.
 import { BarrasEmpilhadas } from 'src/painel/barras-empilhadas';
 import { Cartao, Numero, Titulo } from 'src/painel/cartoes';
 import { formatarDia, formatarInteiro, formatarPercentual } from 'src/painel/formato';
@@ -153,7 +153,7 @@ export const SecaoFunil = ({
         rotulo="Ainda em aberto"
         valor={formatarInteiro(funil.negociacaoEmAberto)}
         cor={tema.azul}
-        nota="da mesma safra, sem desfecho até agora"
+        nota="do mesmo cohort, sem desfecho até agora"
         tema={tema}
       />
     </div>
@@ -174,7 +174,7 @@ export const SecaoFunil = ({
 
     <BarrasEmpilhadas
       titulo="Dos que entraram em negociação no período, como estão hoje"
-      nota="Esta sim é conversão: a mesma safra de negócios, olhada agora. Quem está em aberto ainda pode virar qualquer coisa."
+      nota="Esta sim é conversão: o mesmo cohort de negócios, olhado agora. Quem está em aberto ainda pode virar qualquer coisa."
       linhas={[
         {
           rotulo: 'Situação hoje',

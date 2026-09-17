@@ -1,4 +1,4 @@
-// A tabela de safras do time: uma linha por semana ou mês, e o que virou de
+// A tabela de cohorts do time: uma linha por semana ou mês, e o que virou de
 // cada lote de leads entregues aos vendedores.
 import { type ReactNode } from 'react';
 
@@ -10,13 +10,13 @@ import {
 } from 'src/painel/formato';
 import {
   DIAS_PARA_AMADURECER,
-  type LinhaSafra,
-  type ResumoDaSafra,
-} from 'src/painel/safras';
+  type LinhaCohort,
+  type ResumoDoCohort,
+} from 'src/painel/cohorts';
 import { type Tema } from 'src/painel/tema';
 
 const COLUNAS = [
-  'Safra',
+  'Cohort',
   'Recebidos',
   'Ganhos',
   'Perdidos',
@@ -35,13 +35,13 @@ const formatarDias = (dias: number | null): string =>
     ? '—'
     : `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(dias)} d`;
 
-export const TabelaSafras = ({
+export const TabelaCohorts = ({
   linhas,
   total,
   tema,
 }: {
-  linhas: LinhaSafra[];
-  total: ResumoDaSafra;
+  linhas: LinhaCohort[];
+  total: ResumoDoCohort;
   tema: Tema;
 }) => {
   const celula = (
@@ -65,14 +65,14 @@ export const TabelaSafras = ({
     </div>
   );
 
-  const maturidade = (linha: LinhaSafra) => {
+  const maturidade = (linha: LinhaCohort) => {
     const decididos = formatarPercentual(
       linha.ganhos + linha.perdidos,
       linha.recebidos,
     );
 
     if (linha.recebidos === 0) return celula('—', tema.suave);
-    if (linha.maturidade === 'madura') return celula('madura', tema.verde, true);
+    if (linha.maturidade === 'maduro') return celula('maduro', tema.verde, true);
     if (linha.maturidade === 'em-andamento') {
       return celula(`em andamento · ${decididos} decididos`, tema.suave);
     }
@@ -82,7 +82,7 @@ export const TabelaSafras = ({
 
   const fileira = (
     rotulo: string,
-    valores: ResumoDaSafra,
+    valores: ResumoDoCohort,
     ultimaColuna: ReactNode,
     destaque: boolean,
     parcial = false,
@@ -117,7 +117,7 @@ export const TabelaSafras = ({
 
   return (
     <Cartao
-      titulo="Safras do time"
+      titulo="Cohorts do time"
       nota={`Cada linha é um lote de leads que chegou nos vendedores naquela semana ou mês, olhado como está hoje. Conversão: ganhos sobre recebidos. "Madura" = fechou há ${DIAS_PARA_AMADURECER} dias ou mais; antes disso o número ainda muda. "Até vender": dias médios entre chegar no vendedor e virar venda.`}
       tema={tema}
     >

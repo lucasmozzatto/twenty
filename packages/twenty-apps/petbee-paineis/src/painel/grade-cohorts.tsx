@@ -1,27 +1,27 @@
-// A grade vendedor × safra: a conversão de cada pessoa em cada lote, lado a
+// A grade vendedor × cohort: a conversão de cada pessoa em cada lote, lado a
 // lado. É o quadro que compara vendedores com a mesma régua.
 import { Cartao } from 'src/painel/cartoes';
 import { formatarPercentual } from 'src/painel/formato';
 import {
   type Celula,
   type LinhaDaGrade,
-  type LinhaSafra,
+  type LinhaCohort,
   POUCOS_LEADS,
-} from 'src/painel/safras';
+} from 'src/painel/cohorts';
 import { type Tema } from 'src/painel/tema';
 
-export const GradeSafras = ({
+export const GradeCohorts = ({
   linhas,
-  safras,
+  cohorts,
   nomes,
   tema,
 }: {
   linhas: LinhaDaGrade[];
-  safras: LinhaSafra[];
+  cohorts: LinhaCohort[];
   nomes: Record<string, string>;
   tema: Tema;
 }) => {
-  const grade = `minmax(100px, 1.3fr) repeat(${safras.length + 1}, minmax(64px, 1fr))`;
+  const grade = `minmax(100px, 1.3fr) repeat(${cohorts.length + 1}, minmax(64px, 1fr))`;
 
   const rotulo = (chave: string | null) =>
     chave === null ? 'Sem dono' : (nomes[chave] ?? 'Membro removido');
@@ -55,7 +55,7 @@ export const GradeSafras = ({
 
   return (
     <Cartao
-      titulo="Conversão por vendedor, safra a safra"
+      titulo="Conversão por vendedor, cohort a cohort"
       nota={`Em cada célula, a conversão e, embaixo, ganhos/recebidos. Em cinza e itálico: menos de ${POUCOS_LEADS} leads, a taxa ali é sorte, não desempenho. Total: o período inteiro.`}
       tema={tema}
     >
@@ -74,9 +74,9 @@ export const GradeSafras = ({
             }}
           >
             <div>Vendedor</div>
-            {safras.map((safra) => (
-              <div key={safra.chave} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                {safra.rotulo}
+            {cohorts.map((cohort) => (
+              <div key={cohort.chave} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                {cohort.rotulo}
               </div>
             ))}
             <div style={{ textAlign: 'right' }}>Total</div>
@@ -105,8 +105,8 @@ export const GradeSafras = ({
               >
                 {rotulo(linha.chave)}
               </div>
-              {safras.map((safra) => (
-                <div key={safra.chave}>{celula(linha.porSafra[safra.chave])}</div>
+              {cohorts.map((cohort) => (
+                <div key={cohort.chave}>{celula(linha.porCohort[cohort.chave])}</div>
               ))}
               {celula(linha.total, true)}
             </div>

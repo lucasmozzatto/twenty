@@ -87,7 +87,7 @@ export const periodoPredefinido = (qual: Predefinido, hoje: string): Periodo => 
     case 'ultimos-30':
       return { de: somarDias(hoje, -29), ate: hoje };
     // A semana atual mais as sete anteriores, começando numa quarta: é o
-    // recorte natural da visão Safra.
+    // recorte natural da visão Cohort.
     case '8-semanas':
       return { de: somarDias(inicioDaSemana(hoje), -49), ate: hoje };
     case 'desde-inicio':

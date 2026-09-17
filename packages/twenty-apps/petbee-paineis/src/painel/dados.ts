@@ -25,9 +25,9 @@ export type Numeros = {
   // Em reais, já convertido de micros.
   receita: number;
   ticketMedio: number | null;
-  // Ganhos dentro da própria safra: negócios criados no período que viraram
+  // Ganhos dentro do próprio cohort: negócios criados no período que viraram
   // Ganho, sobre os criados no período. É a mesma conta do quadro nativo.
-  ganhosDaSafra: number;
+  ganhosDoCohort: number;
   semOrigem: number;
 };
 
@@ -136,7 +136,7 @@ export const buscarDados = async (periodo: Periodo): Promise<Dados> => {
   const filtroVenda: Filtro = {
     and: [funilVendas, ganho, { closeDate: { gte: inicio } }, { closeDate: { lt: fim } }],
   };
-  const filtroGanhosDaSafra: Filtro = { and: [...criadoNoPeriodo, ganho] };
+  const filtroGanhosDoCohort: Filtro = { and: [...criadoNoPeriodo, ganho] };
   // Sem data de propósito: pipeline é o que está na mesa agora.
   const filtroPipeline: Filtro = {
     and: [funilVendas, { stage: { in: [...ETAPAS_ABERTAS] } }],
@@ -156,7 +156,7 @@ export const buscarDados = async (periodo: Periodo): Promise<Dados> => {
   const [
     lead,
     venda,
-    ganhosDaSafra,
+    ganhosDoCohort,
     negociosPorOrigem,
     vendasPorOrigem,
     negociosPorCanal,
@@ -174,7 +174,7 @@ export const buscarDados = async (periodo: Periodo): Promise<Dados> => {
       semAgregado,
       falhas,
     ),
-    tentar('conversão', agregar(filtroGanhosDaSafra), semAgregado, falhas),
+    tentar('conversão', agregar(filtroGanhosDoCohort), semAgregado, falhas),
     tentar('negócios por origem', agrupar(filtroLead, [{ origem: true }]), semGrupos, falhas),
     tentar('vendas por origem', agrupar(filtroVenda, [{ origem: true }]), semGrupos, falhas),
     tentar('negócios por canal', agrupar(filtroLead, [{ canal: true }]), semGrupos, falhas),
@@ -202,7 +202,7 @@ export const buscarDados = async (periodo: Periodo): Promise<Dados> => {
       vendas: venda.totalCount,
       receita: deMicros(venda.sumAmountAmountMicros) ?? 0,
       ticketMedio: deMicros(venda.avgAmountAmountMicros),
-      ganhosDaSafra: ganhosDaSafra.totalCount,
+      ganhosDoCohort: ganhosDoCohort.totalCount,
       // O grupo sem chave é exatamente "origem vazia": não precisa de consulta própria.
       semOrigem:
         negociosPorOrigem.find((grupo) => grupo.chaves[0] === null)?.contagem ?? 0,
