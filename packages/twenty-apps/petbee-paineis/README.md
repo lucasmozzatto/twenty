@@ -168,7 +168,8 @@ Como funciona, em `src/painel/safra.ts` (busca) e `src/painel/safras.ts` (contas
   Conversão = ganhos ÷ recebidos. Receita e ticket médio são dos ganhos. "Até vender"
   é a média de dias entre chegar no vendedor e virar venda.
 - **Semana comercial de quarta a terça**, como a Petbee trabalha. A primeira safra do
-  histórico (19 a 25/08) é parcial, porque o histórico começa em 23/08.
+  histórico (19 a 25/08) só tem 3 dias de dados, porque o histórico começa em 23/08; o
+  aviso laranja do início do histórico cobre isso.
 - **Maturidade.** Quem vai comprar compra em 1 ou 2 dias; quem não vai, a cadência
   encerra em até duas semanas (medido em 17/09: 90% das perdas em 11 dias, máximo 17).
   Então uma safra fechada há 14 dias ou mais aparece como "madura"; antes disso mostra
@@ -470,7 +471,7 @@ botão "8 semanas" e "Agrupar por: Semana", a tela deve mostrar:
 
 | Safra | Recebidos | Ganhos | Perdidos | Em aberto | Conversão | Receita | Ticket médio | Até vender |
 |---|---|---|---|---|---|---|---|---|
-| 19 a 25/08 (parcial) | 57 | 5 | 43 | 9 | 8,8% | R$ 919,30 | R$ 183,86 | 2,4 d |
+| 19 a 25/08 | 57 | 5 | 43 | 9 | 8,8% | R$ 919,30 | R$ 183,86 | 2,4 d |
 | 26/08 a 01/09 | 59 | 1 | 57 | 1 | 1,7% | R$ 109,90 | R$ 109,90 | 1,1 d |
 | 02 a 08/09 | 48 | 2 | 35 | 11 | 4,2% | R$ 239,80 | R$ 119,90 | 1,5 d |
 | 09 a 15/09 | 85 | 4 | 39 | 42 | 4,7% | R$ 719,60 | R$ 179,90 | 1,0 d |

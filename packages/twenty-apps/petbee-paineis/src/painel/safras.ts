@@ -49,13 +49,22 @@ const MESES = [
   'jul', 'ago', 'set', 'out', 'nov', 'dez',
 ];
 
+const diaEMes = (dia: string): string => `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
+
+// "19 a 25/08" dentro do mês; "26/08 a 01/09" quando a semana cruza o mês,
+// senão o "26" fica sem mês.
 export const rotuloDaSafra = (
   { inicio, fim }: Intervalo,
   agrupamento: Agrupamento,
-): string =>
-  agrupamento === 'mes'
-    ? `${MESES[Number(inicio.slice(5, 7)) - 1]}/${inicio.slice(0, 4)}`
-    : `${inicio.slice(8, 10)} a ${fim.slice(8, 10)}/${fim.slice(5, 7)}`;
+): string => {
+  if (agrupamento === 'mes') {
+    return `${MESES[Number(inicio.slice(5, 7)) - 1]}/${inicio.slice(0, 4)}`;
+  }
+
+  return inicio.slice(0, 7) === fim.slice(0, 7)
+    ? `${inicio.slice(8, 10)} a ${diaEMes(fim)}`
+    : `${diaEMes(inicio)} a ${diaEMes(fim)}`;
+};
 
 // Os intervalos que cobrem o período, inteiros, mesmo que o período comece
 // ou termine no meio de um.
