@@ -391,6 +391,26 @@ agosto — foi exatamente o caso que o dono do painel pediu para entrar.
 As 15 vendas do Lucas são venda direta: foram de "Novo Lead" a Ganho sem passar por
 negociação, e por isso ficam fora desta tabela de propósito.
 
+A coluna **Perdidos** foi conferida do mesmo jeito em 17/09/2026, refazendo a conta por
+fora do painel (eventos do histórico cruzados um a um, sem olhar nome de cliente):
+
+| Passo | Quantos |
+|---|---|
+| Eventos "virou Perdido" de 01 a 16/09 | 316 |
+| Negócios distintos entre eles | 314 |
+| Desses, os que entraram em negociação alguma vez | 163 |
+| Desses, os que ainda existem no CRM (1 foi apagado) | 162 |
+| Por dono | Vitoria 153, Rodrigo 6, Lucas 3 |
+
+A tela mostrava exatamente 153, 6 e 3. O negócio apagado some da tabela sozinho, porque
+o agrupamento por dono só enxerga negócios que existem.
+
+Um detalhe dessa regra que vale saber: dos 162, seis já não estão em Perdido hoje (quatro
+voltaram para negociação, um para Break, um virou Ganho). Eles contam mesmo assim,
+porque a coluna é "virou Perdido no período", não "está perdido hoje". O que virou
+Ganho conta nas duas colunas. Se um dia a regra mudar para "só quem continua perdido",
+é uma linha em `desfechos.ts`, mas é decisão do dono do painel.
+
 ## O que ainda não está aqui
 
 - **Quem clicou em cada mudança de etapa.** A maioria é a automação; o campo de pessoa
