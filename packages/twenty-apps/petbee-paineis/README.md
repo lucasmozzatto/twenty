@@ -124,7 +124,7 @@ combinadas com o dono do painel em 16/09/2026:
 | Recebidos | entraram em negociação **no período** | safra (`funil.ts`) |
 | Em aberto | recebidos que hoje ainda não são Ganho nem Perdido | safra (`funil.ts`) |
 | Ganhos | viraram Ganho no período (data de fechamento), **tendo passado por negociação em qualquer data** | desfechos (`desfechos.ts`) |
-| Perdidos | viraram Perdido no período (evento do histórico), idem | desfechos (`desfechos.ts`) |
+| Perdidos | viraram Perdido no período (evento do histórico), idem, **e continuam em Perdido hoje** | desfechos (`desfechos.ts`) |
 | Taxa | ganhos ÷ (ganhos + perdidos) | conta na tela |
 | Receita | soma do valor dos ganhos | desfechos |
 | Ticket médio | média do valor dos ganhos (sem valor não entra); no Total é receita ÷ ganhos | desfechos |
@@ -140,9 +140,11 @@ direto para Ganho não aparece aqui (aparece em "Vendas por vendedor", logo abai
 é por data de fechamento sem essa exigência). O que fazer com essas vendas diretas no
 processo é decisão adiada pelo dono do painel.
 
-Perda tem uma ressalva: o negócio não guarda data de perda, então "perdeu no período"
+Perda tem duas ressalvas. O negócio não guarda data de perda, então "perdeu no período"
 sai do evento "virou Perdido" no histórico, e por isso obedece ao início do histórico
-(18/08/2026). Um negócio perdido e reaberto e vendido no mesmo período conta nos dois.
+(18/08/2026). E um negócio perdido que depois foi reaberto (voltou para negociação, foi
+para Break ou virou Ganho) **não** conta como perdido: a coluna exige que ele continue em
+Perdido hoje. Foi decisão do dono do painel em 17/09/2026; até então contava pelo evento.
 
 ### A comparação com o período anterior
 
@@ -401,15 +403,15 @@ fora do painel (eventos do histórico cruzados um a um, sem olhar nome de client
 | Desses, os que entraram em negociação alguma vez | 163 |
 | Desses, os que ainda existem no CRM (1 foi apagado) | 162 |
 | Por dono | Vitoria 153, Rodrigo 6, Lucas 3 |
+| Desses, os que continuam em Perdido hoje | 156 |
+| Por dono, regra final | **Vitoria 147, Rodrigo 6, Lucas 3** |
 
-A tela mostrava exatamente 153, 6 e 3. O negócio apagado some da tabela sozinho, porque
-o agrupamento por dono só enxerga negócios que existem.
+A tela com a regra antiga mostrava exatamente 153, 6 e 3. O negócio apagado some da
+tabela sozinho, porque o agrupamento por dono só enxerga negócios que existem.
 
-Um detalhe dessa regra que vale saber: dos 162, seis já não estão em Perdido hoje (quatro
-voltaram para negociação, um para Break, um virou Ganho). Eles contam mesmo assim,
-porque a coluna é "virou Perdido no período", não "está perdido hoje". O que virou
-Ganho conta nas duas colunas. Se um dia a regra mudar para "só quem continua perdido",
-é uma linha em `desfechos.ts`, mas é decisão do dono do painel.
+Os seis que saem na regra final são todos da Vitoria: quatro voltaram para negociação, um
+foi para Break e um virou Ganho. Com "Este mês" a tela deve mostrar Perdidos 147 / 6 / 3
+e taxa da Vitoria 7 ÷ (7 + 147) = 4,5%.
 
 ## O que ainda não está aqui
 

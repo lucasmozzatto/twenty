@@ -163,7 +163,7 @@ export const TabelaVendedores = ({
   return (
     <Cartao
       titulo="Por vendedor, no período"
-      nota="Recebidos: entraram em negociação no período. Ganhos e Perdidos: fecharam ou perderam no período, tendo passado por negociação em algum momento — um lead delegado mês passado e vendido agora conta agora. Em aberto: recebidos ainda sem desfecho. Taxa: ganhos sobre ganhos + perdidos. Receita e ticket: dos ganhos."
+      nota="Recebidos: entraram em negociação no período. Ganhos e Perdidos: fecharam ou perderam no período, tendo passado por negociação em algum momento — um lead delegado mês passado e vendido agora conta agora. Perdido que foi reaberto não conta. Em aberto: recebidos ainda sem desfecho. Taxa: ganhos sobre ganhos + perdidos. Receita e ticket: dos ganhos."
       tema={tema}
     >
       {truncado ? (

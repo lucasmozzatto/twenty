@@ -6,7 +6,7 @@
 // "o que cada vendedor fechou e perdeu NESTE período, entre os leads que
 // passaram pela mão dele". Um lead delegado em agosto e vendido em setembro
 // conta em setembro. É o que o dono do painel pediu, com as regras escritas.
-import { agrupar, type Grupo, listarNegocios } from 'src/painel/crm';
+import { agrupar, type Filtro, type Grupo, listarNegocios } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
 import {
   filtroDeEntradaEm,
@@ -87,19 +87,32 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
     falhas,
   );
 
-  const porDono = (ids: string[], onde: string): Promise<Grupo[]> =>
+  const porDono = (
+    ids: string[],
+    onde: string,
+    condicoes: Filtro[] = [],
+  ): Promise<Grupo[]> =>
     ids.length === 0
       ? Promise.resolve([])
-      : tentar(onde, agrupar({ id: { in: ids } }, [{ ownerId: true }]), [], falhas);
+      : tentar(
+          onde,
+          agrupar({ and: [{ id: { in: ids } }, ...condicoes] }, [{ ownerId: true }]),
+          [],
+          falhas,
+        );
 
   const [gruposDeVendas, gruposDePerdas] = await Promise.all([
     porDono(
       idsDeVendas.filter((id) => passaram.has(id)),
       'vendas por vendedor que negociaram',
     ),
+    // Só quem CONTINUA em Perdido: um lead perdido e reaberto (voltou para
+    // negociação, Break ou virou Ganho) não é perda. Decisão do dono do
+    // painel em 17/09/2026; antes contava pelo evento, e 6 de 162 eram assim.
     porDono(
       idsDePerdas.filter((id) => passaram.has(id)),
       'perdas por vendedor que negociaram',
+      [{ stage: { eq: 'LOST' } }],
     ),
   ]);
 
