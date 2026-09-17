@@ -17,7 +17,13 @@
 //
 // PERDIDOS seguem o funil: viraram Perdido no período, passaram por
 // negociação em alguma data e continuam em Perdido hoje.
-import { agrupar, type Filtro, type Grupo, listarNegocios } from 'src/painel/crm';
+//
+// VENDAS SEM NEGOCIAÇÃO: os ganhos contados cujo lead nunca passou por
+// negociação (venda pelo checkout, marcada à mão, ou de qualificação direto
+// para Ganho). Saem daqui para o componente juntá-las ao cohort, no lote do
+// dia da venda: o lead foi recebido pelo vendedor, só que o registro da
+// chegada é a própria venda. Decisão do dono do painel em 17/09/2026.
+import { agrupar, deMicros, type Filtro, type Grupo, listarNegocios } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
 import {
   feitaPorPessoa,
@@ -46,14 +52,28 @@ export type VendaSemClassificacao = {
   contada: boolean;
 };
 
+export type VendaSemNegociacao = {
+  id: string;
+  ownerId: string | null;
+  closeDate: string;
+  valor: number | null;
+};
+
 export type Desfechos = {
   porVendedor: DesfechoPorVendedor[];
   semClassificacao: VendaSemClassificacao[];
+  vendasSemNegociacao: VendaSemNegociacao[];
   truncado: boolean;
   falhas: Falha[];
 };
 
-type Venda = { id: string; fechamento: string | null };
+type Venda = {
+  id: string;
+  fechamento: string | null;
+  ownerId: string | null;
+  closeDate: string;
+  amount: { amountMicros: number | null } | null;
+};
 
 const noPeriodo = (campo: string, inicio: string, fim: string): Filtro[] => [
   { [campo]: { gte: inicio } },
@@ -82,7 +102,7 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
             ...noPeriodo('closeDate', inicio, fim),
           ],
         },
-        'id fechamento',
+        'id fechamento ownerId closeDate amount { amountMicros }',
       ),
       { nos: [] as Venda[], truncado: false },
       falhas,
@@ -121,12 +141,12 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
       .map((mudanca) => mudanca.targetOpportunityId),
   );
 
-  // O histórico de negociação só é consultado para quem precisa dele: as
-  // perdas e as vendas sem o campo preenchido.
+  // Quem passou por negociação em alguma data: decide as vendas sem campo,
+  // as perdas que contam e as vendas que pularam a etapa.
   const passaram = await tentar(
     'histórico de negociação',
     negociosQuePassaramPor(
-      [...new Set([...semCampo.map((venda) => venda.id), ...idsDePerdas])],
+      [...new Set([...vendas.nos.map((venda) => venda.id), ...idsDePerdas])],
       ETAPAS_EM_NEGOCIACAO,
     ),
     new Set<string>(),
@@ -142,6 +162,16 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
     ...vendas.nos.filter((venda) => venda.fechamento === 'COMERCIAL').map((venda) => venda.id),
     ...semClassificacao.filter((venda) => venda.contada).map((venda) => venda.id),
   ];
+
+  const contadas = new Set(idsDeGanhos);
+  const vendasSemNegociacao = vendas.nos
+    .filter((venda) => contadas.has(venda.id) && !passaram.has(venda.id))
+    .map((venda) => ({
+      id: venda.id,
+      ownerId: venda.ownerId,
+      closeDate: venda.closeDate,
+      valor: deMicros(venda.amount?.amountMicros),
+    }));
 
   const porDono = (ids: string[], onde: string, condicoes: Filtro[] = []): Promise<Grupo[]> =>
     ids.length === 0
@@ -191,6 +221,7 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
   return {
     porVendedor: [...linhas.values()],
     semClassificacao,
+    vendasSemNegociacao,
     truncado: vendas.truncado || perdas.truncado || ganhos.truncado,
     falhas,
   };

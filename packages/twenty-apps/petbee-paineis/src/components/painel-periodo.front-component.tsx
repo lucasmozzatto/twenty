@@ -23,7 +23,11 @@ import { buscarDesfechos, type Desfechos } from 'src/painel/desfechos';
 import { buscarFunil, type Funil } from 'src/painel/funil';
 import { GUIA_PAINEL, GUIA_VISAO_GERAL } from 'src/painel/guias';
 import { buscarJornada, type Jornada } from 'src/painel/jornada';
-import { buscarCohort, type Cohort } from 'src/painel/cohort';
+import {
+  buscarCohort,
+  type Cohort,
+  incluirVendasSemNegociacao,
+} from 'src/painel/cohort';
 import {
   hojeEmBrasilia,
   periodoAnterior,
@@ -134,6 +138,13 @@ const PainelPeriodo = () => {
     setPeriodo((atual) => ({ ...atual, [campo]: valor }));
   };
 
+  // As vendas que pularam a etapa de negociação entram no cohort no dia da
+  // venda, e as duas visões (Vendedores e Cohort) leem o mesmo lote.
+  const cohortCompleto =
+    cohort === null
+      ? null
+      : incluirVendasSemNegociacao(cohort, desfechos?.vendasSemNegociacao ?? []);
+
   const falhas = [
     ...(dados?.falhas ?? []),
     ...(comparacao?.falhas ?? []),
@@ -219,16 +230,16 @@ const PainelPeriodo = () => {
           <SecaoVendedores
             dados={dados}
             comparacao={comparacao}
-            cohort={cohort}
+            cohort={cohortCompleto}
             desfechos={desfechos}
             nomes={nomes}
             tema={tema}
           />
         ) : null}
 
-        {visao === 'cohort' && cohort && !periodoInvalido ? (
+        {visao === 'cohort' && cohortCompleto && !periodoInvalido ? (
           <SecaoCohort
-            cohort={cohort}
+            cohort={cohortCompleto}
             funil={funil}
             periodo={periodo}
             hoje={hoje}

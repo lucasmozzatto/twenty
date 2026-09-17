@@ -89,6 +89,7 @@ export const SecaoVendedores = ({
           )}
           nomes={nomes}
           semClassificacao={desfechos?.semClassificacao ?? []}
+          semNegociacao={desfechos?.vendasSemNegociacao ?? []}
           truncado={(cohort?.truncado ?? false) || (desfechos?.truncado ?? false)}
           tema={tema}
         />
