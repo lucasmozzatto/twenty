@@ -188,11 +188,11 @@ combinadas com o dono do painel em 16/09/2026:
 
 | Coluna | Regra | De onde vem |
 |---|---|---|
-| Recebidos | chegaram no vendedor **no período**: a primeira entrada em negociação de cada negócio, uma vez só; quem voltou do Break não conta de novo. A mesma conta da visão Cohort | cohort (`cohort.ts`, somado por dono em `recebidosPorVendedor`, `cohorts.ts`) |
+| Recebidos | chegaram no vendedor **no período**: a primeira entrada em negociação de cada negócio, uma vez só; quem voltou do Break não conta de novo. Mais as vendas contadas cujo lead nunca passou por negociação, no dia da venda. A mesma conta da visão Cohort | cohort (`cohort.ts` + `incluirVendasSemNegociacao`, somado por dono em `recebidosPorVendedor`, `cohorts.ts`) |
 | Em aberto | recebidos que hoje ainda não são Ganho nem Perdido | cohort (idem) |
 | Ganhos | viraram Ganho no período (data de fechamento) e o campo **Fechamento** diz Comercial; Direto e Recompra ficam fora; sem o campo, só se passou por negociação ou se um vendedor marcou à mão | desfechos (`desfechos.ts`) |
 | Perdidos | viraram Perdido no período (evento do histórico), idem, **e continuam em Perdido hoje** | desfechos (`desfechos.ts`) |
-| Taxa | ganhos ÷ (ganhos + perdidos) | conta na tela |
+| Taxa | ganhos ÷ recebidos: vendas do período sobre leads que chegaram no período | conta na tela |
 | Receita | soma do valor dos ganhos | desfechos |
 | Ticket médio | média do valor dos ganhos (sem valor não entra); no Total é receita ÷ ganhos | desfechos |
 
@@ -232,9 +232,27 @@ compra automática pelo site fora, apontadas na lista.
 
 Perdidos seguem o funil, não o campo: perderam no período, tendo passado por negociação,
 e continuam em Perdido. Como vêm do histórico, obedecem ao piso de 01/09/2026 (as vendas,
-que vêm da data de fechamento do negócio, não). A Taxa (ganhos ÷ ganhos + perdidos)
-mistura as duas réguas de propósito: é "vendas comissionáveis sobre leads trabalhados e
-perdidos".
+que vêm da data de fechamento do negócio, não).
+
+**A Taxa é ganhos ÷ recebidos**, a "taxa do mês", decisão do dono do painel em
+17/09/2026 (até então era ganhos ÷ ganhos + perdidos, que ninguém lia de primeira). Em
+cima, as vendas do período pela data da venda, mesmo de lead que chegou no mês anterior;
+embaixo, só os leads que chegaram no período. É a conta que o time comercial usa para
+falar do mês. O que ela não faz, e a tela avisa no "Como ler": se chegam menos leads, a
+taxa sobe sozinha, porque as vendas de sobras do mês anterior entram em cima. Pode passar
+de 100% num mês fraco. Quem responde "quanto cada lote de leads rende" é a Cohort.
+
+**Vendas que pularam a etapa de negociação** (checkout com dono, Ganho marcado à mão,
+"Em qualificação" direto para Ganho) entram em Ganhos pela regra do campo e, desde
+17/09/2026, também em Recebidos, no dia da venda: o vendedor recebeu o lead, só que o
+registro da chegada é a própria venda. Sem isso a Taxa saía com a venda em cima e o lead
+fora de baixo (setembro/2026: 7 das 15 vendas da vendedora). `desfechos.ts` devolve essas
+vendas em `vendasSemNegociacao` e o componente as junta ao cohort com
+`incluirVendasSemNegociacao`, de modo que Vendedores e Cohort leem o mesmo lote. A nota
+cinza embaixo da tabela (`nota-vendas.tsx`) lista quantas e quais, com link: é o
+termômetro do processo, e a garantia de verdade fica na origem (o fluxo de venda mover o
+card para "Em negociação" quando o vendedor assume ou manda o link), combinada para depois
+de 22/09/2026.
 
 Perda tem duas ressalvas. O negócio não guarda data de perda, então "perdeu no período"
 sai do evento "virou Perdido" no histórico, e por isso obedece ao início do histórico
@@ -257,7 +275,10 @@ Como funciona, em `src/painel/cohort.ts` (busca) e `src/painel/cohorts.ts` (cont
   do período. É o instante em que a IA entrega o lead a uma pessoa (dono e etapa mudam
   na mesma linha do histórico). Cada negócio conta uma vez; quem voltou do Break não é
   lead novo. Quem já tinha entrado antes do período pertence ao cohort de lá, e por isso
-  há uma segunda consulta ao histórico só para excluir esses veteranos.
+  há uma segunda consulta ao histórico só para excluir esses veteranos. Venda contada na
+  aba Vendedores cujo lead nunca passou por negociação entra no lote do dia da venda, já
+  em Ganho (`incluirVendasSemNegociacao`, decisão de 17/09/2026): o lead foi recebido, só
+  que o registro da chegada é a própria venda.
 - **Ganho / Perdido / Em aberto** = a situação de **hoje** desses mesmos negócios.
   Conversão = ganhos ÷ recebidos. Receita e ticket médio são dos ganhos. "Até vender"
   é a média de dias entre chegar no vendedor e virar venda.
@@ -358,7 +379,7 @@ busca os dados. O resto está em `src/painel/`:
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `nota-vendas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
 | `como-ler.tsx`, `guias.ts` | o bloco "Como ler" e os textos dele, um por visão |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.
@@ -530,6 +551,16 @@ A tela conta **negócios distintos**, então mostra número igual ou um pouco me
 estes: quem entrou duas vezes na mesma etapa conta uma vez.
 
 ## Conferência da tabela por vendedor
+
+Conferido pela API em 17/09/2026 à tarde, com "Este mês" (01 a 17/09): a vendedora tinha
+15 vendas com Fechamento = Comercial (13 já analisadas + 2 do dia), 7 delas sem passar por
+negociação, e 144 leads chegados em setembro. Com as regras de 17/09 a tela deve mostrar:
+Vendedores, Vitoria **151 recebidos, 15 ganhos, Taxa 9,9%**; Total 164 recebidos, 15
+ganhos, 9,1%. Cohort "Mês", Vitoria **151 recebidos, 14 ganhos, 9,3%** (a venda do lead
+de 31/08 fica no lote de agosto, antes do piso). Perdidos e Em aberto não mudam (166 e
+46 naquela hora). A nota cinza deve dizer "7 venda(s) pularam a etapa de negociação".
+A conferência mais antiga, abaixo, é de antes dessas regras.
+
 
 Prova real feita pela API em 16/09/2026, com "Este mês" (01 a 16/09), negócio por
 negócio, sem olhar nome de cliente:

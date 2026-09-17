@@ -91,7 +91,7 @@ export const SecaoCohort = ({
     <>
       <Titulo
         texto="Cohort"
-        nota={`Aqui o período é a data em que o lead ENTROU EM NEGOCIAÇÃO, ou seja, chegou num vendedor: ${formatarDia(periodoContado.de)} a ${formatarDia(periodoContado.ate)}. A situação de cada lead é a de hoje. Venda direta, que não passa por vendedor, fica fora.`}
+        nota={`Aqui o período é a data em que o lead ENTROU EM NEGOCIAÇÃO, ou seja, chegou num vendedor: ${formatarDia(periodoContado.de)} a ${formatarDia(periodoContado.ate)}. A situação de cada lead é a de hoje. Venda do vendedor cujo card pulou a etapa entra no lote do dia da venda. Venda direta, que não passa por vendedor, fica fora.`}
         tema={tema}
       />
 
@@ -166,7 +166,9 @@ export const SecaoCohort = ({
       <div style={{ fontSize: '11px', color: tema.suave }}>
         Regras: cada negócio conta uma vez, no cohort em que entrou em negociação
         pela primeira vez; quem já tinha entrado antes do período pertence à
-        cohort de lá. Conta para o dono atual do negócio. Lead que voltou e
+        cohort de lá. Venda contada na aba Vendedores cujo lead nunca passou por
+        negociação entra no lote do dia da venda. Conta para o dono atual do
+        negócio. Lead que voltou e
         ganhou negócio novo entra no cohort do negócio novo. Semana comercial de
         quarta a terça. Negócio apagado do CRM não aparece.
       </div>

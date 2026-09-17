@@ -9,6 +9,7 @@
 // que o dono do painel definiu em 17/09/2026.
 import { deMicros, listarNegociosPorId } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
+import { type VendaSemNegociacao } from 'src/painel/desfechos';
 import {
   entrouEm,
   filtroDeEntradaEm,
@@ -132,4 +133,33 @@ export const buscarCohort = async (periodoPedido: Periodo): Promise<Cohort> => {
     truncado: entradas.truncado || situacao.truncado,
     falhas,
   };
+};
+
+// Junta ao cohort as vendas contadas cujo lead nunca passou por negociação:
+// o vendedor recebeu o lead, só que o registro da chegada é a própria venda.
+// Entram no lote do dia da venda, já em Ganho, e só dentro do período
+// contado (o piso de 01/09 vale para elas também). Decisão do dono do painel
+// em 17/09/2026, para as duas visões contarem o mesmo "recebido".
+export const incluirVendasSemNegociacao = (
+  cohort: Cohort,
+  vendas: VendaSemNegociacao[],
+): Cohort => {
+  const { inicio, fim } = limitesIso(cohort.periodo);
+  const jaNoCohort = new Set(cohort.negocios.map((negocio) => negocio.id));
+  const extras = vendas
+    .filter(
+      (venda) =>
+        !jaNoCohort.has(venda.id) && venda.closeDate >= inicio && venda.closeDate < fim,
+    )
+    .map((venda) => ({
+      id: venda.id,
+      entrouEm: venda.closeDate,
+      entrouNoDia: diaEmBrasilia(new Date(venda.closeDate)),
+      ownerId: venda.ownerId,
+      stage: 'WON',
+      closeDate: venda.closeDate,
+      valor: venda.valor,
+    }));
+
+  return extras.length === 0 ? cohort : { ...cohort, negocios: [...cohort.negocios, ...extras] };
 };
