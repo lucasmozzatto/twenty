@@ -2,6 +2,8 @@
 // propósito na tela: o FLUXO do período e o COHORT dos que negociaram.
 import { BarrasEmpilhadas } from 'src/painel/barras-empilhadas';
 import { Cartao, Numero, Titulo } from 'src/painel/cartoes';
+import { ComoLer } from 'src/painel/como-ler';
+import { GUIA_FUNIL } from 'src/painel/guias';
 import { formatarDia, formatarInteiro, formatarPercentual } from 'src/painel/formato';
 import { type Funil } from 'src/painel/funil';
 import { type Jornada } from 'src/painel/jornada';
@@ -103,6 +105,8 @@ export const SecaoFunil = ({
       nota="Lido do histórico de mudanças de etapa, que o gráfico comum não alcança. Conta negócios distintos: quem voltou para negociação depois de um Break conta uma vez só."
       tema={tema}
     />
+
+    <ComoLer itens={GUIA_FUNIL} tema={tema} />
 
     {funil.cortadoNoInicio ? (
       <div

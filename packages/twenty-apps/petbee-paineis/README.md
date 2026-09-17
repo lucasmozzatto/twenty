@@ -151,6 +151,25 @@ As linhas **não fecham em cadeia**: um negócio criado em 30/08 que entrou em q
 em 02/09 está na linha "Em qualificação" de setembro e não na "Novo Lead". Com o piso
 de 01/09 (abaixo) a diferença é só a virada do mês.
 
+O cabeçalho muda com a lente, de propósito. Em "Próximo passo" as colunas têm seta
+("→ Perdido": foi para lá). Em "Situação hoje" não têm ("Perdido", "em negociação",
+"no Break": está lá). A seta na segunda lente fez o dono do painel ler "→ Perdido 145"
+como "145 perdidos nesta etapa", quando é "145 que passaram por esta etapa e hoje
+estão perdidos, onde for". Abaixo da tabela há uma linha que diz como ler a lente
+ativa. A regra que resolve a confusão: **Próximo passo mostra a primeira porta que o
+lead pegou; Situação hoje mostra a sala onde ele está agora. As duas não se subtraem.**
+
+### Os blocos "Como ler"
+
+Cada visão tem, logo abaixo do título, um bloco fechado "Primeira vez aqui? Como ler
+esta visão", e o topo do quadro tem "Como ler este painel". São listas curtas, em
+português simples, escritas para quem nunca viu o painel: o que o período significa
+ali, o que cada número é, e as pegadinhas (o que não é conversão, o que não se subtrai,
+o que é foto de agora). Ficam fechados para não ocupar a tela de quem já sabe. Os
+textos estão em `src/painel/guias.ts`, um por visão, para serem corrigidos como texto,
+sem mexer nas telas. Pedido do dono do painel em 17/09/2026, depois de explicar a
+jornada ao time.
+
 ### O piso do histórico: 01/09/2026
 
 O CRM grava a linha do tempo desde 18/08/2026, mas até o fim de agosto o processo ainda
@@ -308,7 +327,8 @@ busca os dados. O resto está em `src/painel/`:
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
+| `como-ler.tsx`, `guias.ts` | o bloco "Como ler" e os textos dele, um por visão |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.
 
