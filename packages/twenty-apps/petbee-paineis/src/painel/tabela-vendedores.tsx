@@ -7,7 +7,7 @@ import {
   type VendaSemClassificacao,
 } from 'src/painel/desfechos';
 import { formatarInteiro, formatarPercentual, formatarReais } from 'src/painel/formato';
-import { type CohortPorVendedor } from 'src/painel/funil';
+import { type RecebidosPorVendedor } from 'src/painel/cohorts';
 import { type Tema } from 'src/painel/tema';
 
 export type LinhaVendedor = {
@@ -20,12 +20,15 @@ export type LinhaVendedor = {
   ticketMedio: number | null;
 };
 
-// Junta as duas fontes por dono: recebidos e em aberto vêm do cohort (entraram
-// em negociação no período); ganhos, perdidos, receita e ticket vêm dos
-// desfechos (fecharam ou perderam no período, tendo passado por negociação).
+// Junta as duas fontes por dono: recebidos e em aberto vêm da Cohort (chegaram
+// no vendedor no período, contados uma vez só); ganhos, perdidos, receita e
+// ticket vêm dos desfechos. Todo membro do time ganha linha, mesmo zerado: uma pessoa que
+// some da tabela num dia parado parece erro, e a lista completa é o que
+// permite comparar. "Sem dono" só aparece quando tem algo.
 export const montarLinhas = (
-  cohort: CohortPorVendedor[],
+  recebidos: RecebidosPorVendedor[],
   desfechos: DesfechoPorVendedor[],
+  membros: string[],
 ): LinhaVendedor[] => {
   const porDono = new Map<string | null, LinhaVendedor>();
   const linha = (chave: string | null): LinhaVendedor => {
@@ -48,7 +51,9 @@ export const montarLinhas = (
     return nova;
   };
 
-  for (const item of cohort) {
+  for (const membro of membros) linha(membro);
+
+  for (const item of recebidos) {
     const alvo = linha(item.chave);
 
     alvo.recebidos = item.recebidos;
@@ -168,7 +173,7 @@ export const TabelaVendedores = ({
   return (
     <Cartao
       titulo="Por vendedor, no período"
-      nota='Recebidos: entraram em negociação no período. Ganhos: vendas do período (data de fechamento) com o campo Fechamento = Comercial, para o dono do card; Direto e Recompra ficam fora; sem o campo, conta só se passou por negociação ou se um vendedor marcou o Ganho à mão. Perdidos: perderam no período, tendo passado por negociação, e continuam em Perdido. Em aberto: recebidos ainda sem desfecho. Taxa: ganhos sobre ganhos + perdidos. Receita e ticket: dos ganhos.'
+      nota='Recebidos: chegaram no vendedor no período (primeira entrada em negociação; quem voltou do Break não conta de novo), como na visão Cohort. Ganhos: vendas do período (data de fechamento) com o campo Fechamento = Comercial, para o dono do card; Direto e Recompra ficam fora; sem o campo, conta só se passou por negociação ou se um vendedor marcou o Ganho à mão. Perdidos: perderam no período, tendo passado por negociação, e continuam em Perdido. Em aberto: recebidos ainda sem desfecho. Taxa: ganhos sobre ganhos + perdidos. Receita e ticket: dos ganhos.'
       tema={tema}
     >
       {truncado ? (

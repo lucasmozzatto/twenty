@@ -176,8 +176,10 @@ O CRM grava a linha do tempo desde 18/08/2026, mas até o fim de agosto o proces
 estava sendo ajustado depois da migração. Por decisão do dono do painel em 17/09/2026,
 **tudo que lê o histórico** (Funil, Cohort e a jornada) conta a partir de 01/09/2026:
 `recortarNoHistorico` em `periodo.ts` recorta o início do período e a visão avisa em
-laranja quando a data escolhida era anterior. A Visão geral e a tabela por vendedor não
-leem o histórico e não são recortadas. O botão "Desde 01/09" é o mesmo piso.
+laranja quando a data escolhida era anterior. A Visão geral não lê o histórico e não é
+recortada. Na tabela por vendedor, Recebidos, Em aberto e Perdidos vêm do histórico e
+obedecem ao piso; Ganhos vêm da data de fechamento e seguem o período inteiro. O botão
+"Desde 01/09" é o mesmo piso.
 
 ### A tabela por vendedor
 
@@ -186,13 +188,25 @@ combinadas com o dono do painel em 16/09/2026:
 
 | Coluna | Regra | De onde vem |
 |---|---|---|
-| Recebidos | entraram em negociação **no período** | cohort (`funil.ts`) |
-| Em aberto | recebidos que hoje ainda não são Ganho nem Perdido | cohort (`funil.ts`) |
+| Recebidos | chegaram no vendedor **no período**: a primeira entrada em negociação de cada negócio, uma vez só; quem voltou do Break não conta de novo. A mesma conta da visão Cohort | cohort (`cohort.ts`, somado por dono em `recebidosPorVendedor`, `cohorts.ts`) |
+| Em aberto | recebidos que hoje ainda não são Ganho nem Perdido | cohort (idem) |
 | Ganhos | viraram Ganho no período (data de fechamento) e o campo **Fechamento** diz Comercial; Direto e Recompra ficam fora; sem o campo, só se passou por negociação ou se um vendedor marcou à mão | desfechos (`desfechos.ts`) |
 | Perdidos | viraram Perdido no período (evento do histórico), idem, **e continuam em Perdido hoje** | desfechos (`desfechos.ts`) |
 | Taxa | ganhos ÷ (ganhos + perdidos) | conta na tela |
 | Receita | soma do valor dos ganhos | desfechos |
 | Ticket médio | média do valor dos ganhos (sem valor não entra); no Total é receita ÷ ganhos | desfechos |
+
+Todo membro do workspace tem linha, mesmo zerado: num dia parado, uma pessoa que some da
+tabela parece erro, e a lista completa é o que permite comparar. "Sem dono" só aparece
+quando tem algo. Pedido do dono do painel em 17/09/2026.
+
+Recebidos e Em aberto usam a mesma base da visão Cohort desde 17/09/2026, por decisão do
+dono do painel, para as duas telas baterem. Antes, a tabela lia o Funil, que contava
+qualquer entrada em negociação no período: um lead que chegou em agosto, foi para o Break
+e voltou em setembro aparecia como "recebido" em setembro de novo. Agora cada negócio
+conta uma vez, no período em que chegou pela primeira vez, e o efeito é uma queda pequena
+em Recebidos (uns 3 ou 4 por mês para a vendedora, em setembro/2026). Como a base é o
+histórico, obedece ao piso de 01/09 e a visão avisa em laranja quando recorta.
 
 O ponto que muda tudo: **Ganhos e Perdidos não se limitam aos recebidos do período**.
 Um lead delegado em agosto e vendido em setembro conta em setembro. É por isso que
@@ -217,8 +231,10 @@ a regra do campo dá 11 (10 Comercial + 1 vazia marcada à mão), e deixa 2 vazi
 compra automática pelo site fora, apontadas na lista.
 
 Perdidos seguem o funil, não o campo: perderam no período, tendo passado por negociação,
-e continuam em Perdido. A Taxa (ganhos ÷ ganhos + perdidos) mistura as duas réguas de
-propósito: é "vendas comissionáveis sobre leads trabalhados e perdidos".
+e continuam em Perdido. Como vêm do histórico, obedecem ao piso de 01/09/2026 (as vendas,
+que vêm da data de fechamento do negócio, não). A Taxa (ganhos ÷ ganhos + perdidos)
+mistura as duas réguas de propósito: é "vendas comissionáveis sobre leads trabalhados e
+perdidos".
 
 Perda tem duas ressalvas. O negócio não guarda data de perda, então "perdeu no período"
 sai do evento "virou Perdido" no histórico, e por isso obedece ao início do histórico

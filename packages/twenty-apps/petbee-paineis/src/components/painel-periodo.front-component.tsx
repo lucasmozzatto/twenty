@@ -219,7 +219,7 @@ const PainelPeriodo = () => {
           <SecaoVendedores
             dados={dados}
             comparacao={comparacao}
-            funil={funil}
+            cohort={cohort}
             desfechos={desfechos}
             nomes={nomes}
             tema={tema}

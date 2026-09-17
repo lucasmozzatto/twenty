@@ -28,7 +28,7 @@ import {
   negociosQuePassaramPor,
   SO_NEGOCIOS,
 } from 'src/painel/linha-do-tempo';
-import { limitesIso, type Periodo } from 'src/painel/periodo';
+import { limitesIso, type Periodo, recortarNoHistorico } from 'src/painel/periodo';
 import { ETAPAS_EM_NEGOCIACAO } from 'src/painel/rotulos';
 
 export type DesfechoPorVendedor = {
@@ -61,7 +61,11 @@ const noPeriodo = (campo: string, inicio: string, fim: string): Filtro[] => [
 ];
 
 export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
+  // Vendas são pela data de fechamento do negócio e não dependem do
+  // histórico, então usam o período pedido. Perdas e "quem marcou à mão"
+  // vêm do histórico e obedecem ao piso de 01/09/2026, como Funil e Cohort.
   const { inicio, fim } = limitesIso(periodo);
+  const historico = limitesIso(recortarNoHistorico(periodo).periodo);
   const falhas: Falha[] = [];
 
   // Venda é pela data de fechamento, igual ao resto do painel. Perda não tem
@@ -86,7 +90,11 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
     tentar(
       'perdas do período',
       listarMudancas({
-        and: [SO_NEGOCIOS, filtroDeEntradaEm(['LOST']), ...noPeriodo('happensAt', inicio, fim)],
+        and: [
+          SO_NEGOCIOS,
+          filtroDeEntradaEm(['LOST']),
+          ...noPeriodo('happensAt', historico.inicio, historico.fim),
+        ],
       }),
       { mudancas: [] as MudancaDeEtapa[], truncado: false },
       falhas,
@@ -94,7 +102,11 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
     tentar(
       'ganhos marcados à mão',
       listarMudancas({
-        and: [SO_NEGOCIOS, filtroDeEntradaEm(['WON']), ...noPeriodo('happensAt', inicio, fim)],
+        and: [
+          SO_NEGOCIOS,
+          filtroDeEntradaEm(['WON']),
+          ...noPeriodo('happensAt', historico.inicio, historico.fim),
+        ],
       }),
       { mudancas: [] as MudancaDeEtapa[], truncado: false },
       falhas,
