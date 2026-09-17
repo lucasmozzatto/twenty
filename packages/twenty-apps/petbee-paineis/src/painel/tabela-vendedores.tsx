@@ -9,6 +9,7 @@ import {
 } from 'src/painel/desfechos';
 import { formatarInteiro, formatarPercentual, formatarReais } from 'src/painel/formato';
 import { type RecebidosPorVendedor } from 'src/painel/cohorts';
+import { NAO_SAO_VENDEDORES } from 'src/painel/equipe';
 import { NotaDeVendas } from 'src/painel/nota-vendas';
 import { type Tema } from 'src/painel/tema';
 
@@ -24,9 +25,11 @@ export type LinhaVendedor = {
 
 // Junta as duas fontes por dono: recebidos e em aberto vêm da Cohort (chegaram
 // no vendedor no período, contados uma vez só); ganhos, perdidos, receita e
-// ticket vêm dos desfechos. Todo membro do time ganha linha, mesmo zerado: uma pessoa que
-// some da tabela num dia parado parece erro, e a lista completa é o que
-// permite comparar. "Sem dono" só aparece quando tem algo.
+// ticket vêm dos desfechos. Todo membro do time ganha linha, mesmo zerado: uma
+// pessoa que some da tabela num dia parado parece erro, e a lista completa é o
+// que permite comparar. Quem não é vendedor (`equipe.ts`) fica de fora dessa
+// regra e só aparece se tiver algum número. "Sem dono" só aparece quando tem
+// algo.
 export const montarLinhas = (
   recebidos: RecebidosPorVendedor[],
   desfechos: DesfechoPorVendedor[],
@@ -53,7 +56,9 @@ export const montarLinhas = (
     return nova;
   };
 
-  for (const membro of membros) linha(membro);
+  for (const membro of membros) {
+    if (!NAO_SAO_VENDEDORES.has(membro)) linha(membro);
+  }
 
   for (const item of recebidos) {
     const alvo = linha(item.chave);
