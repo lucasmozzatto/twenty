@@ -22,16 +22,26 @@ import {
 } from 'src/painel/rotulos';
 import { type Tema } from 'src/painel/tema';
 
-type Filtro = 'pendentes' | 'duplicadas' | 'todas' | VereditoVenda;
+type Filtro = 'pendentes' | 'duplicadas' | 'aCancelar' | 'todas' | VereditoVenda;
 
 const PENDENTES: VereditoVenda[] = ['VALOR_DIVERGENTE', 'SEM_ASSINATURA', 'AGUARDANDO'];
 
-// Duplicada é pendência mesmo quando "Conferida": o mesmo negócio cadastrado
-// duas vezes casa com as mesmas assinaturas e conta duas vezes na receita.
+// Duas pendências não aparecem no veredito e por isso entram aqui à mão.
+// Duplicada: o mesmo negócio cadastrado duas vezes casa com as mesmas
+// assinaturas e conta duas vezes na receita. Cancelada no mês: o cliente
+// cancelou todas as assinaturas dentro do mês, então pela regra do fechamento
+// esta venda deveria estar em Perdido. As duas podem estar como "Conferida".
 const passaNoFiltro = (venda: Venda, filtro: Filtro): boolean => {
   if (filtro === 'todas') return true;
   if (filtro === 'duplicadas') return venda.duplicada;
-  if (filtro === 'pendentes') return venda.duplicada || PENDENTES.includes(venda.veredito);
+  if (filtro === 'aCancelar') return venda.assinaturaCanceladaNoMes;
+  if (filtro === 'pendentes') {
+    return (
+      venda.duplicada ||
+      venda.assinaturaCanceladaNoMes ||
+      PENDENTES.includes(venda.veredito)
+    );
+  }
 
   return venda.veredito === filtro;
 };
@@ -68,14 +78,18 @@ export const ListaVendas = ({
     vendas.filter((venda) => passaNoFiltro(venda, qual)).length;
 
   const duplicadas = contar('duplicadas');
+  const aCancelar = contar('aCancelar');
 
-  // A ficha de duplicados só aparece quando existe alguma: no mês limpo ela
-  // seria só ruído.
+  // As fichas de duplicados e de canceladas no mês só aparecem quando existe
+  // alguma: no mês limpo elas seriam só ruído.
   const fichas: Ficha<Filtro>[] = [
     { valor: 'pendentes', rotulo: 'Com pendência', quantidade: contar('pendentes') },
     { valor: 'VALOR_DIVERGENTE', rotulo: 'Valor divergente', quantidade: contar('VALOR_DIVERGENTE') },
     { valor: 'SEM_ASSINATURA', rotulo: 'Sem assinatura', quantidade: contar('SEM_ASSINATURA') },
     { valor: 'AGUARDANDO', rotulo: 'Aguardando', quantidade: contar('AGUARDANDO') },
+    ...(aCancelar > 0
+      ? [{ valor: 'aCancelar' as const, rotulo: 'Cancelada no mês', quantidade: aCancelar }]
+      : []),
     ...(duplicadas > 0
       ? [{ valor: 'duplicadas' as const, rotulo: 'Duplicados', quantidade: duplicadas }]
       : []),
@@ -123,13 +137,16 @@ export const ListaVendas = ({
     <span style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', maxWidth: '100%' }}>
       <Ligacao objeto="opportunity" id={venda.id} texto={venda.cliente} tema={tema} />
       {venda.duplicada ? <Etiqueta texto="duplicado" cor={tema.laranja} /> : null}
+      {venda.assinaturaCanceladaNoMes ? (
+        <Etiqueta texto="cancelou no mês" cor={tema.laranja} />
+      ) : null}
     </span>
   );
 
   return (
     <Cartao
       titulo="Vendas × banco"
-      nota="Uma linha por negócio ganho no período. Valor CRM é o Amount do negócio; No banco é a soma das assinaturas do cliente que a conciliação encontrou; Conferência é o veredito dela. A etiqueta 'duplicado' marca cliente com mais de um negócio ganho no período. Clique no cliente para abrir o negócio."
+      nota="Uma linha por negócio ganho no período. Valor CRM é o Amount do negócio; No banco é a soma das assinaturas do cliente que a conciliação encontrou; Conferência é o veredito dela. A etiqueta 'duplicado' marca cliente com mais de um negócio ganho no período, e 'cancelou no mês' marca quem cancelou todas as assinaturas dentro do mês, caso de mover o negócio para Perdido. Clique no cliente para abrir o negócio."
       tema={tema}
     >
       <Fichas fichas={fichas} ativa={filtro} tema={tema} aoEscolher={escolher} />

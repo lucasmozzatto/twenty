@@ -19,12 +19,20 @@ export type Resumo = {
   diferenca: number;
   // Vendas com outro negócio ganho do mesmo cliente no período.
   duplicadas: number;
+  // Vendas cujo cliente só tem assinatura cancelada dentro do mês: pela regra
+  // do fechamento, deveriam estar em Perdido.
+  aCancelar: number;
   // Assinaturas cobradas: fora as de valor zero. É o lado do banco que tem
   // dinheiro.
   assinaturas: number;
   mrr: number;
   cortesias: number;
   canceladas: number;
+  // Canceladas dentro do mês em que começaram: não são venda do mês.
+  canceladasNoMes: number;
+  // "Sem venda" de verdade: fora as canceladas dentro do próprio mês, que só
+  // estão assim porque o negócio já foi, corretamente, para Perdido.
+  semVenda: number;
   vereditosVenda: Record<VereditoVenda, number>;
   vereditosAssinatura: Record<VereditoAssinatura, number>;
 };
@@ -46,21 +54,29 @@ export const resumir = (vendas: Venda[], assinaturas: Assinatura[]): Resumo => {
   let receita = 0;
   let valorBanco = 0;
   let duplicadas = 0;
+  let aCancelar = 0;
 
   for (const venda of vendas) {
     vereditosVenda[venda.veredito] += 1;
     receita += venda.valorCrm ?? 0;
     valorBanco += venda.valorBanco ?? 0;
     if (venda.duplicada) duplicadas += 1;
+    if (venda.assinaturaCanceladaNoMes) aCancelar += 1;
   }
 
   let mrr = 0;
   let cobradas = 0;
   let cortesias = 0;
   let canceladas = 0;
+  let canceladasNoMes = 0;
+  let semVenda = 0;
 
   for (const assinatura of assinaturas) {
     vereditosAssinatura[assinatura.veredito] += 1;
+    if (assinatura.canceladaNoMes) canceladasNoMes += 1;
+    if (assinatura.veredito === 'SEM_VENDA' && !assinatura.canceladaNoMes) {
+      semVenda += 1;
+    }
 
     if (assinatura.cortesia) {
       cortesias += 1;
@@ -78,10 +94,13 @@ export const resumir = (vendas: Venda[], assinaturas: Assinatura[]): Resumo => {
     valorBanco,
     diferenca: receita - valorBanco,
     duplicadas,
+    aCancelar,
     assinaturas: cobradas,
     mrr,
     cortesias,
     canceladas,
+    canceladasNoMes,
+    semVenda,
     vereditosVenda,
     vereditosAssinatura,
   };
