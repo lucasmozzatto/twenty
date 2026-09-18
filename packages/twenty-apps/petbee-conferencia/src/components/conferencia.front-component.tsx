@@ -12,6 +12,7 @@ import { useColorScheme, useUserId } from 'twenty-sdk/front-component';
 import { CONFERENCIA_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/constants/universal-identifiers';
 import { decidirAcesso, lerLiberados } from 'src/painel/acesso';
 import { Titulo } from 'src/painel/cartoes';
+import { pedirConciliacao } from 'src/painel/conciliar';
 import { buscarMembros, type Membro } from 'src/painel/crm';
 import { buscarDados, type Dados } from 'src/painel/dados';
 import { ListaAssinaturas } from 'src/painel/lista-assinaturas';
@@ -40,6 +41,8 @@ const Conferencia = () => {
   const [membros, setMembros] = useState<Membro[] | null>(null);
   const [dados, setDados] = useState<Dados | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [conciliando, setConciliando] = useState(false);
+  const [avisoDaConciliacao, setAvisoDaConciliacao] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   const liberados = useMemo(lerLiberados, []);
@@ -75,6 +78,31 @@ const Conferencia = () => {
   useEffect(() => {
     recarregar();
   }, [recarregar]);
+
+  // O botão "atualizar" roda a conciliação e só então relê. Trocar de período
+  // não passa por aqui de propósito: navegar pelos meses não precisa acordar o
+  // robô. Conciliação que não roda não trava nada — a tela relê e avisa.
+  const atualizarAgora = useCallback(async () => {
+    if (periodoInvalido || acesso !== 'liberado' || conciliando) return;
+    setConciliando(true);
+    setAvisoDaConciliacao(null);
+
+    const resultado = await pedirConciliacao();
+
+    setConciliando(false);
+
+    if (resultado.estado === 'sem-configuracao') {
+      setAvisoDaConciliacao(
+        'Só reli a tela: falta ligar o atalho da conciliação em Settings → Applications → Conferência Petbee. Sem ele, os vereditos só mudam na rodada das 07:00.',
+      );
+    } else if (resultado.estado === 'falhou') {
+      setAvisoDaConciliacao(
+        `Só reli a tela: não consegui rodar a conciliação agora (${resultado.motivo}).`,
+      );
+    }
+
+    await recarregar();
+  }, [periodoInvalido, acesso, conciliando, recarregar]);
 
   const escolherPredefinido = (qual: Predefinido) => {
     setPredefinido(qual);
@@ -136,13 +164,16 @@ const Conferencia = () => {
         periodo={periodo}
         hoje={hoje}
         carregando={carregando}
+        conciliando={conciliando}
         periodoInvalido={periodoInvalido}
         tema={tema}
         aoEscolherPredefinido={escolherPredefinido}
         aoEditarData={editarData}
         aoEscolherPeriodo={escolherPeriodo}
-        aoAtualizar={recarregar}
+        aoAtualizar={atualizarAgora}
       />
+
+      {avisoDaConciliacao === null ? null : aviso(avisoDaConciliacao)}
 
       {acesso === 'verificando' ? (
         <div style={{ fontSize: '12px', color: tema.suave }}>Verificando acesso…</div>
@@ -209,10 +240,10 @@ const Conferencia = () => {
       </div>
 
       <div style={{ fontSize: '11px', color: tema.suave }}>
-        Os vereditos são gravados pela conciliação diária (n8n, todo dia às
-        07:00) nos campos "Conferência banco" do negócio e "Conferência funil"
-        da assinatura. Esta página só lê; para mudar um veredito, corrija o
-        registro no CRM e espere a próxima rodada.
+        Os vereditos são gravados pela conciliação (n8n, todo dia às 07:00, e
+        a cada clique em "atualizar") nos campos "Conferência banco" do negócio
+        e "Conferência funil" da assinatura. Esta página só lê: para mudar um
+        veredito, corrija o registro no CRM e clique em "atualizar".
       </div>
     </div>
   );

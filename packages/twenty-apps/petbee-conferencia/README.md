@@ -113,6 +113,35 @@ deixava venda de negócio antigo em "Aguardando" para sempre e criava falso
 "Aguardando conciliação" não é valor do campo: é o vazio, quando a conciliação
 ainda não passou por aquele registro.
 
+## O botão "atualizar"
+
+Ele roda a conciliação na hora e só então relê a página. É o caminho para
+corrigir um negócio no CRM e ver o veredito mudar em segundos, em vez de
+esperar as 07:00. Trocar de período **não** dispara a conciliação de
+propósito: navegar pelos meses não precisa acordar o robô.
+
+O caminho da chamada, do clique até o veredito:
+
+1. a página chama `POST /s/conferencia/conciliar` no próprio CRM, com o token
+   do app, e a rota exige estar logado;
+2. essa rota é a função de servidor `src/logic-functions/conciliar.ts`, que lê
+   as variáveis `CONFERENCIA_CONCILIACAO_URL` e `CONFERENCIA_CONCILIACAO_CHAVE`
+   (só o servidor as recebe decifradas) e chama o webhook do n8n;
+3. no n8n, o nó "Conferir a chave do botão" recusa quem não trouxer a chave, e
+   a conciliação roda igual à das 07:00;
+4. o webhook só responde quando a rodada termina, então a página relê e já vê
+   os vereditos novos.
+
+A página nunca vê a URL nem a chave do robô: quem as guarda é o servidor. O
+caminho do webhook é um UUID, e a chave é a segunda tranca, para uma URL
+vazada sozinha não bastar. Com as variáveis vazias o botão volta a ser um
+"reler" e a página avisa, em vez de fingir que rodou.
+
+O que o botão **não** faz é rodar o sync do banco da Petbee, que é um cron no
+próprio servidor do CRM (ver `petbee/sync`). Correção feita na Petbee aparece
+na próxima rodada do sync; correção feita no CRM, que é o caso comum, o botão
+resolve na hora.
+
 ## Agosto
 
 Agosto ficou com os vereditos da regra antiga, de propósito: a base da
@@ -174,6 +203,14 @@ O código chega na VPS pelo `deploy.yml`, a cada push na `main`. Para desfazer,
 `remover`, ou apague o app em Settings → Applications. Nada aqui altera
 registro: o papel do app não tem permissão de escrita.
 
+Depois do primeiro `apply`, preencher em **Settings → Applications →
+Conferência Petbee** as duas variáveis do botão "atualizar":
+`CONFERENCIA_CONCILIACAO_URL` com a URL de produção do webhook "Botão da
+Conferência" (no n8n, dentro da "Conciliação diária — funil × banco") e
+`CONFERENCIA_CONCILIACAO_CHAVE` com a chave que está no nó "Conferir a chave
+do botão". As duas são segredo e não têm valor no código de propósito. O
+workflow precisa estar **publicado** no n8n para a URL de produção responder.
+
 Da máquina local, com Node 22+ e o remote `petbee` configurado:
 
 ```bash
@@ -230,4 +267,5 @@ publicar; pendências mudam a cada rodada das 07:00.
 - Limpar os negócios duplicados de agosto (25 pares) e descobrir o que os
   criou em lote em 28/08.
 - Exportar o mês (CSV).
+- Rodar o sync da Petbee sob demanda; hoje ele é um cron no servidor.
 - Estreitar o papel do app aos objetos que ele lê.

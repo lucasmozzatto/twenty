@@ -20,3 +20,15 @@ export const NAV_CONFERENCIA_UNIVERSAL_IDENTIFIER =
 
 export const LIBERADO_PARA_VARIABLE_UNIVERSAL_IDENTIFIER =
   '0752c26f-6056-4c49-aa6f-d3d877038f9b';
+
+// O botão "atualizar" da página pede a conciliação na hora, através desta
+// função de servidor. A rota vive no próprio CRM, em /s + este caminho; quem
+// guarda a URL e a chave do robô no n8n é a função, nunca a página.
+export const CONCILIAR_LOGIC_FUNCTION_UNIVERSAL_IDENTIFIER =
+  '27250548-ed4b-4316-83b5-67dbfc6368aa';
+export const ROTA_CONCILIAR = '/conferencia/conciliar';
+
+export const CONCILIACAO_URL_VARIABLE_UNIVERSAL_IDENTIFIER =
+  '0c531ed4-7971-45d7-be02-df0bc756278f';
+export const CONCILIACAO_CHAVE_VARIABLE_UNIVERSAL_IDENTIFIER =
+  '3636b9cf-8eb6-495a-a4c7-c0910a2fe5d4';
