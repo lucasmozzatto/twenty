@@ -83,6 +83,37 @@ antes do período e recorta pelo dia civil. A conciliação lê do mesmo jeito. 
 checkout grava a hora do pagamento, então o problema é só de quem grava data
 pura.
 
+## Assinatura cancelada no mesmo mês
+
+Regra do time, de 18/09/2026: assinatura cancelada **dentro do mesmo mês** em
+que começou não é venda daquele mês. A venda sai do funil e o negócio vai para
+**Perdido**. Cancelamento no mês seguinte não mexe em nada, porque o mês já
+fechou. É mês do calendário mesmo: quem assina em 30/09 e cancela em 02/10
+continua sendo venda de setembro.
+
+A página aplica isso por conta própria, sem depender da conciliação, porque já
+lê a data de cancelamento. São dois estados:
+
+- **Negócio já em Perdido.** A conciliação marca a assinatura como "Sem venda",
+  que é o certo, mas não é pendência. A página tira ela de "Sem venda", mostra
+  a etiqueta **Cancelada no mês** e cria uma ficha própria com a contagem.
+- **Negócio ainda em Ganho.** Aí sim é pendência: alguém precisa mover para
+  Perdido. A venda ganha a etiqueta **cancelou no mês** na lista de vendas e
+  entra em "Com pendência", mesmo estando "Conferida".
+
+A marca depende do **status** Cancelada, não só da data: o banco guarda a data
+de um cancelamento revertido, e em 18/09/2026 havia assinaturas ATIVAS com data
+preenchida (LOLLA, Lully, Chanel). Olhar só a data marcaria venda boa como
+cancelada.
+
+Uma venda só é marcada quando **todas** as assinaturas daquele cliente no
+período foram canceladas no mês. Se sobrou uma ativa, a venda continua de pé, e
+uma eventual diferença de valor aparece na coluna Diferença.
+
+O valor delas continua somando em "Assinaturas no banco" e no MRR, com a
+ressalva escrita no cartão. Quem manda no fechamento é a Diferença, que já é
+calculada pelas vendas.
+
 ## De onde vêm os vereditos
 
 Dos campos que a conciliação diária grava: **Conferência banco** no negócio
@@ -226,17 +257,16 @@ Medidos pela API em 17/09/2026 à noite, depois da primeira rodada da regra
 nova, com os mesmos filtros da página. Servem para conferir a tela depois de
 publicar; pendências mudam a cada rodada das 07:00.
 
-**Este mês** (fechamento de 01 a 17/09):
+**Este mês** (fechamento de 01 a 18/09), depois de o time corrigir as cinco
+divergências de valor e dar Ganho nos negócios de Jack e Zoe:
 
 | | |
 |---|---|
-| Vendas no CRM | 31 (26 conferidas, 5 valor divergente, nenhuma sem assinatura ou aguardando) |
-| Receita no CRM | R$ 4.776,70 |
-| No banco, das vendas | R$ 4.631,80 |
-| Diferença | +R$ 144,90, que é a soma das 5 divergências: Milene Lazaro +10, Sandra Schimidt +100, Kleilson +9,90, Fernanda Mafra −15, Leny Rossetto +40 |
-| Assinaturas no banco | 35 iniciadas: 33 com venda, 2 sem venda (Jack, de Julia Ruiz; Zoe, de Rosilangela Marafigo), nenhuma de valor zero; 1 já cancelada |
-| MRR no banco | R$ 4.941,60 |
+| Vendas no CRM | 32, todas conferidas |
+| Diferença | zero |
+| Assinaturas no banco | 35 iniciadas: 34 com venda e 1 cancelada dentro do próprio mês (Zuffo, de Geizeane De Cezaro), nenhuma sem venda nem de valor zero |
 | Duplicados | nenhum |
+| Pendências | nenhuma |
 
 **Mês passado** (fechamento em agosto, regra antiga; ver "Agosto"):
 

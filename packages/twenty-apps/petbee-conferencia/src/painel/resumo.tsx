@@ -30,6 +30,9 @@ export const Resumo = ({
       : `Iniciadas no período, fora ${formatarInteiro(resumo.cortesias)} de valor zero` +
         (resumo.canceladas > 0
           ? `; ${formatarInteiro(resumo.canceladas)} já cancelada(s)`
+          : '') +
+        (resumo.canceladasNoMes > 0
+          ? `, ${formatarInteiro(resumo.canceladasNoMes)} dentro do próprio mês`
           : '');
 
   const bate = resumo !== null && Math.abs(resumo.diferenca) < 0.005;
@@ -39,15 +42,19 @@ export const Resumo = ({
       ? `Receita do CRM menos o valor no banco das mesmas vendas. ${formatarInteiro(resumo.duplicadas)} venda(s) duplicada(s) contam duas vezes aqui`
       : 'Receita do CRM menos o valor no banco das mesmas vendas. Zero é o objetivo';
 
+  // Assinatura cancelada no mês com o negócio já em Perdido não é pendência:
+  // a conciliação a deixa como "sem venda", e é exatamente o certo. O que
+  // pesa é a venda que ainda não foi para Perdido, contada em aCancelar.
   const pendentes =
     resumo === null
       ? null
       : resumo.vereditosVenda.VALOR_DIVERGENTE +
         resumo.vereditosVenda.SEM_ASSINATURA +
         resumo.vereditosVenda.AGUARDANDO +
-        resumo.vereditosAssinatura.SEM_VENDA +
+        resumo.semVenda +
         resumo.vereditosAssinatura.AGUARDANDO +
-        resumo.duplicadas;
+        resumo.duplicadas +
+        resumo.aCancelar;
 
   const aguardando =
     resumo === null
@@ -125,9 +132,9 @@ export const Resumo = ({
         />
         <Numero
           rotulo="Sem venda no funil"
-          valor={inteiro(resumo?.vereditosAssinatura.SEM_VENDA)}
+          valor={inteiro(resumo?.semVenda)}
           cor={tema.vermelho}
-          nota="Assinatura no banco sem venda ganha no CRM"
+          nota="Assinatura no banco sem venda ganha no CRM, fora as canceladas dentro do próprio mês"
           tema={tema}
         />
         <Numero

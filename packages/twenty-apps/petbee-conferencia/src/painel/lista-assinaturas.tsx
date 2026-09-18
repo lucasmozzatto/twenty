@@ -22,10 +22,17 @@ import {
 } from 'src/painel/rotulos';
 import { type Tema } from 'src/painel/tema';
 
-type Filtro = 'todas' | VereditoAssinatura;
+type Filtro = 'todas' | 'canceladas' | VereditoAssinatura;
 
-const passaNoFiltro = (assinatura: Assinatura, filtro: Filtro): boolean =>
-  filtro === 'todas' || assinatura.veredito === filtro;
+// Cancelada dentro do próprio mês sai das fichas de veredito e ganha a sua:
+// o veredito dela é verdadeiro mas enganoso. "Sem venda" quando o negócio já
+// foi para Perdido, que é o certo; "Com venda" quando ainda não foi.
+const passaNoFiltro = (assinatura: Assinatura, filtro: Filtro): boolean => {
+  if (filtro === 'todas') return true;
+  if (filtro === 'canceladas') return assinatura.canceladaNoMes;
+
+  return assinatura.veredito === filtro && !assinatura.canceladaNoMes;
+};
 
 const COLUNAS = [
   'Pet',
@@ -57,8 +64,15 @@ export const ListaAssinaturas = ({
   const contar = (qual: Filtro) =>
     assinaturas.filter((assinatura) => passaNoFiltro(assinatura, qual)).length;
 
+  const canceladas = contar('canceladas');
+
+  // A ficha de canceladas só aparece quando existe alguma: no mês limpo ela
+  // seria só ruído.
   const fichas: Ficha<Filtro>[] = [
     { valor: 'SEM_VENDA', rotulo: 'Sem venda', quantidade: contar('SEM_VENDA') },
+    ...(canceladas > 0
+      ? [{ valor: 'canceladas' as const, rotulo: 'Cancelada no mês', quantidade: canceladas }]
+      : []),
     { valor: 'AGUARDANDO', rotulo: 'Aguardando', quantidade: contar('AGUARDANDO') },
     { valor: 'COM_VENDA', rotulo: 'Com venda', quantidade: contar('COM_VENDA') },
     { valor: 'CORTESIA', rotulo: 'Cortesia', quantidade: contar('CORTESIA') },
@@ -101,7 +115,7 @@ export const ListaAssinaturas = ({
   return (
     <Cartao
       titulo="Assinaturas do banco"
-      nota="Uma linha por assinatura iniciada no período, como o robô de sync trouxe do banco da Petbee. Conferência é o veredito da conciliação: tem venda ganha no CRM para este tutor? Clique no pet para abrir a assinatura, no tutor para abrir a pessoa."
+      nota="Uma linha por assinatura iniciada no período, como o robô de sync trouxe do banco da Petbee. Conferência é o veredito da conciliação: tem venda ganha no CRM para este tutor? Assinatura cancelada dentro do próprio mês não é venda do mês e sai das pendências. Clique no pet para abrir a assinatura, no tutor para abrir a pessoa."
       tema={tema}
     >
       <Fichas fichas={fichas} ativa={filtro} tema={tema} aoEscolher={escolher} />
@@ -143,10 +157,14 @@ export const ListaAssinaturas = ({
                 corDoStatusAssinatura(assinatura.status, tema),
               )}
               {celula(
-                <Etiqueta
-                  texto={ROTULO_VEREDITO_ASSINATURA[assinatura.veredito]}
-                  cor={corDoVereditoAssinatura(assinatura.veredito, tema)}
-                />,
+                assinatura.canceladaNoMes ? (
+                  <Etiqueta texto="Cancelada no mês" cor={tema.suave} />
+                ) : (
+                  <Etiqueta
+                    texto={ROTULO_VEREDITO_ASSINATURA[assinatura.veredito]}
+                    cor={corDoVereditoAssinatura(assinatura.veredito, tema)}
+                  />
+                ),
               )}
               {celula(assinatura.idPetbee ?? '—', false, tema.suave)}
             </div>

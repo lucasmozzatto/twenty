@@ -41,6 +41,9 @@ export type Venda = {
   valorBanco: number | null;
   // Há outro negócio ganho do mesmo cliente no período.
   duplicada: boolean;
+  // Todas as assinaturas do cliente no período foram canceladas dentro do
+  // mesmo mês: pela regra do fechamento, esta venda deveria ir para Perdido.
+  assinaturaCanceladaNoMes: boolean;
 };
 
 export type Assinatura = {
@@ -49,8 +52,11 @@ export type Assinatura = {
   tutorId: string | null;
   tutorNome: string | null;
   inicio: string;
+  cancelamento: string | null;
   status: string | null;
   cortesia: boolean;
+  // Cancelada dentro do mesmo mês em que começou. Não é venda do mês.
+  canceladaNoMes: boolean;
   veredito: VereditoAssinatura;
   mrr: number | null;
   idPetbee: string | null;
@@ -170,6 +176,7 @@ export const buscarVendas = async (
         valorCrm: deMicros(no.amount?.amountMicros),
         valorBanco: deMicros(no.valorBanco?.amountMicros),
         duplicada: false,
+        assinaturaCanceladaNoMes: false,
       };
     })
     .filter((venda) => venda.fechamento >= periodo.de && venda.fechamento <= periodo.ate);
@@ -182,6 +189,7 @@ type NoAssinatura = {
   name: string | null;
   status: string | null;
   dataInicio: string | null;
+  dataCancelamento: string | null;
   cortesia: boolean | null;
   conferenciaFunil: string | null;
   subsIdPetbee: string | null;
@@ -191,12 +199,28 @@ type NoAssinatura = {
 };
 
 const CAMPOS_ASSINATURA =
-  'id name status dataInicio cortesia conferenciaFunil subsIdPetbee tutorId valorMensal { amountMicros } tutor { id name { firstName lastName } }';
+  'id name status dataInicio dataCancelamento cortesia conferenciaFunil subsIdPetbee tutorId valorMensal { amountMicros } tutor { id name { firstName lastName } }';
 
 // Só o valor manda, igual à conciliação desde 17/09/2026: assinatura a R$ 0
 // fica fora da conta de dinheiro; a marca "cortesia" do banco com valor
 // cobrado é assinatura normal e precisa bater com a venda.
 export const ehCortesia = (mrr: number | null): boolean => (mrr ?? 0) === 0;
+
+// Assinatura cancelada dentro do mesmo mês em que começou não é venda do mês:
+// o time tira a venda do funil e o negócio vai para Perdido. Cancelamento no
+// mês seguinte não mexe em nada, porque o mês já fechou.
+//
+// Exige o status, não só a data: o banco guarda a data de um cancelamento
+// revertido, e existem assinaturas ATIVAS com data preenchida (LOLLA, Lully e
+// Chanel em 18/09/2026). Só a data marcaria venda boa como cancelada.
+export const ehCanceladaNoMes = (
+  status: string | null,
+  inicio: string,
+  cancelamento: string | null,
+): boolean =>
+  status === 'CANCELADA' &&
+  cancelamento !== null &&
+  cancelamento.slice(0, 7) === inicio.slice(0, 7);
 
 const vereditoDaAssinatura = (bruto: string | null): VereditoAssinatura =>
   bruto === 'COM_VENDA' || bruto === 'SEM_VENDA' || bruto === 'CORTESIA'
@@ -222,14 +246,18 @@ export const buscarAssinaturas = async (
     assinaturas: nos.map((no) => {
       const mrr = deMicros(no.valorMensal?.amountMicros);
 
+      const inicio = no.dataInicio ?? periodo.de;
+
       return {
         id: no.id,
         pet: no.name?.trim() || 'Sem nome',
         tutorId: no.tutorId,
         tutorNome: nomeCompleto(no.tutor?.name ?? null),
-        inicio: no.dataInicio ?? periodo.de,
+        inicio,
+        cancelamento: no.dataCancelamento,
         status: no.status,
         cortesia: ehCortesia(mrr),
+        canceladaNoMes: ehCanceladaNoMes(no.status, inicio, no.dataCancelamento),
         veredito: vereditoDaAssinatura(no.conferenciaFunil),
         mrr,
         idPetbee: no.subsIdPetbee,
@@ -248,6 +276,34 @@ export type Dados = {
   falhas: Falha[];
 };
 
+// Marca a venda cujo cliente só tem assinatura cancelada no mês. Só quando
+// TODAS foram canceladas: se sobrou uma ativa, a venda continua de pé e a
+// diferença de valor, se houver, aparece na coluna Diferença.
+const marcarVendasCanceladas = (
+  vendas: Venda[],
+  assinaturas: Assinatura[],
+): Venda[] => {
+  const porTutor = new Map<string, Assinatura[]>();
+
+  for (const assinatura of assinaturas) {
+    if (assinatura.tutorId === null) continue;
+    const lista = porTutor.get(assinatura.tutorId) ?? [];
+
+    lista.push(assinatura);
+    porTutor.set(assinatura.tutorId, lista);
+  }
+
+  return vendas.map((venda) => {
+    const doCliente = venda.tutorId === null ? [] : (porTutor.get(venda.tutorId) ?? []);
+
+    return {
+      ...venda,
+      assinaturaCanceladaNoMes:
+        doCliente.length > 0 && doCliente.every((assinatura) => assinatura.canceladaNoMes),
+    };
+  });
+};
+
 export const buscarDados = async (periodo: Periodo): Promise<Dados> => {
   const falhas: Falha[] = [];
 
@@ -262,11 +318,16 @@ export const buscarDados = async (periodo: Periodo): Promise<Dados> => {
     ),
   ]);
 
+  const vendasMarcadas = marcarVendasCanceladas(
+    vendas.vendas,
+    assinaturas.assinaturas,
+  );
+
   return {
-    vendas: vendas.vendas,
+    vendas: vendasMarcadas,
     assinaturas: assinaturas.assinaturas,
-    resumo: resumir(vendas.vendas, assinaturas.assinaturas),
-    porVendedor: porVendedor(vendas.vendas),
+    resumo: resumir(vendasMarcadas, assinaturas.assinaturas),
+    porVendedor: porVendedor(vendasMarcadas),
     truncado: { vendas: vendas.truncado, assinaturas: assinaturas.truncado },
     falhas,
   };
