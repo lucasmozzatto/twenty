@@ -38,6 +38,7 @@ export const Seletor = ({
   periodo,
   hoje,
   carregando,
+  conciliando,
   periodoInvalido,
   tema,
   aoEscolherPredefinido,
@@ -49,6 +50,7 @@ export const Seletor = ({
   periodo: Periodo;
   hoje: string;
   carregando: boolean;
+  conciliando: boolean;
   periodoInvalido: boolean;
   tema: Tema;
   aoEscolherPredefinido: (qual: Predefinido) => void;
@@ -176,11 +178,22 @@ export const Seletor = ({
             {dias(periodo)} · horário de Brasília
           </span>
         )}
+        {/* Atualizar roda a conciliação e só depois relê: o clique existe
+            justamente para não esperar a rodada das 07:00. */}
         <a
-          onClick={aoAtualizar}
-          style={{ marginLeft: 'auto', cursor: 'pointer', color: tema.suave }}
+          onClick={conciliando ? undefined : aoAtualizar}
+          title="Roda a conciliação agora e relê a página"
+          style={{
+            marginLeft: 'auto',
+            cursor: conciliando ? 'default' : 'pointer',
+            color: tema.suave,
+          }}
         >
-          {carregando ? 'carregando…' : '↻ atualizar'}
+          {conciliando
+            ? 'conciliando…'
+            : carregando
+              ? 'carregando…'
+              : '↻ atualizar'}
         </a>
       </div>
     </>
