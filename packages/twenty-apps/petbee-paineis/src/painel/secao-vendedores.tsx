@@ -73,10 +73,11 @@ export const SecaoVendedores = ({
             fontSize: '12px',
           }}
         >
-          <b>Atenção:</b> Recebidos, Perdidos e Em aberto contam a partir de{' '}
+          <b>Atenção:</b> Recebidos e Em aberto contam a partir de{' '}
           {formatarDia(cohort.periodo.de)}, por decisão do dono do painel: antes
           disso o processo ainda estava sendo ajustado. O período escolhido
-          começava antes e foi recortado. Ganhos seguem o período inteiro.
+          começava antes e foi recortado. Ganhos e Perdidos seguem o período
+          inteiro.
         </div>
       ) : null}
 
