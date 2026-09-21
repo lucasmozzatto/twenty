@@ -41,6 +41,9 @@ export type PerdaClassificada = {
   ownerId: string | null;
   motivo: string | null;
   etapa: EtapaDeSaida;
+  // Só para montar o link da conversa; o painel nunca escreve o número na
+  // tela, ele vai dentro do endereço do link.
+  whatsapp: string | null;
 };
 
 export type Perdas = {
@@ -53,6 +56,7 @@ type NegocioPerdido = {
   id: string;
   ownerId: string | null;
   motivoLost: string | null;
+  whatsapp: string | null;
 };
 
 const noPeriodo = (campo: string, inicio: string, fim: string): Filtro[] => [
@@ -75,7 +79,7 @@ export const buscarPerdas = async (periodo: Periodo): Promise<Perdas> => {
             ...noPeriodo('closeDate', inicio, fim),
           ],
         },
-        'id ownerId motivoLost',
+        'id ownerId motivoLost whatsapp',
       ),
       { nos: [] as NegocioPerdido[], truncado: false },
       falhas,
@@ -122,6 +126,7 @@ export const buscarPerdas = async (periodo: Periodo): Promise<Perdas> => {
     ownerId: negocio.ownerId,
     motivo: negocio.motivoLost,
     etapa: conhecida(ultimaSaida.get(negocio.id)?.etapa),
+    whatsapp: negocio.whatsapp,
   }));
 
   return {
@@ -207,4 +212,12 @@ export const somarLinhas = (linhas: LinhaDePerdas[]): LinhaDePerdas => {
   }
 
   return total;
+};
+
+// O link abre a conversa no WhatsApp. O número vai só dentro do endereço:
+// na tela aparece a palavra, nunca o telefone. Sem número, não há link.
+export const conversaNoWhatsapp = (numero: string | null): string | null => {
+  const digitos = (numero ?? '').replace(/\D/g, '');
+
+  return digitos.length < 10 ? null : `https://wa.me/${digitos}`;
 };
