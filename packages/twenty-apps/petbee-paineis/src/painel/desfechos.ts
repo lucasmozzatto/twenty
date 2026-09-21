@@ -15,12 +15,15 @@
 // O campo é preenchido pela automação da venda e, na conferência dos
 // ganhos, pelo gerente comercial; a regra automática só cobre o esquecimento.
 //
-// PERDIDOS: foram CRIADOS no período e estão em Perdido HOJE, tendo passado
-// por negociação em alguma data. Decisão do dono do painel em 21/09/2026: a
-// coluna passa a falar do lote de leads que entrou no período, em vez de
-// juntar perdas de leads antigos que a cadência encerrou agora. Dois efeitos
-// procurados: o mês não infla com perda velha, e um lead recuperado sai da
-// coluna na hora, porque a etapa olhada é a de hoje.
+// PERDIDOS: estão em Perdido HOJE, com a data de fechamento do negócio
+// dentro do período, e passaram por negociação em alguma data. A data sai do
+// mesmo campo que as vendas usam: quando o card vira Perdido, o fluxo grava
+// a data de fechamento no mesmo instante em que muda a etapa.
+//
+// A régua foi para a data de CRIAÇÃO por algumas horas em 21/09/2026 e voltou
+// no mesmo dia, por decisão do dono do painel: como quase todo lead decide em
+// menos de 48 horas, as duas contas dão quase o mesmo número, e "perdeu neste
+// mês" é mais simples de explicar ao time do que "entrou neste mês e morreu".
 //
 // VENDAS SEM NEGOCIAÇÃO: os ganhos contados cujo lead nunca passou por
 // negociação (venda pelo checkout, marcada à mão, ou de qualificação direto
@@ -86,9 +89,9 @@ const noPeriodo = (campo: string, inicio: string, fim: string): Filtro[] => [
 ];
 
 export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
-  // Vendas são pela data de fechamento e perdas pela data de criação; nenhuma
-  // das duas depende do histórico, então usam o período pedido inteiro. Só
-  // "quem marcou o Ganho à mão" vem do histórico e obedece ao piso de 01/09.
+  // Vendas e perdas são pela data de fechamento do negócio e não dependem do
+  // histórico, então usam o período pedido inteiro. Só "quem marcou o Ganho à
+  // mão" vem do histórico e obedece ao piso de 01/09/2026.
   const { inicio, fim } = limitesIso(periodo);
   const historico = limitesIso(recortarNoHistorico(periodo).periodo);
   const falhas: Falha[] = [];
@@ -119,7 +122,7 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
           and: [
             { funnel: { eq: 'VENDAS' } },
             { stage: { eq: 'LOST' } },
-            ...noPeriodo('createdAt', inicio, fim),
+            ...noPeriodo('closeDate', inicio, fim),
           ],
         },
         'id ownerId',

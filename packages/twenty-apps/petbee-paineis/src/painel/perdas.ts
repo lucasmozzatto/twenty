@@ -2,8 +2,8 @@
 // ele saiu e por qual motivo. Responde as três perguntas que a tela de cima
 // não responde: quem perdeu, em que etapa, e por quê.
 //
-// A perda entra pela MESMA régua da coluna Perdidos: foi criada no período e
-// está em Perdido hoje. O histórico de etapas entra só para dizer de onde o
+// A perda entra pela MESMA régua da coluna Perdidos: está em Perdido hoje e a
+// data de fechamento cai no período. O histórico de etapas entra só para dizer de onde o
 // lead saiu; quando não há registro (lead criado já perdido, ou perda
 // anterior ao início do histórico), a etapa fica 'SEM_REGISTRO'.
 // Combinado com o dono do painel em 21/09/2026.
@@ -69,7 +69,7 @@ export const buscarPerdas = async (periodo: Periodo): Promise<Perdas> => {
         and: [
           { funnel: { eq: 'VENDAS' } },
           { stage: { eq: 'LOST' } },
-          ...noPeriodo('createdAt', inicio, fim),
+          ...noPeriodo('closeDate', inicio, fim),
         ],
       },
       'id ownerId motivoLost whatsapp',
