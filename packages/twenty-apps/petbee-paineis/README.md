@@ -311,10 +311,13 @@ outra régua ("perdidos criados no período"). Esse gráfico saiu.
 
 - **Clicar num número** abre embaixo a lista dos negócios daquela célula
   (`lista-de-perdas.tsx`): o código curto do negócio, que abre o card, o motivo e um link
-  para a conversa no WhatsApp. Pedido do dono do painel em 21/09/2026, para conferir na
-  conversa se o motivo registrado é justo. O número do cliente nunca aparece escrito: vai
-  dentro do endereço do link, montado com `https://wa.me/`. Sem número no negócio, o link
-  não aparece. A lista mostra 30 itens e avisa quantos ficaram de fora. Em setembro/2026,
+  para a conversa. Pedido do dono do painel em 21/09/2026, para conferir na conversa se o
+  motivo registrado é justo. O link abre a **ferramenta de atendimento da casa**, no mesmo
+  formato que o CRM já usa na coluna WhatsApp das tarefas: `https://wpp.petbeetools.com.br/`
+  com os dígitos em `?tel=`. O número do cliente nunca aparece escrito, vai dentro do
+  endereço. Número com 10 ou 11 dígitos ganha o `55` na frente (a conta é por tamanho, e
+  não por "começa com 55", porque 55 também é DDD); fora da faixa de 12 a 15 dígitos, o
+  link não aparece. A lista mostra 30 itens e avisa quantos ficaram de fora. Em setembro/2026,
   73 negócios perdidos estavam sem WhatsApp preenchido.
 
 Medições de 21/09/2026, para conferência, com "Este mês": 437 eventos de perda no

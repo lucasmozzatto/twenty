@@ -214,10 +214,22 @@ export const somarLinhas = (linhas: LinhaDePerdas[]): LinhaDePerdas => {
   return total;
 };
 
-// O link abre a conversa no WhatsApp. O número vai só dentro do endereço:
-// na tela aparece a palavra, nunca o telefone. Sem número, não há link.
+// O link abre a conversa na ferramenta de atendimento da casa, no mesmo
+// formato que o CRM já usa na coluna WhatsApp das tarefas: o endereço leva
+// os dígitos em `tel`. O número vai só dentro do endereço; na tela aparece a
+// palavra, nunca o telefone. Sem número utilizável, não há link.
+const ATENDIMENTO = 'https://wpp.petbeetools.com.br/';
+
 export const conversaNoWhatsapp = (numero: string | null): string | null => {
   const digitos = (numero ?? '').replace(/\D/g, '');
 
-  return digitos.length < 10 ? null : `https://wa.me/${digitos}`;
+  // 10 ou 11 dígitos é DDD mais número, sem o país: falta o 55. Acima disso
+  // o país já veio. A conta é por tamanho, e não por "começa com 55", porque
+  // 55 também é o DDD de Santa Maria.
+  const completo =
+    digitos.length === 10 || digitos.length === 11 ? `55${digitos}` : digitos;
+
+  return completo.length < 12 || completo.length > 15
+    ? null
+    : `${ATENDIMENTO}?tel=${completo}`;
 };
