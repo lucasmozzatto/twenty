@@ -18,9 +18,12 @@
 // PERDIDOS: estão em Perdido HOJE, com a data de fechamento do negócio
 // dentro do período, e passaram por negociação em alguma data. A data sai do
 // mesmo campo que as vendas usam: quando o card vira Perdido, o fluxo grava
-// a data de fechamento no mesmo instante em que muda a etapa (conferido em
-// 21/09/2026). Antes esta coluna lia o evento "virou Perdido" no histórico,
-// o que a prendia ao piso de 01/09; agora as duas colunas usam a mesma régua.
+// a data de fechamento no mesmo instante em que muda a etapa.
+//
+// A régua foi para a data de CRIAÇÃO por algumas horas em 21/09/2026 e voltou
+// no mesmo dia, por decisão do dono do painel: como quase todo lead decide em
+// menos de 48 horas, as duas contas dão quase o mesmo número, e "perdeu neste
+// mês" é mais simples de explicar ao time do que "entrou neste mês e morreu".
 //
 // VENDAS SEM NEGOCIAÇÃO: os ganhos contados cujo lead nunca passou por
 // negociação (venda pelo checkout, marcada à mão, ou de qualificação direto
@@ -93,9 +96,9 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
   const historico = limitesIso(recortarNoHistorico(periodo).periodo);
   const falhas: Falha[] = [];
 
-  // Venda e perda saem da data de fechamento do negócio. Quem está em Perdido
-  // hoje já entra filtrado pela etapa, então um perdido reaberto some daqui
-  // sozinho. As linhas "virou Ganho" entram para saber quem marcou à mão.
+  // Quem está em Perdido hoje já entra filtrado pela etapa, então um perdido
+  // reaberto some daqui sozinho. As linhas "virou Ganho" entram para saber
+  // quem marcou à mão.
   const [vendas, perdas, ganhos] = await Promise.all([
     tentar(
       'vendas do período',

@@ -238,19 +238,27 @@ porque o WhatsApp estava fora e o card não foi movido. Só "passou por negocia�
 a regra do campo dá 11 (10 Comercial + 1 vazia marcada à mão), e deixa 2 vazias de
 compra automática pelo site fora, apontadas na lista.
 
-**Perdidos saem da data de fechamento do negócio**, a mesma régua das vendas, decisão do
-dono do painel em 21/09/2026. Entra quem está em Perdido **hoje**, com data de fechamento
-dentro do período, e que passou por negociação em alguma data. Até então a coluna lia o
-evento "virou Perdido" no histórico, o que a prendia ao piso de 01/09; agora Ganhos e
-Perdidos usam o mesmo campo e o mesmo período.
+**Perdidos saem da data de fechamento do negócio**, a mesma régua das vendas. Entra quem
+está em Perdido **hoje**, com data de fechamento dentro do período, e que passou por
+negociação em alguma data.
 
-Isso foi conferido em 21/09/2026: quando o card vira Perdido, o fluxo grava a data de
-fechamento no mesmo instante em que muda a etapa (visto no histórico de um negócio, com
-os dois valores no mesmo segundo), e **nenhum** negócio em Perdido no funil Vendas está
-com o campo vazio. O README anterior dizia que o negócio não guardava data de perda, o
-que estava errado. Um lote de negócios perdidos em agosto recebeu um toque em massa em
-15/09, mas com a data de fechamento de agosto, então eles continuam fora de setembro
-pelas duas réguas.
+A coluna mudou três vezes em 21/09/2026, e vale registrar o caminho para ninguém refazê-lo:
+lia o evento "virou Perdido" no histórico (o que a prendia ao piso de 01/09), passou para a
+data de fechamento, foi para a data de **criação** por algumas horas e voltou para a data de
+fechamento no mesmo dia. O motivo da volta, dado pelo dono do painel: como quase todo lead
+decide em menos de 48 horas, as duas contas dão quase o mesmo número, e "perdeu neste mês"
+é mais simples de explicar ao time do que "entrou neste mês e morreu". A régua por criação
+também fazia o número do mês crescer depois do mês fechado, como os lotes do Cohort, o que
+confundia a leitura mês a mês.
+
+Para referência, a diferença medida em 21/09/2026 para setembro: 566 perdas pela data de
+fechamento contra 274 pela data de criação. A maior parte dessas 292 era limpeza de leads
+de agosto feita pela cadência em setembro.
+
+A data de fechamento é confiável no fluxo de hoje: quando o card vira Perdido, o fluxo
+grava a data no mesmo instante em que muda a etapa, e nenhum negócio em Perdido do funil
+Vendas está com o campo vazio. O README anterior dizia que o negócio não guardava data de
+perda, o que estava errado.
 
 A condição "passou por negociação" continua vindo do histórico de etapas, que começa em
 18/08/2026. Para períodos anteriores a isso a coluna sai baixa, porque não há como saber
@@ -293,9 +301,11 @@ barras com os motivos, que não dizia em que etapa o lead estava, e ainda por ci
 outra régua ("perdidos criados no período"). Esse gráfico saiu.
 
 - **A perda entra pela mesma régua da coluna Perdidos**: está em Perdido hoje e a data de
-  fechamento cai no período. As duas tabelas e a coluna passam a contar a mesma coisa,
-  com uma diferença de propósito: aqui entram TAMBÉM as perdas que nunca passaram por
-  negociação, porque a pergunta é sobre o funil inteiro.
+  fechamento cai no período. As duas tabelas e a coluna contam a mesma coisa, com uma
+  diferença de propósito: aqui entram TAMBÉM as perdas que nunca passaram por negociação,
+  porque a pergunta é sobre o funil inteiro. A etapa de saída é buscada **por id**, e não
+  por data (`etapaAntesDePerder`, em `linha-do-tempo.ts`): assim ela funciona com qualquer
+  régua de período e nada cai em "Sem registro" só porque o evento ficou fora da janela.
 - **A etapa de saída** vem do histórico: a etapa que estava no `before` da última vez que
   o negócio entrou em Perdido. Perda sem esse registro (lead criado já perdido, ou perda
   anterior ao início do histórico) cai em **Sem registro**, coluna em cinza. Em
@@ -322,7 +332,8 @@ outra régua ("perdidos criados no período"). Esse gráfico saiu.
 
 Medições de 21/09/2026, para conferência, com "Este mês": 437 eventos de perda no
 histórico, sendo 200 saídos de Em negociação, 164 de Em qualificação, 62 de Novo Lead, 8
-de Break e 1 de Fechamento; 566 negócios em Perdido com data de fechamento no mês.
+de Break e 1 de Fechamento; 566 negócios em Perdido com data de fechamento no mês, sendo
+296 no dono padrão, 200 na vendedora, 55 sem dono e 15 no outro vendedor.
 
 ### A visão Cohort: a medida justa de conversão por vendedor
 
@@ -335,6 +346,11 @@ derruba a taxa do mês sem ninguém ter vendido pior. Foi a escolha do dono do p
 
 Como funciona, em `src/painel/cohort.ts` (busca) e `src/painel/cohorts.ts` (contas):
 
+- **Só o funil Vendas.** O histórico de etapas não guarda o funil, então o filtro entra na
+  busca da situação de cada negócio (`SO_FUNIL_DE_VENDAS`, passado a `listarNegociosPorId`
+  no Cohort e na jornada). Em 21/09/2026 os 13.913 negócios do CRM estavam todos no funil
+  Vendas, então o filtro não muda número nenhum hoje; ele existe para o dia em que o funil
+  Corretoras usar as mesmas etapas. Pedido do dono do painel ao revisar as regras.
 - **Recebido** = entrou em "Em negociação" ou "Fechamento" pela **primeira vez** dentro
   do período. É o instante em que a IA entrega o lead a uma pessoa (dono e etapa mudam
   na mesma linha do histórico). Cada negócio conta uma vez; quem voltou do Break não é
@@ -403,7 +419,7 @@ Três decisões que parecem detalhe e não são:
   uma queda falsa de metade. Fevereiro, sendo mais curto, corta no fim do mês.
 - **Taxa varia em pontos percentuais.** Conversão de 7% para 8% subiu 1 ponto; chamar
   isso de "+14%" confunde. Só a Conversão usa `p.p.`, o resto usa porcentagem.
-- **Sobe nem sempre é bom.** "Sem origem" e "Perdas com conversa" ficam vermelhos
+- **Sobe nem sempre é bom.** "Sem origem" e "Perdidos com contato real" ficam vermelhos
   quando crescem (`sentido: 'negativo'`). A variação também leva sinal, para quem não
   distingue verde de vermelho.
 - **Antes zero não vira "infinito por cento"**: mostra só "antes 0", sem variação.
@@ -567,7 +583,7 @@ yarn twenty apply
 | Ticket médio | R$ 150,45 | R$ 144,89 | +3,8% |
 | Conversão | 7,0% | 16,0% | −9,0 p.p. |
 | Sem origem | 71 | 98 | −28% |
-| Perdas com conversa | 44 | 102 | −57% |
+| Perdidos com contato real (na época, "Perdas com conversa") | 44 | 102 | −57% |
 
 As linhas por dia de 01 a 16/08, para conferir a linha cinza: criados
 10, 16, 28, 28, 26, 18, 16, 10, 8, 21, 25, 24, 20, 10, 12, 9 (soma 281); vendas

@@ -26,6 +26,10 @@ import {
 } from 'src/painel/periodo';
 import { ETAPAS_EM_NEGOCIACAO } from 'src/painel/rotulos';
 
+// O histórico de etapas não sabe de funil, então o filtro entra na busca da
+// situação: negócio de outro funil que use as mesmas etapas fica fora.
+export const SO_FUNIL_DE_VENDAS = { funnel: { eq: 'VENDAS' } };
+
 export type NegocioDoCohort = {
   id: string;
   // Instante e dia (Brasília) em que entrou em negociação pela primeira vez.
@@ -107,6 +111,7 @@ export const buscarCohort = async (periodoPedido: Periodo): Promise<Cohort> => {
     listarNegociosPorId<SituacaoDoNegocio>(
       novos,
       'id ownerId stage closeDate amount { amountMicros }',
+      [SO_FUNIL_DE_VENDAS],
     ),
     { nos: [] as SituacaoDoNegocio[], truncado: false },
     falhas,

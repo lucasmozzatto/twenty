@@ -12,6 +12,7 @@
 // "Entrar em Novo Lead" é ser criado. Se a automação criar o negócio já em
 // outra etapa, ele entra nessa etapa e aparece na nota "criados já em outra
 // etapa", para não sumir da conta.
+import { SO_FUNIL_DE_VENDAS } from 'src/painel/cohort';
 import { listarNegocios, listarNegociosPorId } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
 import {
@@ -205,7 +206,9 @@ export const buscarJornada = async (periodoPedido: Periodo): Promise<Jornada> =>
   const [restantes, posteriores] = await Promise.all([
     tentar(
       'situação dos negócios (jornada)',
-      listarNegociosPorId<NegocioHoje>(soNoHistorico, 'id stage createdAt'),
+      listarNegociosPorId<NegocioHoje>(soNoHistorico, 'id stage createdAt', [
+        SO_FUNIL_DE_VENDAS,
+      ]),
       { nos: [] as NegocioHoje[], truncado: false },
       falhas,
     ),
