@@ -15,8 +15,12 @@
 // O campo é preenchido pela automação da venda e, na conferência dos
 // ganhos, pelo gerente comercial; a regra automática só cobre o esquecimento.
 //
-// PERDIDOS seguem o funil: viraram Perdido no período, passaram por
-// negociação em alguma data e continuam em Perdido hoje.
+// PERDIDOS: estão em Perdido HOJE, com a data de fechamento do negócio
+// dentro do período, e passaram por negociação em alguma data. A data sai do
+// mesmo campo que as vendas usam: quando o card vira Perdido, o fluxo grava
+// a data de fechamento no mesmo instante em que muda a etapa (conferido em
+// 21/09/2026). Antes esta coluna lia o evento "virou Perdido" no histórico,
+// o que a prendia ao piso de 01/09; agora as duas colunas usam a mesma régua.
 //
 // VENDAS SEM NEGOCIAÇÃO: os ganhos contados cujo lead nunca passou por
 // negociação (venda pelo checkout, marcada à mão, ou de qualificação direto
@@ -30,7 +34,6 @@ import {
   filtroDeEntradaEm,
   listarMudancas,
   type MudancaDeEtapa,
-  negociosQueEntraramEm,
   negociosQuePassaramPor,
   SO_NEGOCIOS,
 } from 'src/painel/linha-do-tempo';
@@ -75,22 +78,24 @@ type Venda = {
   amount: { amountMicros: number | null } | null;
 };
 
+type Perda = { id: string; ownerId: string | null };
+
 const noPeriodo = (campo: string, inicio: string, fim: string): Filtro[] => [
   { [campo]: { gte: inicio } },
   { [campo]: { lt: fim } },
 ];
 
 export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
-  // Vendas são pela data de fechamento do negócio e não dependem do
-  // histórico, então usam o período pedido. Perdas e "quem marcou à mão"
-  // vêm do histórico e obedecem ao piso de 01/09/2026, como Funil e Cohort.
+  // Vendas e perdas são pela data de fechamento do negócio e não dependem do
+  // histórico, então usam o período pedido inteiro. Só "quem marcou o Ganho à
+  // mão" vem do histórico e obedece ao piso de 01/09/2026.
   const { inicio, fim } = limitesIso(periodo);
   const historico = limitesIso(recortarNoHistorico(periodo).periodo);
   const falhas: Falha[] = [];
 
-  // Venda é pela data de fechamento, igual ao resto do painel. Perda não tem
-  // data própria no negócio, então vem do evento "virou Perdido" no histórico.
-  // As linhas "virou Ganho" entram para saber quem marcou à mão.
+  // Venda e perda saem da data de fechamento do negócio. Quem está em Perdido
+  // hoje já entra filtrado pela etapa, então um perdido reaberto some daqui
+  // sozinho. As linhas "virou Ganho" entram para saber quem marcou à mão.
   const [vendas, perdas, ganhos] = await Promise.all([
     tentar(
       'vendas do período',
@@ -109,14 +114,17 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
     ),
     tentar(
       'perdas do período',
-      listarMudancas({
-        and: [
-          SO_NEGOCIOS,
-          filtroDeEntradaEm(['LOST']),
-          ...noPeriodo('happensAt', historico.inicio, historico.fim),
-        ],
-      }),
-      { mudancas: [] as MudancaDeEtapa[], truncado: false },
+      listarNegocios<Perda>(
+        {
+          and: [
+            { funnel: { eq: 'VENDAS' } },
+            { stage: { eq: 'LOST' } },
+            ...noPeriodo('closeDate', inicio, fim),
+          ],
+        },
+        'id ownerId',
+      ),
+      { nos: [] as Perda[], truncado: false },
       falhas,
     ),
     tentar(
@@ -133,7 +141,7 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
     ),
   ]);
 
-  const idsDePerdas = [...negociosQueEntraramEm(perdas.mudancas, ['LOST'])];
+  const idsDePerdas = perdas.nos.map((perda) => perda.id);
   const semCampo = vendas.nos.filter((venda) => venda.fechamento === null);
   const marcadasAMao = new Set(
     ganhos.mudancas
@@ -183,15 +191,17 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
           falhas,
         );
 
-  const [gruposDeVendas, gruposDePerdas] = await Promise.all([
-    porDono(idsDeGanhos, 'vendas por vendedor'),
-    // Só quem CONTINUA em Perdido: um lead perdido e reaberto não é perda.
-    porDono(
-      idsDePerdas.filter((id) => passaram.has(id)),
-      'perdas por vendedor que negociaram',
-      [{ stage: { eq: 'LOST' } }],
-    ),
-  ]);
+  const gruposDeVendas = await porDono(idsDeGanhos, 'vendas por vendedor');
+
+  // Perdas já vêm com o dono, então a contagem é aqui mesmo, sem outra
+  // consulta. Só entra quem passou por negociação: lead descartado ainda na
+  // qualificação nunca foi trabalhado por um vendedor.
+  const perdasPorDono = new Map<string | null, number>();
+
+  for (const perda of perdas.nos) {
+    if (!passaram.has(perda.id)) continue;
+    perdasPorDono.set(perda.ownerId, (perdasPorDono.get(perda.ownerId) ?? 0) + 1);
+  }
 
   const linhas = new Map<string | null, DesfechoPorVendedor>();
   const linha = (chave: string | null): DesfechoPorVendedor => {
@@ -214,8 +224,8 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
     alvo.ticketMedio = grupo.mediaReais;
   }
 
-  for (const grupo of gruposDePerdas) {
-    linha(grupo.chaves[0] ?? null).perdidos = grupo.contagem;
+  for (const [dono, quantidade] of perdasPorDono) {
+    linha(dono).perdidos = quantidade;
   }
 
   return {

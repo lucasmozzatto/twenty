@@ -177,9 +177,9 @@ estava sendo ajustado depois da migração. Por decisão do dono do painel em 17
 **tudo que lê o histórico** (Funil, Cohort e a jornada) conta a partir de 01/09/2026:
 `recortarNoHistorico` em `periodo.ts` recorta o início do período e a visão avisa em
 laranja quando a data escolhida era anterior. A Visão geral não lê o histórico e não é
-recortada. Na tabela por vendedor, Recebidos, Em aberto e Perdidos vêm do histórico e
-obedecem ao piso; Ganhos vêm da data de fechamento e seguem o período inteiro. O botão
-"Desde 01/09" é o mesmo piso.
+recortada. Na tabela por vendedor, Recebidos e Em aberto vêm do histórico e obedecem ao
+piso; Ganhos e Perdidos vêm da data de fechamento do negócio e seguem o período inteiro.
+O botão "Desde 01/09" é o mesmo piso.
 
 ### A tabela por vendedor
 
@@ -191,7 +191,7 @@ combinadas com o dono do painel em 16/09/2026:
 | Recebidos | chegaram no vendedor **no período**: a primeira entrada em negociação de cada negócio, uma vez só; quem voltou do Break não conta de novo. Mais as vendas contadas cujo lead nunca passou por negociação, no dia da venda. A mesma conta da visão Cohort | cohort (`cohort.ts` + `incluirVendasSemNegociacao`, somado por dono em `recebidosPorVendedor`, `cohorts.ts`) |
 | Em aberto | recebidos que hoje ainda não são Ganho nem Perdido | cohort (idem) |
 | Ganhos | viraram Ganho no período (data de fechamento) e o campo **Fechamento** diz Comercial; Direto e Recompra ficam fora; sem o campo, só se passou por negociação ou se um vendedor marcou à mão | desfechos (`desfechos.ts`) |
-| Perdidos | viraram Perdido no período (evento do histórico), idem, **e continuam em Perdido hoje** | desfechos (`desfechos.ts`) |
+| Perdidos | estão em **Perdido hoje**, com a **data de fechamento** dentro do período, e passaram por negociação em alguma data | desfechos (`desfechos.ts`) |
 | Taxa | ganhos ÷ recebidos: vendas do período sobre leads que chegaram no período | conta na tela |
 | Receita | soma do valor dos ganhos | desfechos |
 | Ticket médio | média do valor dos ganhos (sem valor não entra); no Total é receita ÷ ganhos | desfechos |
@@ -238,9 +238,28 @@ porque o WhatsApp estava fora e o card não foi movido. Só "passou por negocia�
 a regra do campo dá 11 (10 Comercial + 1 vazia marcada à mão), e deixa 2 vazias de
 compra automática pelo site fora, apontadas na lista.
 
-Perdidos seguem o funil, não o campo: perderam no período, tendo passado por negociação,
-e continuam em Perdido. Como vêm do histórico, obedecem ao piso de 01/09/2026 (as vendas,
-que vêm da data de fechamento do negócio, não).
+**Perdidos saem da data de fechamento do negócio**, a mesma régua das vendas, decisão do
+dono do painel em 21/09/2026. Entra quem está em Perdido **hoje**, com data de fechamento
+dentro do período, e que passou por negociação em alguma data. Até então a coluna lia o
+evento "virou Perdido" no histórico, o que a prendia ao piso de 01/09; agora Ganhos e
+Perdidos usam o mesmo campo e o mesmo período.
+
+Isso foi conferido em 21/09/2026: quando o card vira Perdido, o fluxo grava a data de
+fechamento no mesmo instante em que muda a etapa (visto no histórico de um negócio, com
+os dois valores no mesmo segundo), e **nenhum** negócio em Perdido no funil Vendas está
+com o campo vazio. O README anterior dizia que o negócio não guardava data de perda, o
+que estava errado. Um lote de negócios perdidos em agosto recebeu um toque em massa em
+15/09, mas com a data de fechamento de agosto, então eles continuam fora de setembro
+pelas duas réguas.
+
+A condição "passou por negociação" continua vindo do histórico de etapas, que começa em
+18/08/2026. Para períodos anteriores a isso a coluna sai baixa, porque não há como saber
+quem foi trabalhado por um vendedor.
+
+A diferença que essa condição faz é grande, medida em 21/09/2026 para setembro: 566
+negócios viraram Perdido no mês, sendo 296 no dono padrão, 200 na vendedora, 55 sem dono
+e 15 no outro vendedor; a tabela mostra 188, porque só conta quem chegou a negociar. O
+resto é lead descartado ainda na qualificação, que nenhum vendedor viu.
 
 **A Taxa é ganhos ÷ recebidos**, a "taxa do mês", decisão do dono do painel em
 17/09/2026 (até então era ganhos ÷ ganhos + perdidos, que ninguém lia de primeira). Em
@@ -262,11 +281,37 @@ termômetro do processo, e a garantia de verdade fica na origem (o fluxo de vend
 card para "Em negociação" quando o vendedor assume ou manda o link), combinada para depois
 de 22/09/2026.
 
-Perda tem duas ressalvas. O negócio não guarda data de perda, então "perdeu no período"
-sai do evento "virou Perdido" no histórico, e por isso obedece ao início do histórico
-(18/08/2026). E um negócio perdido que depois foi reaberto (voltou para negociação, foi
-para Break ou virou Ganho) **não** conta como perdido: a coluna exige que ele continue em
-Perdido hoje. Foi decisão do dono do painel em 17/09/2026; até então contava pelo evento.
+Um negócio perdido que depois foi reaberto (voltou para negociação, foi para Break ou
+virou Ganho) **não** conta como perdido: a coluna filtra pela etapa de hoje, então ele
+sai da conta sozinho. Foi decisão do dono do painel em 17/09/2026; até então contava pelo evento.
+
+### De onde saem as perdas, e por quê
+
+Duas tabelas no fim da visão Vendedores, pedidas pelo dono do painel em 21/09/2026, em
+`perdas.ts` (busca e contas) e `tabela-perdas.tsx` (tela). Antes só existia um gráfico de
+barras com os motivos, que não dizia em que etapa o lead estava, e ainda por cima usava
+outra régua ("perdidos criados no período"). Esse gráfico saiu.
+
+- **A perda entra pela mesma régua da coluna Perdidos**: está em Perdido hoje e a data de
+  fechamento cai no período. As duas tabelas e a coluna passam a contar a mesma coisa,
+  com uma diferença de propósito: aqui entram TAMBÉM as perdas que nunca passaram por
+  negociação, porque a pergunta é sobre o funil inteiro.
+- **A etapa de saída** vem do histórico: a etapa que estava no `before` da última vez que
+  o negócio entrou em Perdido. Perda sem esse registro (lead criado já perdido, ou perda
+  anterior ao início do histórico) cai em **Sem registro**, coluna em cinza. Em
+  setembro/2026 são cerca de 130 de 566, herança da migração do CRM; o dono do painel
+  pediu para mostrar em vez de esconder, para dar para acompanhar se o número cai.
+- **Novo Lead e Em qualificação** aparecem em itálico: é descarte da IA antes de o lead
+  chegar num vendedor. A nota do quadro diz quantas perdas do período aconteceram com o
+  lead já na mão de alguém.
+- A segunda tabela usa **as mesmas colunas** da primeira, trocando vendedor por motivo, e
+  os botões no topo filtram por pessoa. É o cruzamento que interessa: "falta de retorno"
+  em qualificação é lead que nunca respondeu a IA, em negociação é lead que conversou com
+  a vendedora e sumiu. Em setembro/2026 esse motivo sozinho tinha 311 das perdas.
+
+Medições de 21/09/2026, para conferência, com "Este mês": 437 eventos de perda no
+histórico, sendo 200 saídos de Em negociação, 164 de Em qualificação, 62 de Novo Lead, 8
+de Break e 1 de Fechamento; 566 negócios em Perdido com data de fechamento no mês.
 
 ### A visão Cohort: a medida justa de conversão por vendedor
 
@@ -383,11 +428,11 @@ busca os dados. O resto está em `src/painel/`:
 |---|---|
 | `periodo.ts` | contas de data e a regra do período anterior |
 | `crm.ts` | as consultas ao GraphQL |
-| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts` | as perguntas e as contas derivadas |
+| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts`, `perdas.ts` | as perguntas e as contas derivadas |
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `nota-vendas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `nota-vendas.tsx`, `tabela-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
 | `como-ler.tsx`, `guias.ts` | o bloco "Como ler" e os textos dele, um por visão |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.

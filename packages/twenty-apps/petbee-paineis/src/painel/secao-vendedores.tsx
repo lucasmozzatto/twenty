@@ -16,8 +16,11 @@ import { formatarDia, formatarInteiro, variacao } from 'src/painel/formato';
 import { type Desfechos } from 'src/painel/desfechos';
 import { type Cohort } from 'src/painel/cohort';
 import { recebidosPorVendedor } from 'src/painel/cohorts';
+import { type Perdas } from 'src/painel/perdas';
+import { NAO_SAO_VENDEDORES } from 'src/painel/equipe';
+import { TabelasDePerdas } from 'src/painel/tabela-perdas';
 import { gradeDeCartoes } from 'src/painel/grade';
-import { rotuloEtapa, rotuloMotivoLost } from 'src/painel/rotulos';
+import { rotuloEtapa } from 'src/painel/rotulos';
 import { montarLinhas, TabelaVendedores } from 'src/painel/tabela-vendedores';
 import { corDaSerie, type Tema } from 'src/painel/tema';
 
@@ -26,6 +29,7 @@ export const SecaoVendedores = ({
   comparacao,
   cohort,
   desfechos,
+  perdas,
   nomes,
   tema,
 }: {
@@ -33,6 +37,7 @@ export const SecaoVendedores = ({
   comparacao: Comparacao | null;
   cohort: Cohort | null;
   desfechos: Desfechos | null;
+  perdas: Perdas | null;
   nomes: Record<string, string>;
   tema: Tema;
 }) => {
@@ -73,10 +78,11 @@ export const SecaoVendedores = ({
             fontSize: '12px',
           }}
         >
-          <b>Atenção:</b> Recebidos, Perdidos e Em aberto contam a partir de{' '}
+          <b>Atenção:</b> Recebidos e Em aberto contam a partir de{' '}
           {formatarDia(cohort.periodo.de)}, por decisão do dono do painel: antes
           disso o processo ainda estava sendo ajustado. O período escolhido
-          começava antes e foi recortado. Ganhos seguem o período inteiro.
+          começava antes e foi recortado. Ganhos e Perdidos seguem o período
+          inteiro.
         </div>
       ) : null}
 
@@ -171,15 +177,16 @@ export const SecaoVendedores = ({
         tema={tema}
       />
 
-      <Barras
-        titulo="Motivos de perda"
-        nota="perdidos criados no período"
-        barras={contagens(dados.motivosPerda)}
-        rotulo={rotuloMotivoLost}
-        cor={tema.laranja}
-        sentido="negativo"
-        tema={tema}
-      />
+      {perdas === null ? null : (
+        <TabelasDePerdas
+          itens={perdas.itens}
+          membros={Object.keys(nomes)}
+          ignorar={(dono) => NAO_SAO_VENDEDORES.has(dono)}
+          nomes={nomes}
+          truncado={perdas.truncado}
+          tema={tema}
+        />
+      )}
 
       <div
         style={{
