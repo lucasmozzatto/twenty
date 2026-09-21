@@ -1,6 +1,7 @@
 // A lista que abre quando alguém clica num número da tabela de perdas.
 // Serve para conferir se o motivo registrado bate com a conversa: cada linha
-// tem o código do negócio, que abre o card, e o link da conversa no WhatsApp.
+// tem o código do negócio, que abre o card, e o link da conversa, que abre a
+// ferramenta de atendimento da casa já no contato certo.
 // O número do cliente nunca aparece escrito, vai só dentro do endereço.
 import { conversaNoWhatsapp, type PerdaClassificada } from 'src/painel/perdas';
 import { rotuloMotivoLost } from 'src/painel/rotulos';
