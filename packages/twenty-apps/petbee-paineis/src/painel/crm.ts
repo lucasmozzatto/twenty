@@ -129,9 +129,13 @@ export const listarNegocios = async <TNo,>(
 
 // Os mesmos negócios, pedidos pelo identificador, em lotes: a lista de ids
 // numa consulta só não pode crescer sem limite. Negócio apagado não volta.
+// `condicoes` entra junto do lote de ids: é por onde passa o filtro de funil,
+// para o histórico de etapas não trazer negócio de outro funil que use as
+// mesmas etapas.
 export const listarNegociosPorId = async <TNo,>(
   ids: string[],
   campos: string,
+  condicoes: Filtro[] = [],
 ): Promise<{ nos: TNo[]; truncado: boolean }> => {
   const TAMANHO_DO_LOTE = 150;
   const nos: TNo[] = [];
@@ -139,7 +143,12 @@ export const listarNegociosPorId = async <TNo,>(
 
   for (let inicio = 0; inicio < ids.length; inicio += TAMANHO_DO_LOTE) {
     const pagina = await listarNegocios<TNo>(
-      { id: { in: ids.slice(inicio, inicio + TAMANHO_DO_LOTE) } },
+      {
+        and: [
+          { id: { in: ids.slice(inicio, inicio + TAMANHO_DO_LOTE) } },
+          ...condicoes,
+        ],
+      },
       campos,
     );
 

@@ -346,6 +346,11 @@ derruba a taxa do mês sem ninguém ter vendido pior. Foi a escolha do dono do p
 
 Como funciona, em `src/painel/cohort.ts` (busca) e `src/painel/cohorts.ts` (contas):
 
+- **Só o funil Vendas.** O histórico de etapas não guarda o funil, então o filtro entra na
+  busca da situação de cada negócio (`SO_FUNIL_DE_VENDAS`, passado a `listarNegociosPorId`
+  no Cohort e na jornada). Em 21/09/2026 os 13.913 negócios do CRM estavam todos no funil
+  Vendas, então o filtro não muda número nenhum hoje; ele existe para o dia em que o funil
+  Corretoras usar as mesmas etapas. Pedido do dono do painel ao revisar as regras.
 - **Recebido** = entrou em "Em negociação" ou "Fechamento" pela **primeira vez** dentro
   do período. É o instante em que a IA entrega o lead a uma pessoa (dono e etapa mudam
   na mesma linha do histórico). Cada negócio conta uma vez; quem voltou do Break não é
