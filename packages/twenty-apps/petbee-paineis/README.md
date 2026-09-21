@@ -309,6 +309,14 @@ outra régua ("perdidos criados no período"). Esse gráfico saiu.
   em qualificação é lead que nunca respondeu a IA, em negociação é lead que conversou com
   a vendedora e sumiu. Em setembro/2026 esse motivo sozinho tinha 311 das perdas.
 
+- **Clicar num número** abre embaixo a lista dos negócios daquela célula
+  (`lista-de-perdas.tsx`): o código curto do negócio, que abre o card, o motivo e um link
+  para a conversa no WhatsApp. Pedido do dono do painel em 21/09/2026, para conferir na
+  conversa se o motivo registrado é justo. O número do cliente nunca aparece escrito: vai
+  dentro do endereço do link, montado com `https://wa.me/`. Sem número no negócio, o link
+  não aparece. A lista mostra 30 itens e avisa quantos ficaram de fora. Em setembro/2026,
+  73 negócios perdidos estavam sem WhatsApp preenchido.
+
 Medições de 21/09/2026, para conferência, com "Este mês": 437 eventos de perda no
 histórico, sendo 200 saídos de Em negociação, 164 de Em qualificação, 62 de Novo Lead, 8
 de Break e 1 de Fechamento; 566 negócios em Perdido com data de fechamento no mês.
@@ -432,7 +440,7 @@ busca os dados. O resto está em `src/painel/`:
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `nota-vendas.tsx`, `tabela-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `nota-vendas.tsx`, `tabela-perdas.tsx`, `grade-de-perdas.tsx`, `lista-de-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
 | `como-ler.tsx`, `guias.ts` | o bloco "Como ler" e os textos dele, um por visão |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.

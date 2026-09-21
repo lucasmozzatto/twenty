@@ -5,119 +5,25 @@ import { useState } from 'react';
 
 import { Cartao } from 'src/painel/cartoes';
 import { formatarInteiro, formatarPercentual } from 'src/painel/formato';
+import { Cabecalho, Fileira, rotuloDaEtapa } from 'src/painel/grade-de-perdas';
 import {
-  ETAPAS_ANTES_DO_VENDEDOR,
-  ETAPAS_DE_SAIDA,
   type EtapaDeSaida,
-  type LinhaDePerdas,
   type PerdaClassificada,
   perdasPorMotivo,
   perdasPorVendedor,
   somarLinhas,
 } from 'src/painel/perdas';
-import { rotuloEtapa, rotuloMotivoLost } from 'src/painel/rotulos';
+import { ListaDePerdas } from 'src/painel/lista-de-perdas';
+import { rotuloMotivoLost } from 'src/painel/rotulos';
 import { type Tema } from 'src/painel/tema';
 
-const GRADE = 'minmax(130px, 1.6fr) repeat(6, minmax(58px, 1fr)) minmax(64px, 0.9fr)';
-
-const rotuloDaEtapa = (etapa: EtapaDeSaida) =>
-  etapa === 'SEM_REGISTRO' ? 'Sem registro' : rotuloEtapa(etapa);
-
-const Cabecalho = ({ tema }: { tema: Tema }) => (
-  <div
-    style={{
-      display: 'grid',
-      gridTemplateColumns: GRADE,
-      gap: '8px',
-      paddingBottom: '4px',
-      fontSize: '11px',
-      color: tema.suave,
-    }}
-  >
-    <div />
-    {ETAPAS_DE_SAIDA.map((etapa) => (
-      <div
-        key={etapa}
-        style={{
-          textAlign: 'right',
-          fontStyle: ETAPAS_ANTES_DO_VENDEDOR.includes(etapa) ? 'italic' : 'normal',
-        }}
-      >
-        {rotuloDaEtapa(etapa)}
-      </div>
-    ))}
-    <div style={{ textAlign: 'right' }}>Total</div>
-  </div>
-);
-
-const Fileira = ({
-  rotulo,
-  linha,
-  destaque,
-  tema,
-}: {
-  rotulo: string;
-  linha: LinhaDePerdas;
-  destaque: boolean;
-  tema: Tema;
-}) => (
-  <div
-    style={{
-      display: 'grid',
-      gridTemplateColumns: GRADE,
-      gap: '8px',
-      padding: '6px 0',
-      borderTop: `1px solid ${tema.borda}`,
-      fontSize: '12px',
-    }}
-  >
-    <div
-      style={{
-        color: tema.texto,
-        fontWeight: destaque ? 700 : 400,
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-      }}
-    >
-      {rotulo}
-    </div>
-    {ETAPAS_DE_SAIDA.map((etapa) => {
-      const valor = linha.porEtapa[etapa];
-
-      return (
-        <div
-          key={etapa}
-          style={{
-            textAlign: 'right',
-            fontVariantNumeric: 'tabular-nums',
-            fontWeight: destaque ? 700 : 400,
-            color:
-              valor === 0
-                ? tema.borda
-                : etapa === 'SEM_REGISTRO'
-                  ? tema.suave
-                  : ETAPAS_ANTES_DO_VENDEDOR.includes(etapa)
-                    ? tema.suave
-                    : tema.vermelho,
-          }}
-        >
-          {formatarInteiro(valor)}
-        </div>
-      );
-    })}
-    <div
-      style={{
-        textAlign: 'right',
-        fontVariantNumeric: 'tabular-nums',
-        fontWeight: 700,
-        color: tema.texto,
-      }}
-    >
-      {formatarInteiro(linha.total)}
-    </div>
-  </div>
-);
+// Qual célula está aberta embaixo da tabela. `tabela` separa as duas, porque
+// a chave de uma é o vendedor e a da outra é o motivo.
+type Celula = {
+  tabela: 'vendedor' | 'motivo';
+  chave: string | null;
+  etapa: EtapaDeSaida;
+};
 
 const Botao = ({
   rotulo,
@@ -163,6 +69,17 @@ export const TabelasDePerdas = ({
   tema: Tema;
 }) => {
   const [dono, setDono] = useState<string | null | 'time'>('time');
+  const [aberta, setAberta] = useState<Celula | null>(null);
+
+  const abrir = (celula: Celula) =>
+    setAberta((atual) =>
+      atual !== null &&
+      atual.tabela === celula.tabela &&
+      atual.chave === celula.chave &&
+      atual.etapa === celula.etapa
+        ? null
+        : celula,
+    );
 
   const nomeDe = (chave: string | null) =>
     chave === null ? 'Sem dono' : (nomes[chave] ?? 'Membro removido');
@@ -185,7 +102,7 @@ export const TabelasDePerdas = ({
     <>
       <Cartao
         titulo="De onde saem as perdas"
-        nota={`Cada perda do período pela etapa em que o lead estava antes de virar Perdido. As duas primeiras colunas, em itálico, são descarte antes de o lead chegar num vendedor. "Sem registro" é perda sem a mudança de etapa gravada, herança da migração do CRM. Mesma régua da tabela de cima: está em Perdido hoje e a data de fechamento cai no período. Neste período, ${formatarInteiro(comVendedor)} de ${formatarInteiro(totalGeral.total)} perdas (${formatarPercentual(comVendedor, totalGeral.total)}) aconteceram com o lead já na mão de alguém.`}
+        nota={`Cada perda do período pela etapa em que o lead estava antes de virar Perdido. As duas primeiras colunas, em itálico, são descarte antes de o lead chegar num vendedor. "Sem registro" é perda sem a mudança de etapa gravada, herança da migração do CRM. Mesma régua da tabela de cima: está em Perdido hoje e a data de fechamento cai no período. Neste período, ${formatarInteiro(comVendedor)} de ${formatarInteiro(totalGeral.total)} perdas (${formatarPercentual(comVendedor, totalGeral.total)}) aconteceram com o lead já na mão de alguém. Clique num número para ver quais negócios são, com link para o card e para a conversa.`}
         tema={tema}
       >
         {truncado ? (
@@ -205,17 +122,30 @@ export const TabelasDePerdas = ({
                 rotulo={nomeDe(linha.chave)}
                 linha={linha}
                 destaque={false}
+                aoEscolher={(etapa) =>
+                  abrir({ tabela: 'vendedor', chave: linha.chave, etapa })
+                }
                 tema={tema}
               />
             ))}
             <Fileira rotulo="Total" linha={totalGeral} destaque tema={tema} />
           </>
         )}
+        {aberta?.tabela === 'vendedor' ? (
+          <ListaDePerdas
+            titulo={`${nomeDe(aberta.chave)} · ${rotuloDaEtapa(aberta.etapa)}`}
+            itens={itens.filter(
+              (item) => item.ownerId === aberta.chave && item.etapa === aberta.etapa,
+            )}
+            aoFechar={() => setAberta(null)}
+            tema={tema}
+          />
+        ) : null}
       </Cartao>
 
       <Cartao
         titulo="Por que as perdas acontecem"
-        nota="O mesmo período e as mesmas colunas da tabela de cima, agora por motivo. O motivo é o que está no negócio hoje; a etapa é de onde ele saiu. Os botões trocam de quem são as perdas."
+        nota="O mesmo período e as mesmas colunas da tabela de cima, agora por motivo. O motivo é o que está no negócio hoje; a etapa é de onde ele saiu. Os botões trocam de quem são as perdas. Clique num número para ver os negócios daquela célula."
         tema={tema}
       >
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
@@ -240,12 +170,30 @@ export const TabelasDePerdas = ({
                 rotulo={rotuloMotivoLost(linha.chave)}
                 linha={linha}
                 destaque={false}
+                aoEscolher={(etapa) =>
+                  abrir({ tabela: 'motivo', chave: linha.chave, etapa })
+                }
                 tema={tema}
               />
             ))}
             <Fileira rotulo="Total" linha={totalDoMotivo} destaque tema={tema} />
           </>
         )}
+        {aberta?.tabela === 'motivo' ? (
+          <ListaDePerdas
+            titulo={`${rotuloMotivoLost(aberta.chave)} · ${rotuloDaEtapa(aberta.etapa)}${
+              dono === 'time' ? '' : ` · ${nomeDe(dono)}`
+            }`}
+            itens={itens.filter(
+              (item) =>
+                item.motivo === aberta.chave &&
+                item.etapa === aberta.etapa &&
+                (dono === 'time' || item.ownerId === dono),
+            )}
+            aoFechar={() => setAberta(null)}
+            tema={tema}
+          />
+        ) : null}
       </Cartao>
     </>
   );
