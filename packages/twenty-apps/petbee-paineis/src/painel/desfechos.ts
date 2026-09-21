@@ -15,12 +15,12 @@
 // O campo é preenchido pela automação da venda e, na conferência dos
 // ganhos, pelo gerente comercial; a regra automática só cobre o esquecimento.
 //
-// PERDIDOS: estão em Perdido HOJE, com a data de fechamento do negócio
-// dentro do período, e passaram por negociação em alguma data. A data sai do
-// mesmo campo que as vendas usam: quando o card vira Perdido, o fluxo grava
-// a data de fechamento no mesmo instante em que muda a etapa (conferido em
-// 21/09/2026). Antes esta coluna lia o evento "virou Perdido" no histórico,
-// o que a prendia ao piso de 01/09; agora as duas colunas usam a mesma régua.
+// PERDIDOS: foram CRIADOS no período e estão em Perdido HOJE, tendo passado
+// por negociação em alguma data. Decisão do dono do painel em 21/09/2026: a
+// coluna passa a falar do lote de leads que entrou no período, em vez de
+// juntar perdas de leads antigos que a cadência encerrou agora. Dois efeitos
+// procurados: o mês não infla com perda velha, e um lead recuperado sai da
+// coluna na hora, porque a etapa olhada é a de hoje.
 //
 // VENDAS SEM NEGOCIAÇÃO: os ganhos contados cujo lead nunca passou por
 // negociação (venda pelo checkout, marcada à mão, ou de qualificação direto
@@ -86,16 +86,16 @@ const noPeriodo = (campo: string, inicio: string, fim: string): Filtro[] => [
 ];
 
 export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
-  // Vendas e perdas são pela data de fechamento do negócio e não dependem do
-  // histórico, então usam o período pedido inteiro. Só "quem marcou o Ganho à
-  // mão" vem do histórico e obedece ao piso de 01/09/2026.
+  // Vendas são pela data de fechamento e perdas pela data de criação; nenhuma
+  // das duas depende do histórico, então usam o período pedido inteiro. Só
+  // "quem marcou o Ganho à mão" vem do histórico e obedece ao piso de 01/09.
   const { inicio, fim } = limitesIso(periodo);
   const historico = limitesIso(recortarNoHistorico(periodo).periodo);
   const falhas: Falha[] = [];
 
-  // Venda e perda saem da data de fechamento do negócio. Quem está em Perdido
-  // hoje já entra filtrado pela etapa, então um perdido reaberto some daqui
-  // sozinho. As linhas "virou Ganho" entram para saber quem marcou à mão.
+  // Quem está em Perdido hoje já entra filtrado pela etapa, então um perdido
+  // reaberto some daqui sozinho. As linhas "virou Ganho" entram para saber
+  // quem marcou à mão.
   const [vendas, perdas, ganhos] = await Promise.all([
     tentar(
       'vendas do período',
@@ -119,7 +119,7 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
           and: [
             { funnel: { eq: 'VENDAS' } },
             { stage: { eq: 'LOST' } },
-            ...noPeriodo('closeDate', inicio, fim),
+            ...noPeriodo('createdAt', inicio, fim),
           ],
         },
         'id ownerId',

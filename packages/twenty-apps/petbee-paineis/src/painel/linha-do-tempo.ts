@@ -129,6 +129,39 @@ export const negociosQueEntraramEm = (
 // Quais destes negócios passaram por alguma destas etapas em QUALQUER data,
 // ou só nas datas que `condicoes` limitar. Em lotes, para a lista de
 // identificadores não crescer sem limite numa consulta só.
+// De qual etapa cada negócio saiu na ÚLTIMA vez que virou Perdido. A busca é
+// por id, e não por data, porque a perda pode ter acontecido fora do período
+// em que o negócio foi criado.
+export const etapaAntesDePerder = async (
+  negocios: string[],
+): Promise<Map<string, string>> => {
+  const saida = new Map<string, { etapa: string; quando: string }>();
+  const TAMANHO_DO_LOTE = 150;
+
+  for (let inicio = 0; inicio < negocios.length; inicio += TAMANHO_DO_LOTE) {
+    const lote = negocios.slice(inicio, inicio + TAMANHO_DO_LOTE);
+    const { mudancas } = await listarMudancas({
+      and: [{ targetOpportunityId: { in: lote } }, filtroDeEntradaEm(['LOST'])],
+    });
+
+    for (const mudanca of mudancas) {
+      const negocio = mudanca.targetOpportunityId;
+      const antes = mudanca.properties?.diff?.stage?.before;
+
+      if (negocio === null || antes === undefined || antes === null) continue;
+      if (!entrouEm(mudanca, ['LOST'])) continue;
+
+      const registrada = saida.get(negocio);
+
+      if (registrada === undefined || registrada.quando < mudanca.happensAt) {
+        saida.set(negocio, { etapa: antes, quando: mudanca.happensAt });
+      }
+    }
+  }
+
+  return new Map([...saida].map(([negocio, { etapa }]) => [negocio, etapa]));
+};
+
 export const negociosQuePassaramPor = async (
   negocios: string[],
   etapas: readonly string[],

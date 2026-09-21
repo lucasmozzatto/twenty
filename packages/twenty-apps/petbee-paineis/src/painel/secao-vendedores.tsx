@@ -124,10 +124,10 @@ export const SecaoVendedores = ({
           tema={tema}
         />
         <Numero
-          rotulo="Perdas com conversa"
+          rotulo="Perdidos com contato real"
           valor={formatarInteiro(dados.perdasComConversa)}
           cor={tema.vermelho}
-          nota="perdidos do período, só motivos com contato real"
+          nota="criados no período, perdidos hoje, só motivos que indicam conversa"
           comparacao={
             comparacao
               ? {

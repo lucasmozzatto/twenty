@@ -178,8 +178,8 @@ estava sendo ajustado depois da migração. Por decisão do dono do painel em 17
 `recortarNoHistorico` em `periodo.ts` recorta o início do período e a visão avisa em
 laranja quando a data escolhida era anterior. A Visão geral não lê o histórico e não é
 recortada. Na tabela por vendedor, Recebidos e Em aberto vêm do histórico e obedecem ao
-piso; Ganhos e Perdidos vêm da data de fechamento do negócio e seguem o período inteiro.
-O botão "Desde 01/09" é o mesmo piso.
+piso; Ganhos vêm da data de fechamento e Perdidos da data de criação, e os dois seguem o
+período inteiro. O botão "Desde 01/09" é o mesmo piso.
 
 ### A tabela por vendedor
 
@@ -191,7 +191,7 @@ combinadas com o dono do painel em 16/09/2026:
 | Recebidos | chegaram no vendedor **no período**: a primeira entrada em negociação de cada negócio, uma vez só; quem voltou do Break não conta de novo. Mais as vendas contadas cujo lead nunca passou por negociação, no dia da venda. A mesma conta da visão Cohort | cohort (`cohort.ts` + `incluirVendasSemNegociacao`, somado por dono em `recebidosPorVendedor`, `cohorts.ts`) |
 | Em aberto | recebidos que hoje ainda não são Ganho nem Perdido | cohort (idem) |
 | Ganhos | viraram Ganho no período (data de fechamento) e o campo **Fechamento** diz Comercial; Direto e Recompra ficam fora; sem o campo, só se passou por negociação ou se um vendedor marcou à mão | desfechos (`desfechos.ts`) |
-| Perdidos | estão em **Perdido hoje**, com a **data de fechamento** dentro do período, e passaram por negociação em alguma data | desfechos (`desfechos.ts`) |
+| Perdidos | foram **criados no período**, estão em **Perdido hoje** e passaram por negociação em alguma data | desfechos (`desfechos.ts`) |
 | Taxa | ganhos ÷ recebidos: vendas do período sobre leads que chegaram no período | conta na tela |
 | Receita | soma do valor dos ganhos | desfechos |
 | Ticket médio | média do valor dos ganhos (sem valor não entra); no Total é receita ÷ ganhos | desfechos |
@@ -238,19 +238,27 @@ porque o WhatsApp estava fora e o card não foi movido. Só "passou por negocia�
 a regra do campo dá 11 (10 Comercial + 1 vazia marcada à mão), e deixa 2 vazias de
 compra automática pelo site fora, apontadas na lista.
 
-**Perdidos saem da data de fechamento do negócio**, a mesma régua das vendas, decisão do
-dono do painel em 21/09/2026. Entra quem está em Perdido **hoje**, com data de fechamento
-dentro do período, e que passou por negociação em alguma data. Até então a coluna lia o
-evento "virou Perdido" no histórico, o que a prendia ao piso de 01/09; agora Ganhos e
-Perdidos usam o mesmo campo e o mesmo período.
+**Perdidos seguem a data de CRIAÇÃO do lead**, decisão do dono do painel em 21/09/2026,
+tomada em duas etapas no mesmo dia: primeiro a coluna saiu do evento do histórico para a
+data de fechamento, e depois para a data de criação. Entra quem foi criado no período,
+está em Perdido **hoje** e passou por negociação em alguma data.
 
-Isso foi conferido em 21/09/2026: quando o card vira Perdido, o fluxo grava a data de
-fechamento no mesmo instante em que muda a etapa (visto no histórico de um negócio, com
-os dois valores no mesmo segundo), e **nenhum** negócio em Perdido no funil Vendas está
-com o campo vazio. O README anterior dizia que o negócio não guardava data de perda, o
-que estava errado. Um lote de negócios perdidos em agosto recebeu um toque em massa em
-15/09, mas com a data de fechamento de agosto, então eles continuam fora de setembro
-pelas duas réguas.
+O motivo é o uso: a coluna passa a falar do **lote de leads que entrou no período**, em vez
+de juntar perdas de leads antigos que a cadência encerrou agora. Dois efeitos procurados
+pelo dono do painel: o mês não infla com perda velha, e um lead recuperado sai da coluna
+na hora, porque a etapa olhada é a de hoje, o que dá ao vendedor o incentivo de voltar na
+lista de perdidos. Medido em 21/09/2026 para setembro: pela data de fechamento eram 566
+perdas no mês, pela data de criação são 274.
+
+Atenção a uma assimetria que sobra: Recebidos conta a **primeira entrada em negociação** no
+período, e Perdidos a **criação**. São lotes parecidos, mas não idênticos. A Taxa não muda
+com esta decisão, porque é ganhos ÷ recebidos e não usa Perdidos.
+
+Sobre a data de fechamento, que a coluna usou por algumas horas: ela existe e é confiável
+no fluxo de hoje (quando o card vira Perdido, o fluxo grava a data no mesmo instante em
+que muda a etapa, e nenhum negócio em Perdido do funil Vendas está com o campo vazio). O
+README anterior dizia que o negócio não guardava data de perda, o que estava errado. Ela
+deixou de ser usada não por falta de confiança, mas porque a pergunta mudou.
 
 A condição "passou por negociação" continua vindo do histórico de etapas, que começa em
 18/08/2026. Para períodos anteriores a isso a coluna sai baixa, porque não há como saber
@@ -292,10 +300,12 @@ Duas tabelas no fim da visão Vendedores, pedidas pelo dono do painel em 21/09/2
 barras com os motivos, que não dizia em que etapa o lead estava, e ainda por cima usava
 outra régua ("perdidos criados no período"). Esse gráfico saiu.
 
-- **A perda entra pela mesma régua da coluna Perdidos**: está em Perdido hoje e a data de
-  fechamento cai no período. As duas tabelas e a coluna passam a contar a mesma coisa,
-  com uma diferença de propósito: aqui entram TAMBÉM as perdas que nunca passaram por
-  negociação, porque a pergunta é sobre o funil inteiro.
+- **A perda entra pela mesma régua da coluna Perdidos**: o lead foi criado no período e
+  está em Perdido hoje. As duas tabelas e a coluna contam a mesma coisa, com uma diferença
+  de propósito: aqui entram TAMBÉM as perdas que nunca passaram por negociação, porque a
+  pergunta é sobre o funil inteiro. A etapa de saída é buscada por id, e não por data,
+  porque a perda pode ter acontecido depois do período em que o lead foi criado
+  (`etapaAntesDePerder`, em `linha-do-tempo.ts`).
 - **A etapa de saída** vem do histórico: a etapa que estava no `before` da última vez que
   o negócio entrou em Perdido. Perda sem esse registro (lead criado já perdido, ou perda
   anterior ao início do histórico) cai em **Sem registro**, coluna em cinza. Em
@@ -322,7 +332,9 @@ outra régua ("perdidos criados no período"). Esse gráfico saiu.
 
 Medições de 21/09/2026, para conferência, com "Este mês": 437 eventos de perda no
 histórico, sendo 200 saídos de Em negociação, 164 de Em qualificação, 62 de Novo Lead, 8
-de Break e 1 de Fechamento; 566 negócios em Perdido com data de fechamento no mês.
+de Break e 1 de Fechamento. Esses números são por data do evento; com a régua final, a
+data de criação, o mês tem 274 negócios perdidos, sendo 119 da vendedora, 103 no dono
+padrão, 40 sem dono e 12 do outro vendedor.
 
 ### A visão Cohort: a medida justa de conversão por vendedor
 

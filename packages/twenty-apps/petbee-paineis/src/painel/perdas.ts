@@ -2,20 +2,14 @@
 // ele saiu e por qual motivo. Responde as três perguntas que a tela de cima
 // não responde: quem perdeu, em que etapa, e por quê.
 //
-// A perda entra pela MESMA régua da coluna Perdidos: está em Perdido hoje e a
-// data de fechamento cai no período. O histórico de etapas entra só para
-// dizer de onde o lead saiu; quando não há registro (lead criado já perdido,
-// ou perda anterior ao início do histórico), a etapa fica 'SEM_REGISTRO'.
+// A perda entra pela MESMA régua da coluna Perdidos: foi criada no período e
+// está em Perdido hoje. O histórico de etapas entra só para dizer de onde o
+// lead saiu; quando não há registro (lead criado já perdido, ou perda
+// anterior ao início do histórico), a etapa fica 'SEM_REGISTRO'.
 // Combinado com o dono do painel em 21/09/2026.
 import { type Filtro, listarNegocios } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
-import {
-  entrouEm,
-  filtroDeEntradaEm,
-  listarMudancas,
-  type MudancaDeEtapa,
-  SO_NEGOCIOS,
-} from 'src/painel/linha-do-tempo';
+import { etapaAntesDePerder } from 'src/painel/linha-do-tempo';
 import { limitesIso, type Periodo } from 'src/painel/periodo';
 
 // Na ordem do funil; "Sem registro" por último, porque não é etapa de verdade.
@@ -68,53 +62,30 @@ export const buscarPerdas = async (periodo: Periodo): Promise<Perdas> => {
   const { inicio, fim } = limitesIso(periodo);
   const falhas: Falha[] = [];
 
-  const [perdidos, mudancas] = await Promise.all([
-    tentar(
-      'negócios perdidos no período',
-      listarNegocios<NegocioPerdido>(
-        {
-          and: [
-            { funnel: { eq: 'VENDAS' } },
-            { stage: { eq: 'LOST' } },
-            ...noPeriodo('closeDate', inicio, fim),
-          ],
-        },
-        'id ownerId motivoLost whatsapp',
-      ),
-      { nos: [] as NegocioPerdido[], truncado: false },
-      falhas,
-    ),
-    tentar(
-      'etapa de onde saíram as perdas',
-      listarMudancas({
+  const perdidos = await tentar(
+    'negócios perdidos no período',
+    listarNegocios<NegocioPerdido>(
+      {
         and: [
-          SO_NEGOCIOS,
-          filtroDeEntradaEm(['LOST']),
-          ...noPeriodo('happensAt', inicio, fim),
+          { funnel: { eq: 'VENDAS' } },
+          { stage: { eq: 'LOST' } },
+          ...noPeriodo('createdAt', inicio, fim),
         ],
-      }),
-      { mudancas: [] as MudancaDeEtapa[], truncado: false },
-      falhas,
+      },
+      'id ownerId motivoLost whatsapp',
     ),
-  ]);
+    { nos: [] as NegocioPerdido[], truncado: false },
+    falhas,
+  );
 
   // Um negócio pode ter sido perdido, reaberto e perdido de novo: vale a
-  // etapa da ÚLTIMA vez, que é a que corresponde ao estado de hoje.
-  const ultimaSaida = new Map<string, { etapa: string; quando: string }>();
-
-  for (const mudanca of mudancas.mudancas) {
-    const negocio = mudanca.targetOpportunityId;
-    const antes = mudanca.properties?.diff?.stage?.before;
-
-    if (negocio === null || antes === undefined || antes === null) continue;
-    if (!entrouEm(mudanca, ['LOST'])) continue;
-
-    const registrada = ultimaSaida.get(negocio);
-
-    if (registrada === undefined || registrada.quando < mudanca.happensAt) {
-      ultimaSaida.set(negocio, { etapa: antes, quando: mudanca.happensAt });
-    }
-  }
+  // etapa da última vez, que é a que corresponde ao estado de hoje.
+  const ultimaSaida = await tentar(
+    'etapa de onde saíram as perdas',
+    etapaAntesDePerder(perdidos.nos.map((negocio) => negocio.id)),
+    new Map<string, string>(),
+    falhas,
+  );
 
   const conhecida = (etapa: string | undefined): EtapaDeSaida =>
     ETAPAS_DE_SAIDA.includes(etapa as EtapaDeSaida) && etapa !== 'SEM_REGISTRO'
@@ -125,15 +96,11 @@ export const buscarPerdas = async (periodo: Periodo): Promise<Perdas> => {
     id: negocio.id,
     ownerId: negocio.ownerId,
     motivo: negocio.motivoLost,
-    etapa: conhecida(ultimaSaida.get(negocio.id)?.etapa),
+    etapa: conhecida(ultimaSaida.get(negocio.id)),
     whatsapp: negocio.whatsapp,
   }));
 
-  return {
-    itens,
-    truncado: perdidos.truncado || mudancas.truncado,
-    falhas,
-  };
+  return { itens, truncado: perdidos.truncado, falhas };
 };
 
 export type LinhaDePerdas = {
