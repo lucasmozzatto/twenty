@@ -285,6 +285,34 @@ Um negócio perdido que depois foi reaberto (voltou para negociação, foi para 
 virou Ganho) **não** conta como perdido: a coluna filtra pela etapa de hoje, então ele
 sai da conta sozinho. Foi decisão do dono do painel em 17/09/2026; até então contava pelo evento.
 
+### De onde saem as perdas, e por quê
+
+Duas tabelas no fim da visão Vendedores, pedidas pelo dono do painel em 21/09/2026, em
+`perdas.ts` (busca e contas) e `tabela-perdas.tsx` (tela). Antes só existia um gráfico de
+barras com os motivos, que não dizia em que etapa o lead estava, e ainda por cima usava
+outra régua ("perdidos criados no período"). Esse gráfico saiu.
+
+- **A perda entra pela mesma régua da coluna Perdidos**: está em Perdido hoje e a data de
+  fechamento cai no período. As duas tabelas e a coluna passam a contar a mesma coisa,
+  com uma diferença de propósito: aqui entram TAMBÉM as perdas que nunca passaram por
+  negociação, porque a pergunta é sobre o funil inteiro.
+- **A etapa de saída** vem do histórico: a etapa que estava no `before` da última vez que
+  o negócio entrou em Perdido. Perda sem esse registro (lead criado já perdido, ou perda
+  anterior ao início do histórico) cai em **Sem registro**, coluna em cinza. Em
+  setembro/2026 são cerca de 130 de 566, herança da migração do CRM; o dono do painel
+  pediu para mostrar em vez de esconder, para dar para acompanhar se o número cai.
+- **Novo Lead e Em qualificação** aparecem em itálico: é descarte da IA antes de o lead
+  chegar num vendedor. A nota do quadro diz quantas perdas do período aconteceram com o
+  lead já na mão de alguém.
+- A segunda tabela usa **as mesmas colunas** da primeira, trocando vendedor por motivo, e
+  os botões no topo filtram por pessoa. É o cruzamento que interessa: "falta de retorno"
+  em qualificação é lead que nunca respondeu a IA, em negociação é lead que conversou com
+  a vendedora e sumiu. Em setembro/2026 esse motivo sozinho tinha 311 das perdas.
+
+Medições de 21/09/2026, para conferência, com "Este mês": 437 eventos de perda no
+histórico, sendo 200 saídos de Em negociação, 164 de Em qualificação, 62 de Novo Lead, 8
+de Break e 1 de Fechamento; 566 negócios em Perdido com data de fechamento no mês.
+
 ### A visão Cohort: a medida justa de conversão por vendedor
 
 A tabela por vendedor responde "como foi o mês". O Cohort responde "quem converte
@@ -400,11 +428,11 @@ busca os dados. O resto está em `src/painel/`:
 |---|---|
 | `periodo.ts` | contas de data e a regra do período anterior |
 | `crm.ts` | as consultas ao GraphQL |
-| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts` | as perguntas e as contas derivadas |
+| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts`, `perdas.ts` | as perguntas e as contas derivadas |
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `nota-vendas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `nota-vendas.tsx`, `tabela-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
 | `como-ler.tsx`, `guias.ts` | o bloco "Como ler" e os textos dele, um por visão |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.

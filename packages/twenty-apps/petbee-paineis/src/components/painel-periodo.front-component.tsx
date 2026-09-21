@@ -23,6 +23,7 @@ import { buscarDesfechos, type Desfechos } from 'src/painel/desfechos';
 import { buscarFunil, type Funil } from 'src/painel/funil';
 import { GUIA_PAINEL, GUIA_VISAO_GERAL } from 'src/painel/guias';
 import { buscarJornada, type Jornada } from 'src/painel/jornada';
+import { buscarPerdas, type Perdas } from 'src/painel/perdas';
 import {
   buscarCohort,
   type Cohort,
@@ -69,6 +70,7 @@ const PainelPeriodo = () => {
   const [desfechos, setDesfechos] = useState<Desfechos | null>(null);
   const [cohort, setCohort] = useState<Cohort | null>(null);
   const [jornada, setJornada] = useState<Jornada | null>(null);
+  const [perdas, setPerdas] = useState<Perdas | null>(null);
   const [visao, setVisao] = useState<Visao>('geral');
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
@@ -92,6 +94,7 @@ const PainelPeriodo = () => {
         novosDesfechos,
         novoCohort,
         novaJornada,
+        novasPerdas,
       ] = await Promise.all([
         buscarDados(periodo),
         comparar ? buscarComparacao(anterior) : Promise.resolve(null),
@@ -99,6 +102,7 @@ const PainelPeriodo = () => {
         buscarDesfechos(periodo),
         buscarCohort(periodo),
         buscarJornada(periodo),
+        buscarPerdas(periodo),
       ]);
 
       setDados(novosDados);
@@ -107,6 +111,7 @@ const PainelPeriodo = () => {
       setDesfechos(novosDesfechos);
       setCohort(novoCohort);
       setJornada(novaJornada);
+      setPerdas(novasPerdas);
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : String(falha));
     } finally {
@@ -152,6 +157,7 @@ const PainelPeriodo = () => {
     ...(desfechos?.falhas ?? []),
     ...(cohort?.falhas ?? []),
     ...(jornada?.falhas ?? []),
+    ...(perdas?.falhas ?? []),
   ];
 
   return (
@@ -232,6 +238,7 @@ const PainelPeriodo = () => {
             comparacao={comparacao}
             cohort={cohortCompleto}
             desfechos={desfechos}
+            perdas={perdas}
             nomes={nomes}
             tema={tema}
           />
