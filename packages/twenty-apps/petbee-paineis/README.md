@@ -415,7 +415,7 @@ Três decisões que parecem detalhe e não são:
   uma queda falsa de metade. Fevereiro, sendo mais curto, corta no fim do mês.
 - **Taxa varia em pontos percentuais.** Conversão de 7% para 8% subiu 1 ponto; chamar
   isso de "+14%" confunde. Só a Conversão usa `p.p.`, o resto usa porcentagem.
-- **Sobe nem sempre é bom.** "Sem origem" e "Perdas com conversa" ficam vermelhos
+- **Sobe nem sempre é bom.** "Sem origem" e "Perdidos com contato real" ficam vermelhos
   quando crescem (`sentido: 'negativo'`). A variação também leva sinal, para quem não
   distingue verde de vermelho.
 - **Antes zero não vira "infinito por cento"**: mostra só "antes 0", sem variação.
@@ -579,7 +579,7 @@ yarn twenty apply
 | Ticket médio | R$ 150,45 | R$ 144,89 | +3,8% |
 | Conversão | 7,0% | 16,0% | −9,0 p.p. |
 | Sem origem | 71 | 98 | −28% |
-| Perdas com conversa | 44 | 102 | −57% |
+| Perdidos com contato real (na época, "Perdas com conversa") | 44 | 102 | −57% |
 
 As linhas por dia de 01 a 16/08, para conferir a linha cinza: criados
 10, 16, 28, 28, 26, 18, 16, 10, 8, 21, 25, 24, 20, 10, 12, 9 (soma 281); vendas
