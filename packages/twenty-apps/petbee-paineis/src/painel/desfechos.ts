@@ -30,9 +30,16 @@
 // para Ganho). Saem daqui para o componente juntá-las ao cohort, no lote do
 // dia da venda: o lead foi recebido pelo vendedor, só que o registro da
 // chegada é a própria venda. Decisão do dono do painel em 17/09/2026.
-import { agrupar, deMicros, type Filtro, type Grupo, listarNegocios } from 'src/painel/crm';
+import {
+  agruparPorId,
+  deMicros,
+  type Filtro,
+  type Grupo,
+  listarNegocios,
+} from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
 import {
+  entrouEm,
   feitaPorPessoa,
   filtroDeEntradaEm,
   listarMudancas,
@@ -145,23 +152,44 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
   ]);
 
   const idsDePerdas = perdas.nos.map((perda) => perda.id);
-  const semCampo = vendas.nos.filter((venda) => venda.fechamento === null);
+  // Campo vazio OU com um valor que o painel não conhece: um rótulo novo no
+  // CRM não pode sumir com a venda em silêncio, então ele cai na mesma lista
+  // de conferência das vazias.
+  const semCampo = vendas.nos.filter(
+    (venda) =>
+      venda.fechamento === null ||
+      !['COMERCIAL', 'DIRETO', 'RECOMPRA'].includes(venda.fechamento),
+  );
   const marcadasAMao = new Set(
     ganhos.mudancas
-      .filter((mudanca) => feitaPorPessoa(mudanca))
+      // `entrouEm` é obrigatório: existe linha "de Ganho para Ganho", em que
+      // alguém editou outro campo e o CRM regravou a etapa. Sem isso, essa
+      // edição viraria uma venda marcada à mão e entraria na comissão.
+      .filter((mudanca) => entrouEm(mudanca, ['WON']) && feitaPorPessoa(mudanca))
       .map((mudanca) => mudanca.targetOpportunityId),
   );
 
   // Quem passou por negociação em alguma data: decide as vendas sem campo,
   // as perdas que contam e as vendas que pularam a etapa.
-  const passaram = await tentar(
+  const historicoDeNegociacao = await tentar(
     'histórico de negociação',
     negociosQuePassaramPor(
       [...new Set([...vendas.nos.map((venda) => venda.id), ...idsDePerdas])],
       ETAPAS_EM_NEGOCIACAO,
     ),
-    new Set<string>(),
+    { passaram: new Set<string>(), truncado: false },
     falhas,
+  );
+  const passaram = historicoDeNegociacao.passaram;
+
+  // Direto e Recompra nunca entram, nem com passagem por negociação: o campo
+  // é a palavra final. Só o campo vazio (ou desconhecido) usa o desempate.
+  const foraPorRegra = new Set(
+    vendas.nos
+      .filter(
+        (venda) => venda.fechamento === 'DIRETO' || venda.fechamento === 'RECOMPRA',
+      )
+      .map((venda) => venda.id),
   );
 
   const semClassificacao = semCampo.map((venda) => ({
@@ -176,7 +204,10 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
 
   const contadas = new Set(idsDeGanhos);
   const vendasSemNegociacao = vendas.nos
-    .filter((venda) => contadas.has(venda.id) && !passaram.has(venda.id))
+    .filter(
+      (venda) =>
+        contadas.has(venda.id) && !passaram.has(venda.id) && !foraPorRegra.has(venda.id),
+    )
     .map((venda) => ({
       id: venda.id,
       ownerId: venda.ownerId,
@@ -187,12 +218,7 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
   const porDono = (ids: string[], onde: string, condicoes: Filtro[] = []): Promise<Grupo[]> =>
     ids.length === 0
       ? Promise.resolve([])
-      : tentar(
-          onde,
-          agrupar({ and: [{ id: { in: ids } }, ...condicoes] }, [{ ownerId: true }]),
-          [],
-          falhas,
-        );
+      : tentar(onde, agruparPorId(ids, [{ ownerId: true }], condicoes), [], falhas);
 
   const gruposDeVendas = await porDono(idsDeGanhos, 'vendas por vendedor');
 
@@ -238,7 +264,11 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
     porVendedor: [...linhas.values()],
     semClassificacao,
     vendasSemNegociacao,
-    truncado: vendas.truncado || perdas.truncado || ganhos.truncado,
+    truncado:
+      vendas.truncado ||
+      perdas.truncado ||
+      ganhos.truncado ||
+      historicoDeNegociacao.truncado,
     falhas,
   };
 };

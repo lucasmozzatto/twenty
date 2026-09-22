@@ -18,7 +18,8 @@ import {
 } from 'src/painel/semanas';
 import { type Tema } from 'src/painel/tema';
 
-const GRADE = 'minmax(120px, 1.3fr) repeat(2, minmax(64px, 0.8fr)) minmax(64px, 0.8fr) repeat(2, minmax(88px, 1fr)) minmax(96px, 1.1fr)';
+const GRADE =
+  'minmax(120px, 1.4fr) repeat(3, minmax(64px, 0.8fr)) minmax(96px, 1.1fr) minmax(96px, 1.1fr)';
 const COLUNAS = ['Semana', 'Recebidos', 'Ganhos', 'Taxa', 'Receita', 'Ticket médio'];
 
 const diaEMes = (dia: string) => `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
@@ -123,7 +124,7 @@ export const TabelaSemanas = ({
   return (
     <Cartao
       titulo="Semana a semana"
-      nota={`Sempre as últimas ${MAXIMO_DE_SEMANAS} semanas comerciais, de quarta a terça, sem depender do filtro de período lá de cima. Começa em 01/09/2026, quando o histórico passou a valer, e ganha uma linha nova a cada quarta. Recebidos: leads que chegaram na pessoa naquela semana. Ganhos: vendas com Fechamento = Comercial pela data de fechamento. Taxa: ganhos sobre recebidos. A semana em andamento ainda vai mexer.`}
+      nota={`Sempre as últimas ${MAXIMO_DE_SEMANAS} semanas comerciais, de quarta a terça, sem depender do filtro de período lá de cima. Começa em 01/09/2026, quando o histórico passou a valer, e ganha uma linha nova a cada quarta. Recebidos: leads que chegaram na pessoa naquela semana. Ganhos: vendas pela data de fechamento, com as mesmas regras da tabela de cima (Fechamento = Comercial; campo vazio só com passagem por negociação ou Ganho marcado à mão). Taxa: ganhos sobre recebidos. A semana em andamento ainda vai mexer.`}
       tema={tema}
     >
       {semanas.truncado ? (

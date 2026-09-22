@@ -32,6 +32,9 @@ export const SO_FUNIL_DE_VENDAS = { funnel: { eq: 'VENDAS' } };
 
 export type NegocioDoCohort = {
   id: string;
+  // Verdadeiro quando o negócio entrou no cohort pela venda, e não por uma
+  // entrada em negociação: a "chegada" dele é a própria venda.
+  pelaVenda?: boolean;
   // Instante e dia (Brasília) em que entrou em negociação pela primeira vez.
   entrouEm: string;
   entrouNoDia: string;
@@ -93,16 +96,16 @@ export const buscarCohort = async (periodoPedido: Periodo): Promise<Cohort> => {
   // lá, não a esta: um lead que voltou do Break não é lead novo.
   const veteranos = await tentar(
     'entradas anteriores ao período',
-    negociosQuePassaramPor(
-      [...primeiraEntrada.keys()],
-      ETAPAS_EM_NEGOCIACAO,
-      [{ happensAt: { lt: inicio } }],
-    ),
-    new Set<string>(),
+    negociosQuePassaramPor([...primeiraEntrada.keys()], ETAPAS_EM_NEGOCIACAO, [
+      { happensAt: { lt: inicio } },
+    ]),
+    { passaram: new Set<string>(), truncado: false },
     falhas,
   );
 
-  const novos = [...primeiraEntrada.keys()].filter((id) => !veteranos.has(id));
+  const novos = [...primeiraEntrada.keys()].filter(
+    (id) => !veteranos.passaram.has(id),
+  );
 
   // Negócio apagado não volta, e por isso some do cohort: não dá para contar
   // o que não existe mais.
@@ -135,7 +138,7 @@ export const buscarCohort = async (periodoPedido: Periodo): Promise<Cohort> => {
     negocios,
     periodo,
     cortadoNoInicio: cortado,
-    truncado: entradas.truncado || situacao.truncado,
+    truncado: entradas.truncado || situacao.truncado || veteranos.truncado,
     falhas,
   };
 };
@@ -158,6 +161,7 @@ export const incluirVendasSemNegociacao = (
     )
     .map((venda) => ({
       id: venda.id,
+      pelaVenda: true,
       entrouEm: venda.closeDate,
       entrouNoDia: diaEmBrasilia(new Date(venda.closeDate)),
       ownerId: venda.ownerId,

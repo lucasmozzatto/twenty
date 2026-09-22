@@ -156,9 +156,24 @@ export const buscarSemanas = async (hoje: string): Promise<Semanas> => {
 
   const marcadasAMao = new Set(
     ganhos.mudancas
-      .filter((mudanca) => feitaPorPessoa(mudanca))
+      // Sem `entrouEm`, uma linha "de Ganho para Ganho" (alguém editou outro
+      // campo e o CRM regravou a etapa) viraria venda marcada à mão.
+      .filter((mudanca) => entrouEm(mudanca, ['WON']) && feitaPorPessoa(mudanca))
       .map((mudanca) => mudanca.targetOpportunityId),
   );
+
+  // Quem já tinha entrado em negociação ANTES da janela não é lead novo, a
+  // mesma regra da tabela principal e da visão Cohort.
+  const veteranos = await tentar(
+    'entradas anteriores à janela',
+    negociosQuePassaramPor([...primeiraEntrada.keys()], ETAPAS_EM_NEGOCIACAO, [
+      { happensAt: { lt: inicio } },
+    ]),
+    { passaram: new Set<string>(), truncado: false },
+    falhas,
+  );
+
+  for (const negocio of veteranos.passaram) primeiraEntrada.delete(negocio);
 
   // O dono é o de hoje, como no resto da visão: o histórico não guarda dono.
   const donos = await tentar(
@@ -202,27 +217,31 @@ export const buscarSemanas = async (hoje: string): Promise<Semanas> => {
     if (alvo !== null) alvo.recebidos += 1;
   }
 
-  // Ganhos seguem a regra de comissão da tabela de cima: Comercial, ou campo
-  // vazio com passagem por negociação ou marcado à mão por um vendedor.
-  const contadas = vendas.nos.filter(
-    (venda) =>
-      venda.fechamento === 'COMERCIAL' ||
-      (venda.fechamento === null &&
-        (primeiraEntrada.has(venda.id) || marcadasAMao.has(venda.id))),
-  );
-
-  // Venda contada cujo card nunca passou por negociação também é um lead
-  // recebido, no dia da venda, como na tabela de cima. A checagem olha o
-  // histórico inteiro, e não só a janela: um lead que entrou em negociação
-  // em agosto e vendeu em setembro já foi contado como recebido lá atrás.
-  const semEntradaNaJanela = contadas
+  // A passagem por negociação decide duas coisas, e as duas precisam olhar o
+  // histórico INTEIRO, não só a janela: se a venda de campo vazio conta, e se
+  // ela também é um lead recebido. Um lead que entrou em negociação antes do
+  // piso e vendeu agora não pode ser contado como recebido de novo.
+  const semEntradaNaJanela = vendas.nos
     .filter((venda) => !primeiraEntrada.has(venda.id))
     .map((venda) => venda.id);
-  const passaramAlgumDia = await tentar(
+  const fora = await tentar(
     'histórico de negociação das vendas',
     negociosQuePassaramPor(semEntradaNaJanela, ETAPAS_EM_NEGOCIACAO),
-    new Set<string>(),
+    { passaram: new Set<string>(), truncado: false },
     falhas,
+  );
+  const passaramAlgumDia = fora.passaram;
+  const negociou = (id: string) => primeiraEntrada.has(id) || passaramAlgumDia.has(id);
+
+  // Ganhos seguem a regra de comissão da tabela de cima: Comercial sempre;
+  // Direto e Recompra nunca; campo vazio (ou com rótulo desconhecido) só com
+  // passagem por negociação ou Ganho marcado à mão por um vendedor.
+  const contadas = vendas.nos.filter((venda) =>
+    venda.fechamento === 'COMERCIAL'
+      ? true
+      : venda.fechamento === 'DIRETO' || venda.fechamento === 'RECOMPRA'
+        ? false
+        : negociou(venda.id) || marcadasAMao.has(venda.id),
   );
 
   for (const venda of contadas) {
@@ -233,9 +252,7 @@ export const buscarSemanas = async (hoje: string): Promise<Semanas> => {
     alvo.ganhos += 1;
     alvo.receita += deMicros(venda.amount?.amountMicros) ?? 0;
 
-    if (!primeiraEntrada.has(venda.id) && !passaramAlgumDia.has(venda.id)) {
-      alvo.recebidos += 1;
-    }
+    if (!negociou(venda.id)) alvo.recebidos += 1;
   }
 
   for (const linha of linhas) {
@@ -249,7 +266,13 @@ export const buscarSemanas = async (hoje: string): Promise<Semanas> => {
   // Mais recente em cima: é o que se olha primeiro.
   return {
     linhas: [...linhas].reverse(),
-    truncado: vendas.truncado || entradas.truncado || donos.truncado,
+    truncado:
+      vendas.truncado ||
+      entradas.truncado ||
+      ganhos.truncado ||
+      donos.truncado ||
+      veteranos.truncado ||
+      fora.truncado,
     falhas,
   };
 };

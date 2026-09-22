@@ -327,6 +327,31 @@ enxergar a evolução sem ficar trocando o filtro de período.
   visão Cohort, que o trataria como veterano. A diferença só existe nas primeiras semanas
   e desaparece conforme a janela anda.
 
+### Auditoria de 22/09/2026, antes de a tabela virar base de comissão
+
+O dono do painel pediu uma revisão adversarial da visão Vendedores antes de pagar
+comissão por ela. O que foi corrigido, tudo na mesma leva:
+
+| Achado | Onde | Efeito |
+|---|---|---|
+| "Marcou o Ganho à mão" não checava se a etapa mudou | `desfechos.ts`, `semanas.ts` | linha "de Ganho para Ganho" feita por uma pessoa transformava venda direta em venda comissionada; agora exige `entrouEm` |
+| Rótulo desconhecido no campo Fechamento sumia em silêncio | `desfechos.ts` | valor fora de Comercial/Direto/Recompra agora cai na lista de conferência, em vez de zerar a comissão sem aviso |
+| O quadro semanal decidia "passou por negociação" só dentro da janela | `semanas.ts` | venda de campo vazio de um lead que negociou antes do piso contava na tabela principal e não no quadro semanal |
+| O quadro semanal não excluía veteranos | `semanas.ts` | lead que voltou de fora da janela era contado como recebido de novo |
+| `negociosQuePassaramPor` e `etapaAntesDePerder` jogavam fora a flag de truncamento | `linha-do-tempo.ts` | leitura pela metade passava como completa, sem a tarja laranja |
+| `agrupar` por lista de ids não era lotado | `desfechos.ts`, `crm.ts` | com a lista crescendo, o servidor recusaria a consulta e Ganhos, Receita e Ticket iriam a zero para todos |
+| Paginação por `offset` sem desempate | `crm.ts`, `linha-do-tempo.ts` | empate de horário na fronteira de página podia repetir ou perder registro; agora a ordem tem `id` como segundo critério |
+| Ticket médio por pessoa usava a média do CRM | `desfechos.ts` | a média do servidor ignora venda sem valor e a linha discordava do Total; agora as duas são receita ÷ vendas |
+| Falha ao carregar nomes ou o quadro semanal sumia | `painel-periodo.front-component.tsx` | agora entram na tarja de falhas, em vez de a tela mentir que está completa |
+| Período inteiro anterior ao piso | `secao-vendedores.tsx` | o aviso dizia "foi recortado" quando o resultado é nada; agora diz que o período termina antes de o histórico existir |
+| Venda injetada no cohort entrava no "até vender" com 0 dia | `cohort.ts`, `cohorts.ts` | puxava a média para baixo sem significar nada |
+
+Fica registrada uma limitação do dado, que **não** tem correção no painel: `feitaPorPessoa`
+só enxerga o autor quando ele muda em relação à linha anterior do histórico. Se a mesma
+pessoa fez a edição anterior, o CRM não regrava o autor no diff e a marcação manual não é
+vista. Na prática isso quase não pesa, porque a inbox escreve por chave de API e nunca
+aparece como marcação manual; a defesa real é o campo Fechamento estar preenchido.
+
 ### De onde saem as perdas, e por quê
 
 Duas tabelas no fim da visão Vendedores, pedidas pelo dono do painel em 21/09/2026, em

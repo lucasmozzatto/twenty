@@ -101,12 +101,15 @@ const maturidadeDe = (fim: string, hoje: string): Maturidade => {
 
 export const resumirCohort = (negocios: NegocioDoCohort[]): ResumoDoCohort => {
   const ganhos = negocios.filter((negocio) => negocio.stage === 'WON');
+  // Venda que entrou no cohort pela própria venda teria 0 dia e puxaria a
+  // média para baixo sem significar nada.
+  const comTempo = ganhos.filter((negocio) => negocio.pelaVenda !== true);
   const perdidos = negocios.filter((negocio) => negocio.stage === 'LOST');
   const comValor = ganhos.filter((negocio) => negocio.valor !== null);
   const receita = comValor.reduce((soma, negocio) => soma + (negocio.valor ?? 0), 0);
   // Dias entre chegar no vendedor e virar venda. Fechamento anterior à
   // entrada é dado sujo (data editada à mão) e fica de fora.
-  const dias = ganhos
+  const dias = comTempo
     .filter((negocio) => negocio.closeDate !== null)
     .map(
       (negocio) =>

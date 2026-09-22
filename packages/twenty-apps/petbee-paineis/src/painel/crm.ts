@@ -89,6 +89,44 @@ export const agrupar = async (
   }));
 };
 
+// Agrupa uma lista de ids em lotes e soma os grupos: a lista de ids numa
+// consulta só não pode crescer sem limite, e sem os lotes uma tabela grande
+// zerava inteira quando o servidor recusava a consulta.
+export const agruparPorId = async (
+  ids: string[],
+  groupBy: Record<string, boolean>[],
+  condicoes: Filtro[] = [],
+): Promise<Grupo[]> => {
+  const TAMANHO_DO_LOTE = 150;
+  const somados = new Map<string, Grupo>();
+
+  for (let inicio = 0; inicio < ids.length; inicio += TAMANHO_DO_LOTE) {
+    const lote = ids.slice(inicio, inicio + TAMANHO_DO_LOTE);
+    const grupos = await agrupar(
+      { and: [{ id: { in: lote } }, ...condicoes] },
+      groupBy,
+    );
+
+    for (const grupo of grupos) {
+      const chave = grupo.chaves.join('|');
+      const antes = somados.get(chave);
+
+      if (antes === undefined) {
+        somados.set(chave, { ...grupo });
+        continue;
+      }
+
+      antes.contagem += grupo.contagem;
+      antes.somaReais += grupo.somaReais;
+      // A média do CRM não soma entre lotes; quem precisa dela recalcula a
+      // partir da soma e da contagem.
+      antes.mediaReais = antes.contagem === 0 ? null : antes.somaReais / antes.contagem;
+    }
+  }
+
+  return [...somados.values()];
+};
+
 // Lista negócios de 200 em 200 (teto do servidor) por `offset` com ordem fixa,
 // e diz se leu tudo comparando com o total. Só os campos pedidos em `campos`.
 export const listarNegocios = async <TNo,>(
@@ -109,7 +147,7 @@ export const listarNegocios = async <TNo,>(
           filter: $filter
           first: ${POR_PAGINA}
           offset: $offset
-          orderBy: [{ createdAt: AscNullsLast }]
+          orderBy: [{ createdAt: AscNullsLast }, { id: AscNullsLast }]
         ) {
           totalCount
           edges { node { ${campos} } }

@@ -102,7 +102,7 @@ export const TabelasDePerdas = ({
     <>
       <Cartao
         titulo="De onde saem as perdas"
-        nota={`Cada perda do período pela etapa em que o lead estava antes de virar Perdido. As duas primeiras colunas, em itálico, são descarte antes de o lead chegar num vendedor. "Sem registro" é perda sem a mudança de etapa gravada, herança da migração do CRM. Mesma régua da tabela de cima: está em Perdido hoje e a data de fechamento cai no período. Neste período, ${formatarInteiro(comVendedor)} de ${formatarInteiro(totalGeral.total)} perdas (${formatarPercentual(comVendedor, totalGeral.total)}) aconteceram com o lead já na mão de alguém. Clique num número para ver quais negócios são, com link para o card e para a conversa.`}
+        nota={`Cada perda do período pela etapa em que o lead estava antes de virar Perdido. As duas primeiras colunas, em itálico, são descarte antes de o lead chegar num vendedor. "Sem registro" é perda sem a mudança de etapa gravada, herança da migração do CRM. Mesma régua de data da tabela de cima: está em Perdido hoje e a data de fechamento cai no período. Aqui entram TODAS as perdas, inclusive as que nunca chegaram num vendedor, então o total é maior que a coluna Perdidos. Neste período, ${formatarInteiro(comVendedor)} de ${formatarInteiro(totalGeral.total)} perdas (${formatarPercentual(comVendedor, totalGeral.total)}) saíram de uma etapa de vendedor; esse número é uma leitura das colunas, não a coluna Perdidos da tabela de cima, que tem regra própria. Clique num número para ver quais negócios são, com link para o card e para a conversa.`}
         tema={tema}
       >
         {truncado ? (

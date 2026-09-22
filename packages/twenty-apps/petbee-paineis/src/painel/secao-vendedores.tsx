@@ -82,11 +82,11 @@ export const SecaoVendedores = ({
             fontSize: '12px',
           }}
         >
-          <b>Atenção:</b> Recebidos e Em aberto contam a partir de{' '}
-          {formatarDia(cohort.periodo.de)}, por decisão do dono do painel: antes
-          disso o processo ainda estava sendo ajustado. O período escolhido
-          começava antes e foi recortado. Ganhos e Perdidos seguem o período
-          inteiro.
+          <b>Atenção:</b>{' '}
+          {cohort.periodo.de > cohort.periodo.ate
+            ? `o período escolhido termina antes de ${formatarDia(cohort.periodo.de)}, quando o histórico de etapas passou a valer, então Recebidos e Em aberto saem zerados aqui.`
+            : `Recebidos e Em aberto contam a partir de ${formatarDia(cohort.periodo.de)}, por decisão do dono do painel: antes disso o processo ainda estava sendo ajustado. O período escolhido começava antes e foi recortado.`}{' '}
+          Ganhos e Perdidos seguem o período inteiro.
         </div>
       ) : null}
 
