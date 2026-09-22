@@ -293,6 +293,35 @@ Um negócio perdido que depois foi reaberto (voltou para negociação, foi para 
 virou Ganho) **não** conta como perdido: a coluna filtra pela etapa de hoje, então ele
 sai da conta sozinho. Foi decisão do dono do painel em 17/09/2026; até então contava pelo evento.
 
+### Semana a semana: o acompanhamento fixo
+
+Um quadro na visão Vendedores, logo abaixo da tabela principal, em `semanas.ts` (busca e
+contas) e `tabela-semanas.tsx` (tela). Pedido do dono do painel em 22/09/2026 para
+enxergar a evolução sem ficar trocando o filtro de período.
+
+- **Não obedece ao filtro de período.** Mostra sempre as últimas 24 semanas comerciais, de
+  quarta a terça, a mais recente no topo. É buscado uma vez, quando o painel abre, e não a
+  cada troca de período.
+- **Começa no piso de 01/09/2026 e cresce sozinho**: toda quarta nasce uma linha; ao passar
+  de 24 semanas, a mais antiga sai. O dono do painel pediu o piso para a tabela não
+  misturar o dado migrado do CRM antigo com o processo de hoje. A primeira linha, a semana
+  de 26/08 a 01/09, aparece marcada como **parcial**, porque só o dia 01/09 conta; a última
+  aparece como **em andamento**.
+- **Colunas**: Recebidos, Ganhos, Taxa, Receita e Ticket médio, com botões para trocar
+  entre o time e cada pessoa. As regras são as mesmas da tabela principal: Recebidos é a
+  primeira entrada em negociação dentro da janela, Ganhos é a venda com Fechamento =
+  Comercial pela data de fechamento (ou campo vazio com passagem por negociação ou marcada
+  à mão), e o ticket é receita ÷ ganhos.
+- **Sem a coluna Perdidos**, de propósito. Contar perdas do jeito certo exige checar, card
+  a card, quem passou por negociação; em 24 semanas cheias isso viraria dezenas de
+  consultas extras e a tela ficaria lenta. Como a Taxa é ganhos ÷ recebidos, nada essencial
+  se perde. Medido em 22/09/2026: as últimas 24 semanas do CRM tinham 2.842 negócios
+  perdidos contra 511 vendas, e é essa diferença de volume que inviabiliza a coluna.
+- Recebidos usa a **primeira entrada dentro da janela**. Um negócio que entrou em
+  negociação antes do piso e voltou depois conta na semana em que voltou, diferente da
+  visão Cohort, que o trataria como veterano. A diferença só existe nas primeiras semanas
+  e desaparece conforme a janela anda.
+
 ### De onde saem as perdas, e por quê
 
 Duas tabelas no fim da visão Vendedores, pedidas pelo dono do painel em 21/09/2026, em
@@ -455,11 +484,11 @@ busca os dados. O resto está em `src/painel/`:
 |---|---|
 | `periodo.ts` | contas de data e a regra do período anterior |
 | `crm.ts` | as consultas ao GraphQL |
-| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts`, `perdas.ts` | as perguntas e as contas derivadas |
+| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts`, `perdas.ts`, `semanas.ts` | as perguntas e as contas derivadas |
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `nota-vendas.tsx`, `tabela-perdas.tsx`, `grade-de-perdas.tsx`, `lista-de-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `nota-vendas.tsx`, `tabela-semanas.tsx`, `tabela-perdas.tsx`, `grade-de-perdas.tsx`, `lista-de-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
 | `como-ler.tsx`, `guias.ts` | o bloco "Como ler" e os textos dele, um por visão |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.

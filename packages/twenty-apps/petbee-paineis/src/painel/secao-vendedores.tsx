@@ -19,6 +19,8 @@ import { recebidosPorVendedor } from 'src/painel/cohorts';
 import { type Perdas } from 'src/painel/perdas';
 import { NAO_SAO_VENDEDORES } from 'src/painel/equipe';
 import { TabelasDePerdas } from 'src/painel/tabela-perdas';
+import { TabelaSemanas } from 'src/painel/tabela-semanas';
+import { type Semanas } from 'src/painel/semanas';
 import { gradeDeCartoes } from 'src/painel/grade';
 import { rotuloEtapa } from 'src/painel/rotulos';
 import { montarLinhas, TabelaVendedores } from 'src/painel/tabela-vendedores';
@@ -30,6 +32,7 @@ export const SecaoVendedores = ({
   cohort,
   desfechos,
   perdas,
+  semanas,
   nomes,
   tema,
 }: {
@@ -38,6 +41,7 @@ export const SecaoVendedores = ({
   cohort: Cohort | null;
   desfechos: Desfechos | null;
   perdas: Perdas | null;
+  semanas: Semanas | null;
   nomes: Record<string, string>;
   tema: Tema;
 }) => {
@@ -99,6 +103,10 @@ export const SecaoVendedores = ({
           truncado={(cohort?.truncado ?? false) || (desfechos?.truncado ?? false)}
           tema={tema}
         />
+      )}
+
+      {semanas === null ? null : (
+        <TabelaSemanas semanas={semanas} nomes={nomes} tema={tema} />
       )}
 
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
