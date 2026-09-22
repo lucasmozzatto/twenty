@@ -17,6 +17,7 @@ import {
   filtroDeEntradaEm,
   listarMudancas,
   type MudancaDeEtapa,
+  negociosQuePassaramPor,
   SO_NEGOCIOS,
 } from 'src/painel/linha-do-tempo';
 import {
@@ -203,20 +204,38 @@ export const buscarSemanas = async (hoje: string): Promise<Semanas> => {
 
   // Ganhos seguem a regra de comissão da tabela de cima: Comercial, ou campo
   // vazio com passagem por negociação ou marcado à mão por um vendedor.
-  for (const venda of vendas.nos) {
-    const contada =
+  const contadas = vendas.nos.filter(
+    (venda) =>
       venda.fechamento === 'COMERCIAL' ||
       (venda.fechamento === null &&
-        (primeiraEntrada.has(venda.id) || marcadasAMao.has(venda.id)));
+        (primeiraEntrada.has(venda.id) || marcadasAMao.has(venda.id))),
+  );
 
-    if (!contada) continue;
+  // Venda contada cujo card nunca passou por negociação também é um lead
+  // recebido, no dia da venda, como na tabela de cima. A checagem olha o
+  // histórico inteiro, e não só a janela: um lead que entrou em negociação
+  // em agosto e vendeu em setembro já foi contado como recebido lá atrás.
+  const semEntradaNaJanela = contadas
+    .filter((venda) => !primeiraEntrada.has(venda.id))
+    .map((venda) => venda.id);
+  const passaramAlgumDia = await tentar(
+    'histórico de negociação das vendas',
+    negociosQuePassaramPor(semEntradaNaJanela, ETAPAS_EM_NEGOCIACAO),
+    new Set<string>(),
+    falhas,
+  );
 
+  for (const venda of contadas) {
     const alvo = celula(diaEmBrasilia(new Date(venda.closeDate)), venda.ownerId);
 
     if (alvo === null) continue;
 
     alvo.ganhos += 1;
     alvo.receita += deMicros(venda.amount?.amountMicros) ?? 0;
+
+    if (!primeiraEntrada.has(venda.id) && !passaramAlgumDia.has(venda.id)) {
+      alvo.recebidos += 1;
+    }
   }
 
   for (const linha of linhas) {

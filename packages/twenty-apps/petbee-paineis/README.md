@@ -317,6 +317,11 @@ enxergar a evolução sem ficar trocando o filtro de período.
   consultas extras e a tela ficaria lenta. Como a Taxa é ganhos ÷ recebidos, nada essencial
   se perde. Medido em 22/09/2026: as últimas 24 semanas do CRM tinham 2.842 negócios
   perdidos contra 511 vendas, e é essa diferença de volume que inviabiliza a coluna.
+- **Venda que pulou a etapa também conta como recebido**, no dia da venda, exatamente como
+  na tabela principal. A primeira versão do quadro esquecia disso e a Taxa saía inflada: a
+  venda entrava em cima da fração e o lead não entrava embaixo. A checagem de "passou por
+  negociação em alguma data" olha o histórico inteiro, e não só a janela, para não contar
+  de novo um lead que já foi recebido antes do piso.
 - Recebidos usa a **primeira entrada dentro da janela**. Um negócio que entrou em
   negociação antes do piso e voltou depois conta na semana em que voltou, diferente da
   visão Cohort, que o trataria como veterano. A diferença só existe nas primeiras semanas
