@@ -24,6 +24,7 @@ import { buscarFunil, type Funil } from 'src/painel/funil';
 import { GUIA_PAINEL, GUIA_VISAO_GERAL } from 'src/painel/guias';
 import { buscarJornada, type Jornada } from 'src/painel/jornada';
 import { buscarPerdas, type Perdas } from 'src/painel/perdas';
+import { buscarSemanas, type Semanas } from 'src/painel/semanas';
 import {
   buscarCohort,
   type Cohort,
@@ -71,6 +72,7 @@ const PainelPeriodo = () => {
   const [cohort, setCohort] = useState<Cohort | null>(null);
   const [jornada, setJornada] = useState<Jornada | null>(null);
   const [perdas, setPerdas] = useState<Perdas | null>(null);
+  const [semanas, setSemanas] = useState<Semanas | null>(null);
   const [visao, setVisao] = useState<Visao>('geral');
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
@@ -132,6 +134,16 @@ const PainelPeriodo = () => {
       .catch(() => setNomes({}));
   }, []);
 
+  // O acompanhamento semanal é fixo: não depende do filtro de período, então
+  // é buscado uma vez só, quando o painel abre.
+  useEffect(() => {
+    buscarSemanas(hoje)
+      .then(setSemanas)
+      .catch(() => setSemanas(null));
+    // `hoje` não muda enquanto a tela está aberta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const escolherPredefinido = (qual: Predefinido) => {
     setPredefinido(qual);
     setPeriodo(periodoPredefinido(qual, hoje));
@@ -158,6 +170,7 @@ const PainelPeriodo = () => {
     ...(cohort?.falhas ?? []),
     ...(jornada?.falhas ?? []),
     ...(perdas?.falhas ?? []),
+    ...(semanas?.falhas ?? []),
   ];
 
   return (
@@ -239,6 +252,7 @@ const PainelPeriodo = () => {
             cohort={cohortCompleto}
             desfechos={desfechos}
             perdas={perdas}
+            semanas={semanas}
             nomes={nomes}
             tema={tema}
           />
