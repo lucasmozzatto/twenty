@@ -194,7 +194,7 @@ combinadas com o dono do painel em 16/09/2026:
 | Perdidos | estão em **Perdido hoje**, com a **data de fechamento** dentro do período, e passaram por negociação em alguma data | desfechos (`desfechos.ts`) |
 | Taxa | ganhos ÷ recebidos: vendas do período sobre leads que chegaram no período | conta na tela |
 | Receita | soma do valor dos ganhos | desfechos |
-| Ticket médio | média do valor dos ganhos (sem valor não entra); no Total é receita ÷ ganhos | desfechos |
+| Ticket médio | receita ÷ quantidade de ganhos, igual na linha da pessoa e no Total; venda sem valor preenchido puxa o ticket para baixo | desfechos |
 
 Todo membro do workspace tem linha, mesmo zerado: num dia parado, uma pessoa que some da
 tabela parece erro, e a lista completa é o que permite comparar. "Sem dono" só aparece

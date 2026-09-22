@@ -224,7 +224,10 @@ export const buscarDesfechos = async (periodo: Periodo): Promise<Desfechos> => {
 
     alvo.ganhos = grupo.contagem;
     alvo.receita = grupo.somaReais;
-    alvo.ticketMedio = grupo.mediaReais;
+    // Receita ÷ ganhos, e não a média que o CRM devolve: a média do CRM
+    // ignora venda sem valor preenchido, e aí a linha da pessoa não batia com
+    // a linha Total, que sempre dividiu pela quantidade de vendas.
+    alvo.ticketMedio = grupo.contagem === 0 ? null : grupo.somaReais / grupo.contagem;
   }
 
   for (const [dono, quantidade] of perdasPorDono) {
