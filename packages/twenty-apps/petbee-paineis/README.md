@@ -551,7 +551,7 @@ Duas regras do servidor que custaram um deploy cada:
 - **A linha do tempo é `timelineActivities`**, com `properties` em JSON. A busca roda
   contra o texto do JSON, e é assim que ele sai: `{"diff": {"stage": {"after": "WON",
   "before": "EM_NEGOCIACAO"}}}` — com espaço depois dos dois-pontos, o que importa para
-  o `like` casar. Paginação por `pageInfo.endCursor`.
+  o `like` casar. Paginação por `offset`, com `id` como segundo critério de ordem.
 - **`id: { in: [...] }` funciona** no filtro de negócio: é assim que o cohort pergunta
   "como estão hoje" para uma lista de identificadores.
 
