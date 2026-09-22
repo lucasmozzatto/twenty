@@ -2,6 +2,10 @@
 
 Painéis comerciais do CRM declarados em código, em vez de montados clicando na tela.
 
+> **Este README é a fonte das regras.** O `CLAUDE.md` desta pasta é o resumo de uma
+> página, com as regras que não se quebram e como publicar; o detalhe, o porquê de cada
+> decisão e as conferências de número estão aqui.
+
 ## Por que um app separado do `petbee-cadencia`
 
 O `petbee-cadencia` tem quatro logic functions que **escrevem** no CRM e governam a

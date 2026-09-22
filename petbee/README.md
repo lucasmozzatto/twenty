@@ -95,6 +95,13 @@ TWENTY_API_URL=https://<instancia> TWENTY_API_KEY=<key> node petbee/provision-pe
 O script é **idempotente**: objetos e campos que já existem (pelo nome) são
 pulados, nunca duplicados nem sobrescritos. Rodar duas vezes não faz mal.
 
+## Os painéis comerciais
+
+Vivem em `packages/twenty-apps/petbee-paineis`, publicados como app do Twenty. As regras
+de cada número da visão Vendedores, que é base de comissão, estão no `README.md` de lá, e
+o `CLAUDE.md` da mesma pasta é o resumo de uma página. Leia antes de mexer em qualquer
+coluna: quase toda regra foi decidida caso a caso com o dono do painel e está datada.
+
 ## Melhorias sugeridas (backlog)
 
 - **Espécie como seleção**: hoje `especie` é texto livre em Pets — como
