@@ -194,7 +194,7 @@ combinadas com o dono do painel em 16/09/2026:
 | Perdidos | estão em **Perdido hoje**, com a **data de fechamento** dentro do período, e passaram por negociação em alguma data | desfechos (`desfechos.ts`) |
 | Taxa | ganhos ÷ recebidos: vendas do período sobre leads que chegaram no período | conta na tela |
 | Receita | soma do valor dos ganhos | desfechos |
-| Ticket médio | média do valor dos ganhos (sem valor não entra); no Total é receita ÷ ganhos | desfechos |
+| Ticket médio | receita ÷ quantidade de ganhos, igual na linha da pessoa e no Total; venda sem valor preenchido puxa o ticket para baixo | desfechos |
 
 Todo membro do workspace tem linha, mesmo zerado: num dia parado, uma pessoa que some da
 tabela parece erro, e a lista completa é o que permite comparar. "Sem dono" só aparece
@@ -317,10 +317,40 @@ enxergar a evolução sem ficar trocando o filtro de período.
   consultas extras e a tela ficaria lenta. Como a Taxa é ganhos ÷ recebidos, nada essencial
   se perde. Medido em 22/09/2026: as últimas 24 semanas do CRM tinham 2.842 negócios
   perdidos contra 511 vendas, e é essa diferença de volume que inviabiliza a coluna.
+- **Venda que pulou a etapa também conta como recebido**, no dia da venda, exatamente como
+  na tabela principal. A primeira versão do quadro esquecia disso e a Taxa saía inflada: a
+  venda entrava em cima da fração e o lead não entrava embaixo. A checagem de "passou por
+  negociação em alguma data" olha o histórico inteiro, e não só a janela, para não contar
+  de novo um lead que já foi recebido antes do piso.
 - Recebidos usa a **primeira entrada dentro da janela**. Um negócio que entrou em
   negociação antes do piso e voltou depois conta na semana em que voltou, diferente da
   visão Cohort, que o trataria como veterano. A diferença só existe nas primeiras semanas
   e desaparece conforme a janela anda.
+
+### Auditoria de 22/09/2026, antes de a tabela virar base de comissão
+
+O dono do painel pediu uma revisão adversarial da visão Vendedores antes de pagar
+comissão por ela. O que foi corrigido, tudo na mesma leva:
+
+| Achado | Onde | Efeito |
+|---|---|---|
+| "Marcou o Ganho à mão" não checava se a etapa mudou | `desfechos.ts`, `semanas.ts` | linha "de Ganho para Ganho" feita por uma pessoa transformava venda direta em venda comissionada; agora exige `entrouEm` |
+| Rótulo desconhecido no campo Fechamento sumia em silêncio | `desfechos.ts` | valor fora de Comercial/Direto/Recompra agora cai na lista de conferência, em vez de zerar a comissão sem aviso |
+| O quadro semanal decidia "passou por negociação" só dentro da janela | `semanas.ts` | venda de campo vazio de um lead que negociou antes do piso contava na tabela principal e não no quadro semanal |
+| O quadro semanal não excluía veteranos | `semanas.ts` | lead que voltou de fora da janela era contado como recebido de novo |
+| `negociosQuePassaramPor` e `etapaAntesDePerder` jogavam fora a flag de truncamento | `linha-do-tempo.ts` | leitura pela metade passava como completa, sem a tarja laranja |
+| `agrupar` por lista de ids não era lotado | `desfechos.ts`, `crm.ts` | com a lista crescendo, o servidor recusaria a consulta e Ganhos, Receita e Ticket iriam a zero para todos |
+| Paginação por `offset` sem desempate | `crm.ts`, `linha-do-tempo.ts` | empate de horário na fronteira de página podia repetir ou perder registro; agora a ordem tem `id` como segundo critério |
+| Ticket médio por pessoa usava a média do CRM | `desfechos.ts` | a média do servidor ignora venda sem valor e a linha discordava do Total; agora as duas são receita ÷ vendas |
+| Falha ao carregar nomes ou o quadro semanal sumia | `painel-periodo.front-component.tsx` | agora entram na tarja de falhas, em vez de a tela mentir que está completa |
+| Período inteiro anterior ao piso | `secao-vendedores.tsx` | o aviso dizia "foi recortado" quando o resultado é nada; agora diz que o período termina antes de o histórico existir |
+| Venda injetada no cohort entrava no "até vender" com 0 dia | `cohort.ts`, `cohorts.ts` | puxava a média para baixo sem significar nada |
+
+Fica registrada uma limitação do dado, que **não** tem correção no painel: `feitaPorPessoa`
+só enxerga o autor quando ele muda em relação à linha anterior do histórico. Se a mesma
+pessoa fez a edição anterior, o CRM não regrava o autor no diff e a marcação manual não é
+vista. Na prática isso quase não pesa, porque a inbox escreve por chave de API e nunca
+aparece como marcação manual; a defesa real é o campo Fechamento estar preenchido.
 
 ### De onde saem as perdas, e por quê
 
@@ -521,7 +551,7 @@ Duas regras do servidor que custaram um deploy cada:
 - **A linha do tempo é `timelineActivities`**, com `properties` em JSON. A busca roda
   contra o texto do JSON, e é assim que ele sai: `{"diff": {"stage": {"after": "WON",
   "before": "EM_NEGOCIACAO"}}}` — com espaço depois dos dois-pontos, o que importa para
-  o `like` casar. Paginação por `pageInfo.endCursor`.
+  o `like` casar. Paginação por `offset`, com `id` como segundo critério de ordem.
 - **`id: { in: [...] }` funciona** no filtro de negócio: é assim que o cohort pergunta
   "como estão hoje" para uma lista de identificadores.
 

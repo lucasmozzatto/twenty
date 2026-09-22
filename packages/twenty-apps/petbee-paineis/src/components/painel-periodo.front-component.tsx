@@ -18,7 +18,7 @@ import { Abas, AvisoDeErro, AvisoDeFalhas } from 'src/painel/avisos';
 import { ComoLer } from 'src/painel/como-ler';
 import { buscarNomes } from 'src/painel/crm';
 import { buscarComparacao, type Comparacao } from 'src/painel/comparacao';
-import { buscarDados, type Dados } from 'src/painel/dados';
+import { buscarDados, type Dados, type Falha } from 'src/painel/dados';
 import { buscarDesfechos, type Desfechos } from 'src/painel/desfechos';
 import { buscarFunil, type Funil } from 'src/painel/funil';
 import { GUIA_PAINEL, GUIA_VISAO_GERAL } from 'src/painel/guias';
@@ -73,6 +73,8 @@ const PainelPeriodo = () => {
   const [jornada, setJornada] = useState<Jornada | null>(null);
   const [perdas, setPerdas] = useState<Perdas | null>(null);
   const [semanas, setSemanas] = useState<Semanas | null>(null);
+  // Falhas das buscas que não dependem do período, para elas também aparecerem.
+  const [falhasFixas, setFalhasFixas] = useState<Falha[]>([]);
   const [visao, setVisao] = useState<Visao>('geral');
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [carregando, setCarregando] = useState(true);
@@ -131,7 +133,12 @@ const PainelPeriodo = () => {
   useEffect(() => {
     buscarNomes()
       .then(setNomes)
-      .catch(() => setNomes({}));
+      .catch(() =>
+        setFalhasFixas((antes) => [
+          ...antes,
+          { onde: 'nomes dos vendedores', motivo: 'não carregou' },
+        ]),
+      );
   }, []);
 
   // O acompanhamento semanal é fixo: não depende do filtro de período, então
@@ -139,7 +146,12 @@ const PainelPeriodo = () => {
   useEffect(() => {
     buscarSemanas(hoje)
       .then(setSemanas)
-      .catch(() => setSemanas(null));
+      .catch(() =>
+        setFalhasFixas((antes) => [
+          ...antes,
+          { onde: 'semana a semana', motivo: 'não carregou' },
+        ]),
+      );
     // `hoje` não muda enquanto a tela está aberta.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -163,6 +175,7 @@ const PainelPeriodo = () => {
       : incluirVendasSemNegociacao(cohort, desfechos?.vendasSemNegociacao ?? []);
 
   const falhas = [
+    ...falhasFixas,
     ...(dados?.falhas ?? []),
     ...(comparacao?.falhas ?? []),
     ...(funil?.falhas ?? []),

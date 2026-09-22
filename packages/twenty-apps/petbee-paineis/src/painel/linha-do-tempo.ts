@@ -43,7 +43,7 @@ const CONSULTA_MUDANCAS = `
       filter: $filter
       first: ${POR_PAGINA}
       offset: $offset
-      orderBy: [{ happensAt: AscNullsLast }]
+      orderBy: [{ happensAt: AscNullsLast }, { id: AscNullsLast }]
     ) {
       totalCount
       edges { node { targetOpportunityId happensAt properties } }
@@ -134,15 +134,19 @@ export const negociosQueEntraramEm = (
 // em que o negócio foi criado.
 export const etapaAntesDePerder = async (
   negocios: string[],
-): Promise<Map<string, string>> => {
+): Promise<{ etapas: Map<string, string>; truncado: boolean }> => {
   const saida = new Map<string, { etapa: string; quando: string }>();
   const TAMANHO_DO_LOTE = 150;
+  let truncado = false;
 
   for (let inicio = 0; inicio < negocios.length; inicio += TAMANHO_DO_LOTE) {
     const lote = negocios.slice(inicio, inicio + TAMANHO_DO_LOTE);
-    const { mudancas } = await listarMudancas({
+    const pagina = await listarMudancas({
       and: [{ targetOpportunityId: { in: lote } }, filtroDeEntradaEm(['LOST'])],
     });
+    const mudancas = pagina.mudancas;
+
+    truncado = truncado || pagina.truncado;
 
     for (const mudanca of mudancas) {
       const negocio = mudanca.targetOpportunityId;
@@ -159,20 +163,24 @@ export const etapaAntesDePerder = async (
     }
   }
 
-  return new Map([...saida].map(([negocio, { etapa }]) => [negocio, etapa]));
+  return {
+    etapas: new Map([...saida].map(([negocio, { etapa }]) => [negocio, etapa])),
+    truncado,
+  };
 };
 
 export const negociosQuePassaramPor = async (
   negocios: string[],
   etapas: readonly string[],
   condicoes: Filtro[] = [],
-): Promise<Set<string>> => {
+): Promise<{ passaram: Set<string>; truncado: boolean }> => {
   const passaram = new Set<string>();
   const TAMANHO_DO_LOTE = 150;
+  let truncado = false;
 
   for (let inicio = 0; inicio < negocios.length; inicio += TAMANHO_DO_LOTE) {
     const lote = negocios.slice(inicio, inicio + TAMANHO_DO_LOTE);
-    const { mudancas } = await listarMudancas({
+    const pagina = await listarMudancas({
       and: [
         { targetOpportunityId: { in: lote } },
         filtroDeEntradaEm(etapas),
@@ -180,8 +188,9 @@ export const negociosQuePassaramPor = async (
       ],
     });
 
-    for (const id of negociosQueEntraramEm(mudancas, etapas)) passaram.add(id);
+    truncado = truncado || pagina.truncado;
+    for (const id of negociosQueEntraramEm(pagina.mudancas, etapas)) passaram.add(id);
   }
 
-  return passaram;
+  return { passaram, truncado };
 };

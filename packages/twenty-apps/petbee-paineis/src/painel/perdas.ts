@@ -83,7 +83,7 @@ export const buscarPerdas = async (periodo: Periodo): Promise<Perdas> => {
   const ultimaSaida = await tentar(
     'etapa de onde saíram as perdas',
     etapaAntesDePerder(perdidos.nos.map((negocio) => negocio.id)),
-    new Map<string, string>(),
+    { etapas: new Map<string, string>(), truncado: false },
     falhas,
   );
 
@@ -96,11 +96,15 @@ export const buscarPerdas = async (periodo: Periodo): Promise<Perdas> => {
     id: negocio.id,
     ownerId: negocio.ownerId,
     motivo: negocio.motivoLost,
-    etapa: conhecida(ultimaSaida.get(negocio.id)),
+    etapa: conhecida(ultimaSaida.etapas.get(negocio.id)),
     whatsapp: negocio.whatsapp,
   }));
 
-  return { itens, truncado: perdidos.truncado, falhas };
+  return {
+    itens,
+    truncado: perdidos.truncado || ultimaSaida.truncado,
+    falhas,
+  };
 };
 
 export type LinhaDePerdas = {
