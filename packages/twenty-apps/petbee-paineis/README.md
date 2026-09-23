@@ -32,6 +32,7 @@ Abaixo do seletor, quatro visões, como abas **dentro do quadro**:
 |---|---|
 | **Visão geral** | seis números, duas linhas do tempo por dia, barras por origem e canal |
 | **Funil** | funil por etapa lido do histórico: fluxo do período, a tabela "de cada etapa, para onde foi" (com as lentes próximo passo e situação hoje) e o cohort dos que negociaram |
+| **Ads** | leads criados no período e quantos viraram venda, por origem, canal e cada pedaço da UTM, com seletor de dimensão |
 | **Vendedores** | a tabela por vendedor (recebidos, ganhos, perdidos, em aberto, taxa), pipeline em aberto, sem dono, em negociação, perdas com conversa, pipeline por dono, vendas por vendedor, pipeline por etapa e dono, motivos de perda |
 | **Cohort** | conversão por lote de leads entregues aos vendedores, por semana (quarta a terça) ou mês, e a grade vendedor × cohort. Aqui o período é a data em que o lead **chegou no vendedor** |
 
@@ -297,6 +298,37 @@ Um negócio perdido que depois foi reaberto (voltou para negociação, foi para 
 virou Ganho) **não** conta como perdido: a coluna filtra pela etapa de hoje, então ele
 sai da conta sozinho. Foi decisão do dono do painel em 17/09/2026; até então contava pelo evento.
 
+### A visão Ads
+
+Pedido do dono do painel em 22/09/2026, para ter leitura rápida de mídia sem sair do CRM.
+Em `ads.ts` (busca e contas) e `secao-ads.tsx` (tela). Uma tabela só, com um seletor de
+dimensão em cima: Origem, Canal, Source, Medium, Campanha, Conteúdo, Termo e Teste LP. Os
+dois primeiros são campos do CRM; o resto é a UTM que chegou com o lead.
+
+- **A régua é a do LEAD**: entram os negócios **criados** no período, e a venda contada é a
+  desses mesmos leads, pela etapa de hoje. É o certo para julgar campanha, porque a
+  campanha responde pelo lead que trouxe, não por uma venda de um lead de meses atrás. O
+  efeito colateral é o do Cohort: o mês corrente sempre parece pior.
+- **Todas as vendas entram**, inclusive Direto e Recompra, sem a regra de comissão: quem
+  trouxe o lead trouxe, não importa quem fechou. Esta visão não serve para comissão.
+- **O texto da UTM é lido em minúsculas e sem espaço nas pontas.** O CRM guarda "google" e
+  "Google" como coisas diferentes; a limpeza é só na leitura, o painel nunca escreve.
+- **"Sem valor"** fica em itálico no fim da tabela. Não é erro: é o lead que chegou sem
+  aquela informação.
+- A tabela mostra 25 linhas e resume o resto numa linha de rodapé, porque campanha e
+  conteúdo têm cauda longa.
+
+Medições de 22/09/2026, com "Este mês", que justificam os avisos da tela: dos 536 leads
+criados, 238 vieram de `meta`, 202 **sem UTM**, 77 de `google` e o resto pulverizado; das
+41 vendas, **22 não têm UTM**, 9 vieram de `google`, 6 de `meta`, 3 de `app` e 1 de
+`Google` com maiúscula, que a limpeza junta com `google`. Em campanha aparecem `quiz` com
+135, 215 sem campanha e sujeira real como `{{campaign.name}}`, um template que não foi
+substituído, e ids numéricos.
+
+**O que esta visão não faz:** custo. O gasto está no Meta e no Google, não no CRM, então
+não há custo por lead nem por venda. Trazer gasto para dentro é outro projeto, e o app
+tem acesso só ao CRM.
+
 ### Semana a semana: o acompanhamento fixo
 
 Um quadro na visão Vendedores, logo abaixo da tabela principal, em `semanas.ts` (busca e
@@ -518,11 +550,11 @@ busca os dados. O resto está em `src/painel/`:
 |---|---|
 | `periodo.ts` | contas de data e a regra do período anterior |
 | `crm.ts` | as consultas ao GraphQL |
-| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts`, `perdas.ts`, `semanas.ts` | as perguntas e as contas derivadas |
+| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts`, `perdas.ts`, `semanas.ts`, `ads.ts` | as perguntas e as contas derivadas |
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `nota-vendas.tsx`, `tabela-semanas.tsx`, `tabela-perdas.tsx`, `grade-de-perdas.tsx`, `lista-de-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `visoes.tsx`, `secao-ads.tsx`, `nota-vendas.tsx`, `tabela-semanas.tsx`, `tabela-perdas.tsx`, `grade-de-perdas.tsx`, `lista-de-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
 | `como-ler.tsx`, `guias.ts` | o bloco "Como ler" e os textos dele, um por visão |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.
