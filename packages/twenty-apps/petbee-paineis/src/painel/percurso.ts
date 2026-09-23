@@ -26,13 +26,11 @@ export const ETAPAS_DE_HOJE = [
   'LOST',
 ] as const;
 
-// Os degraus do funil, em ordem. Break fica fora: é pausa, não avanço.
-export const DEGRAUS = [
-  'EM_QUALIFICACAO',
-  'EM_NEGOCIACAO',
-  'FECHAMENTO',
-  'WON',
-] as const;
+// Os degraus do funil, em ordem. Break e Fechamento ficam fora: são espera,
+// não avanço. Fechamento é quando o lead promete fechar daqui a alguns dias,
+// e a maior parte das vendas vai de negociação direto para Ganho; decidido
+// com o dono do painel em 23/09/2026 olhar Fechamento num quadro à parte.
+export const DEGRAUS = ['EM_QUALIFICACAO', 'EM_NEGOCIACAO', 'WON'] as const;
 
 export type Degrau = (typeof DEGRAUS)[number];
 
@@ -44,6 +42,7 @@ export type Percurso = {
   // negociação: quem comprou sem passar vai para uma linha própria.
   alcance: number;
   passouPorBreak: boolean;
+  passouPorFechamento: boolean;
   // De onde saiu na última vez que virou Perdido. Só para quem está perdido
   // hoje; nos outros é null.
   saiuDe: EtapaDeSaida | null;
@@ -73,14 +72,17 @@ export const resumirPercurso = (
   }
 
   const qualificado = ETAPAS_EM_NEGOCIACAO.some((etapa) => vistas.has(etapa));
-  let alcance = -1;
-
-  DEGRAUS.forEach((degrau, indice) => {
-    const chegou =
-      degrau === 'WON' ? etapaDeHoje === 'WON' && qualificado : vistas.has(degrau);
-
-    if (chegou) alcance = indice;
-  });
+  // O degrau de negociação é o mesmo critério da coluna Qualificados, para os
+  // dois números nunca discordarem: quem foi de qualificação direto para
+  // Fechamento também conversou com um vendedor.
+  const alcance =
+    etapaDeHoje === 'WON' && qualificado
+      ? DEGRAUS.indexOf('WON')
+      : qualificado
+        ? DEGRAUS.indexOf('EM_NEGOCIACAO')
+        : vistas.has('EM_QUALIFICACAO')
+          ? DEGRAUS.indexOf('EM_QUALIFICACAO')
+          : -1;
 
   // Mesma tradução da tabela de perdas da visão Vendedores: etapa fora da
   // lista, ou perda sem registro no histórico, vira "Sem registro".
@@ -94,6 +96,7 @@ export const resumirPercurso = (
     qualificado,
     alcance,
     passouPorBreak: vistas.has('BREAK'),
+    passouPorFechamento: vistas.has('FECHAMENTO'),
     saiuDe: etapaDeHoje === 'LOST' ? saiuDe : null,
   };
 };
@@ -132,10 +135,21 @@ export type LeadNoFunil = { stage: string; percurso: Percurso };
 
 export type JornadaDosLeads = {
   criados: number;
-  // Quantos chegaram pelo menos até cada degrau, sem os que compraram sem
-  // passar por negociação. Mesma ordem de DEGRAUS.
-  chegaram: number[];
+  // Quem está em Ganho sem ter passado por negociação: compra direta,
+  // recompra ou card levado direto para Ganho. Fica fora da base do funil.
   ganhoSemNegociacao: number;
+  // A base do funil: os criados menos os que compraram sem negociação.
+  noFunil: number;
+  // Quantos chegaram pelo menos até cada degrau. Mesma ordem de DEGRAUS.
+  chegaram: number[];
+  // Onde está hoje quem passou por Fechamento em algum momento.
+  fechamento: {
+    passaram: number;
+    ganho: number;
+    perdido: number;
+    emFechamento: number;
+    outraEtapa: number;
+  };
   hoje: Record<(typeof ETAPAS_DE_HOJE)[number], number>;
   perdidos: number;
   // Para cada etapa de saída: quantos perdidos saíram dali e quantos leads
@@ -147,6 +161,7 @@ export const montarJornada = (leads: LeadNoFunil[]): JornadaDosLeads => {
   const chegaram = DEGRAUS.map(() => 0);
   const hoje = Object.fromEntries(ETAPAS_DE_HOJE.map((etapa) => [etapa, 0])) as JornadaDosLeads['hoje'];
   const porSaida = new Map<EtapaDeSaida, number>();
+  const fechamento = { passaram: 0, ganho: 0, perdido: 0, emFechamento: 0, outraEtapa: 0 };
   let ganhoSemNegociacao = 0;
   let passaramPorBreak = 0;
 
@@ -157,8 +172,8 @@ export const montarJornada = (leads: LeadNoFunil[]): JornadaDosLeads => {
       porSaida.set(percurso.saiuDe, (porSaida.get(percurso.saiuDe) ?? 0) + 1);
     }
 
-    // Quem comprou sem passar por negociação fica fora dos degraus: senão o
-    // funil mostraria mais vendas do que gente que chegou em fechamento.
+    // Quem comprou sem passar por negociação fica fora da base do funil: não
+    // é perda no primeiro degrau, é venda que não usou o funil.
     if (stage === 'WON' && !percurso.qualificado) {
       ganhoSemNegociacao += 1;
       continue;
@@ -166,22 +181,35 @@ export const montarJornada = (leads: LeadNoFunil[]): JornadaDosLeads => {
 
     for (let indice = 0; indice <= percurso.alcance; indice += 1) chegaram[indice] += 1;
     if (percurso.passouPorBreak) passaramPorBreak += 1;
+
+    if (percurso.passouPorFechamento) {
+      fechamento.passaram += 1;
+      if (stage === 'WON') fechamento.ganho += 1;
+      else if (stage === 'LOST') fechamento.perdido += 1;
+      else if (stage === 'FECHAMENTO') fechamento.emFechamento += 1;
+      else fechamento.outraEtapa += 1;
+    }
   }
+
+  const noFunil = leads.length - ganhoSemNegociacao;
 
   // Quantos chegaram na etapa de onde o perdido saiu: é o denominador da
   // "perda na etapa". Todo perdido que saiu de uma etapa está nele.
   const chegaramEm = (etapa: EtapaDeSaida): number | null => {
     if (etapa === 'SEM_REGISTRO') return null;
-    if (etapa === 'NOVO_LEAD') return leads.length;
+    if (etapa === 'NOVO_LEAD') return noFunil;
     if (etapa === 'BREAK') return passaramPorBreak;
+    if (etapa === 'FECHAMENTO') return fechamento.passaram;
 
     return chegaram[DEGRAUS.indexOf(etapa)];
   };
 
   return {
     criados: leads.length,
-    chegaram,
     ganhoSemNegociacao,
+    noFunil,
+    chegaram,
+    fechamento,
     hoje,
     perdidos: hoje.LOST,
     saidas: ETAPAS_DE_SAIDA.map((etapa) => ({

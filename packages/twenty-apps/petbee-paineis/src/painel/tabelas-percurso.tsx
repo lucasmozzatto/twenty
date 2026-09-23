@@ -8,86 +8,10 @@ import { rotuloDaEtapa } from 'src/painel/grade-de-perdas';
 import { ETAPAS_DE_HOJE, montarJornada } from 'src/painel/percurso';
 import { ETAPAS_ANTES_DO_VENDEDOR } from 'src/painel/perdas';
 import { rotuloEtapa } from 'src/painel/rotulos';
+import { Rodape, Tabela } from 'src/painel/tabela-simples';
 import { type Tema } from 'src/painel/tema';
 
-type Celula = { texto: string; cor?: string };
-type Linha = { rotulo: string; celulas: Celula[]; destaque?: boolean; italico?: boolean };
-
-const GRADE = (colunas: number) =>
-  `minmax(96px, 1.5fr) repeat(${colunas}, minmax(52px, 1fr))`;
-
-const Tabela = ({
-  colunas,
-  linhas,
-  tema,
-}: {
-  colunas: string[];
-  linhas: Linha[];
-  tema: Tema;
-}) => (
-  <>
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: GRADE(colunas.length - 1),
-        gap: '8px',
-        paddingBottom: '4px',
-        fontSize: '11px',
-        color: tema.suave,
-      }}
-    >
-      {colunas.map((coluna, indice) => (
-        <div key={coluna || 'vazio'} style={{ textAlign: indice === 0 ? 'left' : 'right' }}>
-          {coluna}
-        </div>
-      ))}
-    </div>
-    {linhas.map((linha) => (
-      <div
-        key={linha.rotulo}
-        style={{
-          display: 'grid',
-          gridTemplateColumns: GRADE(colunas.length - 1),
-          gap: '8px',
-          padding: '6px 0',
-          borderTop: `1px solid ${tema.borda}`,
-          fontSize: '12px',
-          fontWeight: linha.destaque ? 700 : 400,
-        }}
-      >
-        <div
-          style={{
-            color: tema.texto,
-            fontStyle: linha.italico ? 'italic' : 'normal',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {linha.rotulo}
-        </div>
-        {linha.celulas.map((celula, indice) => (
-          <div
-            key={indice}
-            style={{
-              textAlign: 'right',
-              fontVariantNumeric: 'tabular-nums',
-              color: celula.cor ?? tema.texto,
-            }}
-          >
-            {celula.texto}
-          </div>
-        ))}
-      </div>
-    ))}
-  </>
-);
-
-const Rodape = ({ texto, tema }: { texto: string; tema: Tema }) => (
-  <div style={{ fontSize: '11px', color: tema.suave, marginTop: '8px' }}>{texto}</div>
-);
-
-const ROTULO_DO_DEGRAU = ['Em qualificação', 'Em negociação', 'Fechamento', 'Ganho'];
+const ROTULO_DO_DEGRAU = ['Em qualificação', 'Em negociação', 'Ganho'];
 
 export const TabelasPercurso = ({
   negocios,
@@ -104,7 +28,7 @@ export const TabelasPercurso = ({
   tema: Tema;
 }) => {
   const jornada = montarJornada(negocios);
-  const { criados, chegaram } = jornada;
+  const { criados, noFunil, chegaram, fechamento } = jornada;
   const emAberto = ETAPAS_DE_HOJE.filter((etapa) => etapa !== 'WON' && etapa !== 'LOST').reduce(
     (soma, etapa) => soma + jornada.hoje[etapa],
     0,
@@ -144,28 +68,42 @@ export const TabelasPercurso = ({
           <div style={{ flex: '1 1 300px', minWidth: 0 }}>
             <Cartao
               titulo="Até onde chegaram"
-              nota='Cada linha conta quem chegou pelo menos até ali. "Passaram" é sobre a linha de cima: mostra onde o funil aperta. Em negociação é a coluna Qualificados.'
+              nota='Cada linha conta quem chegou pelo menos até ali. "Passaram" é sobre a linha de cima: mostra onde o funil aperta. Em negociação é a coluna Qualificados. Quem comprou sem negociação não entra na base do funil.'
               tema={tema}
             >
               <Tabela
-                colunas={['', 'Leads', '% dos criados', 'Passaram']}
+                colunas={['', 'Leads', '% do funil', 'Passaram']}
                 linhas={[
                   {
                     rotulo: 'Criados',
-                    celulas: [{ texto: formatarInteiro(criados) }, { texto: '100%' }, { texto: '—' }],
+                    celulas: [{ texto: formatarInteiro(criados) }, { texto: '' }, { texto: '' }],
+                  },
+                  {
+                    rotulo: 'Ganho sem negociação',
+                    italico: true,
+                    celulas: [
+                      { texto: formatarInteiro(jornada.ganhoSemNegociacao), cor: tema.suave },
+                      { texto: '' },
+                      { texto: '' },
+                    ],
+                  },
+                  {
+                    rotulo: 'Entraram no funil',
+                    destaque: true,
+                    celulas: [{ texto: formatarInteiro(noFunil) }, { texto: '100%' }, { texto: '—' }],
                   },
                   ...ROTULO_DO_DEGRAU.map((rotulo, indice) => ({
                     rotulo,
                     celulas: [
                       {
                         texto: formatarInteiro(chegaram[indice]),
-                        cor: indice === 3 ? tema.verde : numeroOuVazio(chegaram[indice]),
+                        cor: indice === 2 ? tema.verde : numeroOuVazio(chegaram[indice]),
                       },
-                      { texto: formatarPercentual(chegaram[indice], criados) },
+                      { texto: formatarPercentual(chegaram[indice], noFunil) },
                       {
                         texto: formatarPercentual(
                           chegaram[indice],
-                          indice === 0 ? criados : chegaram[indice - 1],
+                          indice === 0 ? noFunil : chegaram[indice - 1],
                         ),
                       },
                     ],
@@ -173,9 +111,42 @@ export const TabelasPercurso = ({
                 ]}
                 tema={tema}
               />
-              {jornada.ganhoSemNegociacao === 0 ? null : (
-                <Rodape
-                  texto={`Mais ${formatarInteiro(jornada.ganhoSemNegociacao)} ${jornada.ganhoSemNegociacao === 1 ? 'venda' : 'vendas'} sem passar por negociação: compra direta ou card levado direto para Ganho. Somando, ${formatarInteiro(vendas)}, o número da coluna Vendas.`}
+              <Rodape
+                texto={`Vendas: ${formatarInteiro(chegaram[2])} pelo funil e ${formatarInteiro(jornada.ganhoSemNegociacao)} sem negociação (compra direta, recompra ou card levado direto para Ganho). Somando, ${formatarInteiro(vendas)}, o número da coluna Vendas.`}
+                tema={tema}
+              />
+
+              <div style={{ fontSize: '12px', fontWeight: 600, color: tema.texto, margin: '14px 0 2px' }}>
+                Fechamento, à parte
+              </div>
+              <div style={{ fontSize: '11px', color: tema.suave, marginBottom: '8px' }}>
+                Quem disse que ia fechar daqui a alguns dias. Não é degrau do funil: a maior parte
+                das vendas vai de negociação direto para Ganho. Aqui, onde está hoje quem passou por lá.
+              </div>
+              {fechamento.passaram === 0 ? (
+                <div style={{ fontSize: '12px', color: tema.suave }}>Ninguém passou por Fechamento.</div>
+              ) : (
+                <Tabela
+                  colunas={['', 'Leads', '%']}
+                  linhas={[
+                    {
+                      rotulo: 'Passaram por Fechamento',
+                      destaque: true,
+                      celulas: [{ texto: formatarInteiro(fechamento.passaram) }, { texto: '100%' }],
+                    },
+                    ...[
+                      { rotulo: 'Viraram Ganho', valor: fechamento.ganho, cor: tema.verde },
+                      { rotulo: 'Perdidos', valor: fechamento.perdido, cor: tema.vermelho },
+                      { rotulo: 'Ainda em Fechamento', valor: fechamento.emFechamento, cor: tema.texto },
+                      { rotulo: 'Voltaram para outra etapa', valor: fechamento.outraEtapa, cor: tema.texto },
+                    ].map(({ rotulo, valor, cor }) => ({
+                      rotulo,
+                      celulas: [
+                        { texto: formatarInteiro(valor), cor: valor === 0 ? tema.borda : cor },
+                        { texto: formatarPercentual(valor, fechamento.passaram) },
+                      ],
+                    })),
+                  ]}
                   tema={tema}
                 />
               )}
