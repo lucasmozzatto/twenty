@@ -5,6 +5,7 @@ import { useState } from 'react';
 import {
   agruparPorDimensao,
   type Ads,
+  chaveNaDimensao,
   type Dimensao,
   type LinhaDeMidia,
   somarMidia,
@@ -18,6 +19,7 @@ import {
 } from 'src/painel/formato';
 import { GUIA_ADS } from 'src/painel/guias';
 import { rotuloCanal, rotuloOrigem } from 'src/painel/rotulos';
+import { TabelasPercurso } from 'src/painel/tabelas-percurso';
 import { type Tema } from 'src/painel/tema';
 
 const OPCOES: { valor: Dimensao; rotulo: string }[] = [
@@ -33,11 +35,12 @@ const OPCOES: { valor: Dimensao; rotulo: string }[] = [
 
 const MAXIMO_DE_LINHAS = 25;
 const GRADE =
-  'minmax(150px, 1.9fr) repeat(3, minmax(60px, 0.8fr)) minmax(72px, 0.9fr) minmax(92px, 1.05fr) minmax(92px, 1.05fr)';
+  'minmax(150px, 1.9fr) repeat(2, minmax(60px, 0.8fr)) minmax(72px, 0.8fr) minmax(60px, 0.8fr) minmax(72px, 0.9fr) minmax(92px, 1.05fr) minmax(92px, 1.05fr)';
 const COLUNAS = [
   '',
   'Leads',
   'Qualificados',
+  '% qualificou',
   'Vendas',
   'Conversão',
   'Receita',
@@ -60,11 +63,15 @@ const rotularEnum = (dimensao: Dimensao, chave: string): string => {
 
 export const SecaoAds = ({ ads, tema }: { ads: Ads; tema: Tema }) => {
   const [dimensao, setDimensao] = useState<Dimensao>('utmSource');
+  // A linha escolhida para a jornada embaixo; null é "todos os leads".
+  const [escolhida, setEscolhida] = useState<string | null>(null);
 
   const linhas = agruparPorDimensao(ads.negocios, dimensao, rotularEnum);
   const total = somarMidia(linhas);
   const visiveis = linhas.slice(0, MAXIMO_DE_LINHAS);
   const resto = linhas.slice(MAXIMO_DE_LINHAS);
+  const linhaEscolhida = linhas.find((linha) => linha.chave === escolhida);
+  const rotuloDaDimensao = OPCOES.find((opcao) => opcao.valor === dimensao)?.rotulo ?? '';
 
   const celula = (texto: string, cor: string, negrito = false, esquerda = false) => (
     <div
@@ -82,6 +89,30 @@ export const SecaoAds = ({ ads, tema }: { ads: Ads; tema: Tema }) => {
     </div>
   );
 
+  // O nome da linha vira link: escolhe o tráfego da jornada embaixo, e
+  // clicar de novo volta para todos. A linha do total não filtra nada.
+  const nomeDaLinha = (linha: LinhaDeMidia, destaque: boolean) => {
+    const cor = linha.chave === '' ? tema.suave : tema.texto;
+
+    if (destaque) return celula(linha.rotulo, cor, true, true);
+
+    return (
+      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <a
+          onClick={() => setEscolhida((antes) => (antes === linha.chave ? null : linha.chave))}
+          style={{
+            cursor: 'pointer',
+            color: cor,
+            fontWeight: escolhida === linha.chave ? 700 : 400,
+            textDecoration: escolhida === linha.chave ? 'underline' : 'none',
+          }}
+        >
+          {linha.rotulo}
+        </a>
+      </div>
+    );
+  };
+
   const fileira = (linha: LinhaDeMidia, destaque: boolean) => (
     <div
       key={linha.chave}
@@ -93,11 +124,13 @@ export const SecaoAds = ({ ads, tema }: { ads: Ads; tema: Tema }) => {
         borderTop: `1px solid ${tema.borda}`,
         fontSize: '12px',
         fontStyle: linha.chave === '' ? 'italic' : 'normal',
+        background: !destaque && escolhida === linha.chave ? tema.destaque : 'transparent',
       }}
     >
-      {celula(linha.rotulo, linha.chave === '' ? tema.suave : tema.texto, destaque, true)}
+      {nomeDaLinha(linha, destaque)}
       {celula(formatarInteiro(linha.leads), tema.texto, destaque)}
       {celula(formatarInteiro(linha.qualificados), tema.azul, destaque)}
+      {celula(formatarPercentual(linha.qualificados, linha.leads), tema.azul, true)}
       {celula(formatarInteiro(linha.vendas), tema.verde, destaque)}
       {celula(formatarPercentual(linha.vendas, linha.leads), tema.texto, true)}
       {celula(formatarReais(linha.receita), tema.verde, destaque)}
@@ -121,7 +154,7 @@ export const SecaoAds = ({ ads, tema }: { ads: Ads; tema: Tema }) => {
 
       <Cartao
         titulo="Leads e vendas por origem de mídia"
-        nota="Leads: criados no período. Qualificados: desses, os que passaram da qualificação e entraram em negociação em alguma data. Vendas: desses mesmos leads, os que estão em Ganho hoje. Conversão: vendas sobre leads. Texto da UTM vai em minúsculas, para 'Google' e 'google' não contarem separado."
+        nota="Leads: criados no período. Qualificados: desses, os que passaram por negociação ou fechamento em alguma data; % qualificou é qualificados sobre leads. Vendas: desses mesmos leads, os que estão em Ganho hoje. Conversão: vendas sobre leads. Texto da UTM vai em minúsculas, para 'Google' e 'google' não contarem separado."
         tema={tema}
       >
         {ads.truncado ? (
@@ -135,7 +168,10 @@ export const SecaoAds = ({ ads, tema }: { ads: Ads; tema: Tema }) => {
           {OPCOES.map((opcao) => (
             <button
               key={opcao.valor}
-              onClick={() => setDimensao(opcao.valor)}
+              onClick={() => {
+                setDimensao(opcao.valor);
+                setEscolhida(null);
+              }}
               style={{
                 padding: '4px 9px',
                 borderRadius: '6px',
@@ -185,6 +221,20 @@ export const SecaoAds = ({ ads, tema }: { ads: Ads; tema: Tema }) => {
           </>
         )}
       </Cartao>
+
+      <TabelasPercurso
+        negocios={
+          linhaEscolhida === undefined
+            ? ads.negocios
+            : ads.negocios.filter((negocio) => chaveNaDimensao(negocio, dimensao) === linhaEscolhida.chave)
+        }
+        filtro={
+          linhaEscolhida === undefined ? null : `${linhaEscolhida.rotulo} (${rotuloDaDimensao})`
+        }
+        aoLimpar={() => setEscolhida(null)}
+        antesDoHistorico={ads.antesDoHistorico}
+        tema={tema}
+      />
     </>
   );
 };

@@ -32,7 +32,7 @@ Abaixo do seletor, quatro visões, como abas **dentro do quadro**:
 |---|---|
 | **Visão geral** | seis números, duas linhas do tempo por dia, barras por origem e canal |
 | **Funil** | funil por etapa lido do histórico: fluxo do período, a tabela "de cada etapa, para onde foi" (com as lentes próximo passo e situação hoje) e o cohort dos que negociaram |
-| **Ads** | leads criados no período e quantos viraram venda, por origem, canal e cada pedaço da UTM, com seletor de dimensão |
+| **Ads** | leads criados no período, quantos se qualificaram e quantos viraram venda, por origem, canal e cada pedaço da UTM, com seletor de dimensão; embaixo, a jornada desses leads no funil, filtrável clicando numa linha |
 | **Vendedores** | a tabela por vendedor (recebidos, ganhos, perdidos, em aberto, taxa), pipeline em aberto, sem dono, em negociação, perdas com conversa, pipeline por dono, vendas por vendedor, pipeline por etapa e dono, motivos de perda |
 | **Cohort** | conversão por lote de leads entregues aos vendedores, por semana (quarta a terça) ou mês, e a grade vendedor × cohort. Aqui o período é a data em que o lead **chegou no vendedor** |
 
@@ -310,10 +310,17 @@ dois primeiros são campos do CRM; o resto é a UTM que chegou com o lead.
   campanha responde pelo lead que trouxe, não por uma venda de um lead de meses atrás. O
   efeito colateral é o do Cohort: o mês corrente sempre parece pior.
 - **Qualificados**, coluna ao lado de Leads, pedida pelo dono do painel em 23/09/2026:
-  dos leads criados no período, os que passaram da qualificação e entraram em negociação
-  ou fechamento em alguma data. É a diferença entre campanha que traz volume e campanha
-  que traz conversa. Vem do histórico de etapas (`negociosQuePassaramPor`), que só existe
-  a partir de 18/08/2026; em períodos anteriores a coluna sai baixa.
+  dos leads criados no período, os que **passaram por** Em negociação ou Fechamento em
+  alguma data. É a diferença entre campanha que traz volume e campanha que traz conversa.
+  Vem do histórico de etapas (`resumirPercurso` em `percurso.ts`), que só existe a partir
+  de 18/08/2026; em períodos anteriores a coluna sai baixa. "Passou por" olha os dois
+  lados de cada mudança (de onde saiu e para onde foi) e a etapa de hoje, porque a
+  criação do card não grava a etapa: um card criado já em negociação e perdido só deixa
+  "negociação → perdido". Até 23/09/2026 a coluna olhava só "para onde foi"; a troca não
+  mudou o número de setembro (197 nas duas contas, e os 48 leads parados em negociação
+  ou fechamento naquele dia tinham todos o registro de entrada).
+- **% qualificou**, pedida em 23/09/2026: qualificados sobre leads. Compara a qualidade do
+  lead que cada campanha traz, independente do volume.
 - **Todas as vendas entram**, inclusive Direto e Recompra, sem a regra de comissão: quem
   trouxe o lead trouxe, não importa quem fechou. Esta visão não serve para comissão.
 - **O texto da UTM é lido em minúsculas e sem espaço nas pontas.** O CRM guarda "google" e
@@ -333,6 +340,60 @@ substituído, e ids numéricos.
 **O que esta visão não faz:** custo. O gasto está no Meta e no Google, não no CRM, então
 não há custo por lead nem por venda. Trazer gasto para dentro é outro projeto, e o app
 tem acesso só ao CRM.
+
+#### A jornada dos leads, embaixo da tabela
+
+Pedida pelo dono do painel em 23/09/2026: "dos leads que são do Ads, como está a jornada
+deles", por exemplo quantos vão de qualificação direto para perdido. Em `percurso.ts`
+(contas) e `tabelas-percurso.tsx` (tela). Três quadros pequenos sobre **os mesmos leads
+da tabela de cima**. Clicar no nome de uma linha da tabela (meta, google, uma campanha)
+troca os três quadros para só aquele tráfego; clicar de novo, ou em "Ver todos", volta.
+Trocar de dimensão também volta para todos.
+
+A busca lê **todas as mudanças de etapa** dos leads do período, em qualquer data, e cada
+lead vira um percurso: por quais etapas passou (os dois lados de cada mudança mais a de
+hoje), até que degrau chegou, se passou por Break e de onde saiu na última vez que virou
+Perdido. É a mesma leitura que dá a coluna Qualificados, então as duas nunca discordam.
+
+- **Até onde chegaram**: quantos chegaram *pelo menos* até Em qualificação, Em
+  negociação, Fechamento e Ganho, com a porcentagem sobre os criados e sobre a linha de
+  cima ("Passaram", onde o funil aperta). A linha Em negociação é a coluna Qualificados.
+  Quem está em Ganho **sem ter passado por negociação** (compra direta, recompra, card
+  levado direto para Ganho) sai dos degraus e aparece numa nota embaixo; somando os dois
+  dá a coluna Vendas. Sem essa separação o funil mostraria mais vendas do que gente que
+  chegou em fechamento. Break não é degrau: é pausa, e fica de fora desta tabela.
+- **Onde estão hoje**: a etapa de cada lead agora, com o total em aberto no rodapé.
+- **De onde saíram os perdidos**: dos que estão em Perdido hoje, de qual etapa saíram na
+  última vez, com a mesma tradução da tabela de perdas da visão Vendedores (etapa fora da
+  lista vira "Sem registro"). "Perda na etapa" divide pelos que **chegaram** na etapa: de
+  cada 100 que chegaram em qualificação, quantos morreram ali. Novo Lead divide por todos
+  os criados; Break, por quem passou por Break.
+
+Cuidados que a tela ou o "Como ler" já dizem:
+
+- **Fechamento é pouco usado.** A maior parte das vendas vai de Em negociação direto para
+  Ganho, e por isso a linha Fechamento conta também quem pulou para Ganho.
+- **"Sem registro" inclui venda cancelada** (Ganho → Perdido), porque Ganho não está na
+  lista de saídas da tabela de perdas. Em setembro/2026 foi 1 caso.
+- **Período antes de 01/09/2026** mostra um aviso: o histórico dos leads mais antigos é
+  incompleto e a jornada sai por baixo.
+
+Conferência de 23/09/2026, "Este mês", com a mesma função rodando sobre as 1.313 mudanças
+de etapa de setembro lidas do CRM: 545 leads; chegaram em qualificação 465, em negociação
+197 (igual à coluna Qualificados), em fechamento 21, em Ganho pelo funil 15, mais 26
+vendas sem negociação (41, igual à coluna Vendas). Hoje: Perdido 327, Em qualificação 87,
+Break 42, Ganho 41, Em negociação 41, Fechamento 6, Novo Lead 1, os mesmos números do
+agrupamento por etapa do CRM. Saída dos 327 perdidos: Novo Lead 52, Em qualificação 138,
+Em negociação 132, Break 4, Sem registro 1; contando os movimentos brutos para Perdido
+dá 53, 143, 134 e 5, um pouco acima por causa de leads reabertos ou perdidos duas vezes.
+
+O que a jornada mostrou nesse dia, como hipótese para setembro ainda aberto:
+
+- Meta: 97,5% chegam em qualificação, mas só 31,8% desses passam para negociação; 56%
+  das perdas do Meta são em qualificação.
+- Google: só 66% chegam em qualificação. Dos 18 perdidos ainda em Novo Lead, 15 têm o
+  motivo "Já é cliente / outro nome": parte do tráfego do Google é cliente da casa.
+- Em negociação a perda é parecida em todas as fontes, entre 61% e 73%.
 
 ### Semana a semana: o acompanhamento fixo
 
@@ -555,11 +616,11 @@ busca os dados. O resto está em `src/painel/`:
 |---|---|
 | `periodo.ts` | contas de data e a regra do período anterior |
 | `crm.ts` | as consultas ao GraphQL |
-| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts`, `perdas.ts`, `semanas.ts`, `ads.ts` | as perguntas e as contas derivadas |
+| `dados.ts`, `comparacao.ts`, `funil.ts`, `desfechos.ts`, `cohort.ts`, `cohorts.ts`, `jornada.ts`, `perdas.ts`, `semanas.ts`, `ads.ts`, `percurso.ts` | as perguntas e as contas derivadas |
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `visoes.tsx`, `secao-ads.tsx`, `nota-vendas.tsx`, `tabela-semanas.tsx`, `tabela-perdas.tsx`, `grade-de-perdas.tsx`, `lista-de-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `visoes.tsx`, `secao-ads.tsx`, `tabelas-percurso.tsx`, `nota-vendas.tsx`, `tabela-semanas.tsx`, `tabela-perdas.tsx`, `grade-de-perdas.tsx`, `lista-de-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
 | `como-ler.tsx`, `guias.ts` | o bloco "Como ler" e os textos dele, um por visão |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.
