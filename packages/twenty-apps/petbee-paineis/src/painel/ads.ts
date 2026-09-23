@@ -12,7 +12,9 @@
 // lead trouxe, não importa quem fechou.
 import { deMicros, listarNegocios } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
+import { negociosQuePassaramPor } from 'src/painel/linha-do-tempo';
 import { limitesIso, type Periodo } from 'src/painel/periodo';
+import { ETAPAS_EM_NEGOCIACAO } from 'src/painel/rotulos';
 
 export const DIMENSOES = [
   'origem',
@@ -39,6 +41,9 @@ export type NegocioDeMidia = {
   utmTerm: string | null;
   testeLp: string | null;
   valor: number | null;
+  // Passou da qualificação: entrou em negociação ou fechamento em alguma
+  // data. Vem do histórico de etapas, que só existe a partir de 18/08/2026.
+  qualificado: boolean;
 };
 
 export type Ads = {
@@ -47,7 +52,7 @@ export type Ads = {
   falhas: Falha[];
 };
 
-type NegocioBruto = Omit<NegocioDeMidia, 'valor'> & {
+type NegocioBruto = Omit<NegocioDeMidia, 'valor' | 'qualificado'> & {
   amount: { amountMicros: number | null } | null;
 };
 
@@ -71,12 +76,26 @@ export const buscarAds = async (periodo: Periodo): Promise<Ads> => {
     falhas,
   );
 
+  // Quem passou da qualificação. É a pergunta "a campanha traz lead que dá
+  // conversa", e ela precisa do histórico: a etapa de hoje não conta a
+  // história de um lead que já foi perdido.
+  const qualificados = await tentar(
+    'leads que entraram em negociação',
+    negociosQuePassaramPor(
+      criados.nos.map((negocio) => negocio.id),
+      ETAPAS_EM_NEGOCIACAO,
+    ),
+    { passaram: new Set<string>(), truncado: false },
+    falhas,
+  );
+
   return {
     negocios: criados.nos.map(({ amount, ...resto }) => ({
       ...resto,
       valor: deMicros(amount?.amountMicros),
+      qualificado: qualificados.passaram.has(resto.id),
     })),
-    truncado: criados.truncado,
+    truncado: criados.truncado || qualificados.truncado,
     falhas,
   };
 };
@@ -85,6 +104,7 @@ export type LinhaDeMidia = {
   chave: string;
   rotulo: string;
   leads: number;
+  qualificados: number;
   vendas: number;
   receita: number;
 };
@@ -111,11 +131,13 @@ export const agruparPorDimensao = (
       chave,
       rotulo: chave === '' ? 'Sem valor' : rotularEnum(dimensao, chave),
       leads: 0,
+      qualificados: 0,
       vendas: 0,
       receita: 0,
     };
 
     linha.leads += 1;
+    if (negocio.qualificado) linha.qualificados += 1;
     if (negocio.stage === 'WON') {
       linha.vendas += 1;
       linha.receita += negocio.valor ?? 0;
@@ -139,8 +161,16 @@ export const somarMidia = (linhas: LinhaDeMidia[]): LinhaDeMidia =>
     (total, linha) => ({
       ...total,
       leads: total.leads + linha.leads,
+      qualificados: total.qualificados + linha.qualificados,
       vendas: total.vendas + linha.vendas,
       receita: total.receita + linha.receita,
     }),
-    { chave: 'total', rotulo: 'Total', leads: 0, vendas: 0, receita: 0 },
+    {
+      chave: 'total',
+      rotulo: 'Total',
+      leads: 0,
+      qualificados: 0,
+      vendas: 0,
+      receita: 0,
+    },
   );

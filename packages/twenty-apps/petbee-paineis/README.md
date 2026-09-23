@@ -309,6 +309,11 @@ dois primeiros são campos do CRM; o resto é a UTM que chegou com o lead.
   desses mesmos leads, pela etapa de hoje. É o certo para julgar campanha, porque a
   campanha responde pelo lead que trouxe, não por uma venda de um lead de meses atrás. O
   efeito colateral é o do Cohort: o mês corrente sempre parece pior.
+- **Qualificados**, coluna ao lado de Leads, pedida pelo dono do painel em 23/09/2026:
+  dos leads criados no período, os que passaram da qualificação e entraram em negociação
+  ou fechamento em alguma data. É a diferença entre campanha que traz volume e campanha
+  que traz conversa. Vem do histórico de etapas (`negociosQuePassaramPor`), que só existe
+  a partir de 18/08/2026; em períodos anteriores a coluna sai baixa.
 - **Todas as vendas entram**, inclusive Direto e Recompra, sem a regra de comissão: quem
   trouxe o lead trouxe, não importa quem fechou. Esta visão não serve para comissão.
 - **O texto da UTM é lido em minúsculas e sem espaço nas pontas.** O CRM guarda "google" e
