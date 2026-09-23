@@ -355,33 +355,44 @@ lead vira um percurso: por quais etapas passou (os dois lados de cada mudança m
 hoje), até que degrau chegou, se passou por Break e de onde saiu na última vez que virou
 Perdido. É a mesma leitura que dá a coluna Qualificados, então as duas nunca discordam.
 
-- **Até onde chegaram**: quantos chegaram *pelo menos* até Em qualificação, Em
-  negociação, Fechamento e Ganho, com a porcentagem sobre os criados e sobre a linha de
-  cima ("Passaram", onde o funil aperta). A linha Em negociação é a coluna Qualificados.
-  Quem está em Ganho **sem ter passado por negociação** (compra direta, recompra, card
-  levado direto para Ganho) sai dos degraus e aparece numa nota embaixo; somando os dois
-  dá a coluna Vendas. Sem essa separação o funil mostraria mais vendas do que gente que
-  chegou em fechamento. Break não é degrau: é pausa, e fica de fora desta tabela.
+- **Até onde chegaram**: Criados, depois **Ganho sem negociação** (compra direta,
+  recompra, card levado direto para Ganho) e **Entraram no funil**, que é a diferença e a
+  base das porcentagens. Os degraus são Em qualificação, Em negociação e Ganho, cada um
+  contando quem chegou *pelo menos* até ali, com a porcentagem sobre o funil e sobre a
+  linha de cima ("Passaram", onde o funil aperta). A linha Em negociação é a coluna
+  Qualificados; o rodapé soma as vendas do funil com as sem negociação e dá a coluna
+  Vendas. A primeira versão (23/09/2026) deixava as vendas sem negociação dentro da base,
+  e elas pareciam uma queda de 5% no primeiro degrau; o dono do painel percebeu no mesmo
+  dia e elas saíram da base.
+- **Fechamento, à parte**, decidido com o dono do painel em 23/09/2026: Fechamento é
+  quando o lead diz que vai fechar daqui a alguns dias. Não é padrão, e a maior parte das
+  vendas vai de negociação direto para Ganho (em setembro, 14 das 15 vendas pelo funil),
+  então como degrau ele distorcia a última passagem. Virou um quadrinho no mesmo cartão:
+  de quem passou por Fechamento, quantos estão hoje em Ganho, em Perdido, ainda em
+  Fechamento ou em outra etapa. Break também não é degrau: é pausa.
 - **Onde estão hoje**: a etapa de cada lead agora, com o total em aberto no rodapé.
 - **De onde saíram os perdidos**: dos que estão em Perdido hoje, de qual etapa saíram na
   última vez, com a mesma tradução da tabela de perdas da visão Vendedores (etapa fora da
   lista vira "Sem registro"). "Perda na etapa" divide pelos que **chegaram** na etapa: de
-  cada 100 que chegaram em qualificação, quantos morreram ali. Novo Lead divide por todos
-  os criados; Break, por quem passou por Break.
+  cada 100 que chegaram em qualificação, quantos morreram ali. Novo Lead divide por quem
+  entrou no funil; Break e Fechamento, por quem passou por eles.
 
 Cuidados que a tela ou o "Como ler" já dizem:
 
-- **Fechamento é pouco usado.** A maior parte das vendas vai de Em negociação direto para
-  Ganho, e por isso a linha Fechamento conta também quem pulou para Ganho.
 - **"Sem registro" inclui venda cancelada** (Ganho → Perdido), porque Ganho não está na
   lista de saídas da tabela de perdas. Em setembro/2026 foi 1 caso.
 - **Período antes de 01/09/2026** mostra um aviso: o histórico dos leads mais antigos é
   incompleto e a jornada sai por baixo.
 
 Conferência de 23/09/2026, "Este mês", com a mesma função rodando sobre as 1.313 mudanças
-de etapa de setembro lidas do CRM: 545 leads; chegaram em qualificação 465, em negociação
-197 (igual à coluna Qualificados), em fechamento 21, em Ganho pelo funil 15, mais 26
-vendas sem negociação (41, igual à coluna Vendas). Hoje: Perdido 327, Em qualificação 87,
+de etapa de setembro lidas do CRM: 545 leads, 26 ganhos sem negociação (16 Direto, 4
+Recompra e 6 Comercial levados direto para Ganho) e 519 no funil; chegaram em
+qualificação 465 (89,6%), em negociação 197 (igual à coluna Qualificados) e em Ganho 15
+(7,6% de quem negociou), e 15 + 26 = 41, igual à coluna Vendas. Os 54 do funil que não
+chegaram em qualificação são 52 perdidos ainda em Novo Lead (40 deles "Já é cliente /
+outro nome"), 1 parado em Novo Lead e 1 venda cancelada. Passaram por Fechamento 7: 1
+virou Ganho e 6 continuam lá, todos criados na noite de 02/09 (horário de Brasília) em
+menos de seis minutos, o que tem cara de importação. Hoje: Perdido 327, Em qualificação 87,
 Break 42, Ganho 41, Em negociação 41, Fechamento 6, Novo Lead 1, os mesmos números do
 agrupamento por etapa do CRM. Saída dos 327 perdidos: Novo Lead 52, Em qualificação 138,
 Em negociação 132, Break 4, Sem registro 1; contando os movimentos brutos para Perdido
@@ -391,8 +402,9 @@ O que a jornada mostrou nesse dia, como hipótese para setembro ainda aberto:
 
 - Meta: 97,5% chegam em qualificação, mas só 31,8% desses passam para negociação; 56%
   das perdas do Meta são em qualificação.
-- Google: só 66% chegam em qualificação. Dos 18 perdidos ainda em Novo Lead, 15 têm o
-  motivo "Já é cliente / outro nome": parte do tráfego do Google é cliente da casa.
+- Google: só 74% dos leads do funil chegam em qualificação. Dos 18 perdidos ainda em Novo
+  Lead, 15 têm o motivo "Já é cliente / outro nome": parte do tráfego do Google é cliente
+  da casa.
 - Em negociação a perda é parecida em todas as fontes, entre 61% e 73%.
 
 ### Semana a semana: o acompanhamento fixo
@@ -620,7 +632,7 @@ busca os dados. O resto está em `src/painel/`:
 | `linha-do-tempo.ts` | leitura paginada do histórico de etapas e o "passou por" |
 | `rotulos.ts`, `formato.ts`, `tema.ts`, `grade.ts` | texto, números, cores e layout |
 | `cartoes.tsx`, `barras.tsx`, `barras-empilhadas.tsx`, `linha.tsx` | os desenhos |
-| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `visoes.tsx`, `secao-ads.tsx`, `tabelas-percurso.tsx`, `nota-vendas.tsx`, `tabela-semanas.tsx`, `tabela-perdas.tsx`, `grade-de-perdas.tsx`, `lista-de-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
+| `seletor.tsx`, `secao-comercial.tsx`, `secao-funil.tsx`, `secao-vendedores.tsx`, `tabela-vendedores.tsx`, `visoes.tsx`, `secao-ads.tsx`, `tabelas-percurso.tsx`, `tabela-simples.tsx`, `nota-vendas.tsx`, `tabela-semanas.tsx`, `tabela-perdas.tsx`, `grade-de-perdas.tsx`, `lista-de-perdas.tsx`, `secao-cohort.tsx`, `tabela-cohorts.tsx`, `grade-cohorts.tsx`, `tabela-jornada.tsx`, `avisos.tsx` | as partes da tela |
 | `como-ler.tsx`, `guias.ts` | o bloco "Como ler" e os textos dele, um por visão |
 
 Todos abaixo das 300 linhas que o guia do projeto pede.
