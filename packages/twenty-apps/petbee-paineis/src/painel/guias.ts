@@ -57,3 +57,13 @@ export const GUIA_COHORT = [
   'Lead que volta e ganha negócio novo entra no cohort do negócio novo. Venda direta fica fora.',
   'Venda do vendedor cujo card foi para Ganho sem passar por negociação entra no lote do dia da venda, já como ganho: o lead foi recebido, só que o registro da chegada é a própria venda.',
 ];
+
+export const GUIA_ADS = [
+  'A régua aqui é o LEAD: entram os negócios criados no período, e a venda contada é a desses mesmos leads, olhando a etapa de hoje. É o certo para julgar campanha, porque a campanha responde pelo lead que trouxe, não por uma venda de um lead de meses atrás.',
+  'Por isso o mês corrente sempre parece pior: lead de ontem ainda não decidiu. Compare meses fechados.',
+  'Os botões trocam o que fica nas linhas: Origem e Canal são campos do CRM, o resto vem da UTM que chegou com o lead.',
+  'Aqui entram todas as vendas, inclusive direta e recompra, sem a regra de comissão: quem trouxe o lead trouxe, não importa quem fechou.',
+  '"Sem valor", em itálico no fim, é o lead que chegou sem aquela informação. Em setembro/2026 era mais da metade das vendas, porque recompra, indicação e WhatsApp direto não trazem UTM.',
+  'O texto da UTM é lido em minúsculas, para "Google" e "google" não contarem separado. O painel não altera nada no CRM.',
+  'O painel não sabe quanto você gastou em mídia, então não existe custo por lead nem por venda aqui. Ele responde o que traz lead e o que vira venda.',
+];

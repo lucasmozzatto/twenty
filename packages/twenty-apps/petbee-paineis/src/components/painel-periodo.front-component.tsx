@@ -21,9 +21,10 @@ import { buscarComparacao, type Comparacao } from 'src/painel/comparacao';
 import { buscarDados, type Dados, type Falha } from 'src/painel/dados';
 import { buscarDesfechos, type Desfechos } from 'src/painel/desfechos';
 import { buscarFunil, type Funil } from 'src/painel/funil';
-import { GUIA_PAINEL, GUIA_VISAO_GERAL } from 'src/painel/guias';
+import { GUIA_PAINEL } from 'src/painel/guias';
 import { buscarJornada, type Jornada } from 'src/painel/jornada';
 import { buscarPerdas, type Perdas } from 'src/painel/perdas';
+import { buscarAds, type Ads } from 'src/painel/ads';
 import { buscarSemanas, type Semanas } from 'src/painel/semanas';
 import {
   buscarCohort,
@@ -37,24 +38,13 @@ import {
   type Periodo,
   type Predefinido,
 } from 'src/painel/periodo';
-import {
-  GraficosComerciais,
-  NumerosComerciais,
-} from 'src/painel/secao-comercial';
-import { SecaoFunil } from 'src/painel/secao-funil';
-import { SecaoCohort } from 'src/painel/secao-cohort';
-import { SecaoVendedores } from 'src/painel/secao-vendedores';
 import { Seletor } from 'src/painel/seletor';
+import {
+  ConteudoDaVisao,
+  type Visao,
+  VISOES,
+} from 'src/painel/visoes';
 import { construirTema } from 'src/painel/tema';
-
-type Visao = 'geral' | 'funil' | 'vendedores' | 'cohort';
-
-const VISOES: { valor: Visao; rotulo: string }[] = [
-  { valor: 'geral', rotulo: 'Visão geral' },
-  { valor: 'funil', rotulo: 'Funil' },
-  { valor: 'vendedores', rotulo: 'Vendedores' },
-  { valor: 'cohort', rotulo: 'Cohort' },
-];
 
 const PainelPeriodo = () => {
   const tema = construirTema(useColorScheme() === 'dark');
@@ -71,6 +61,7 @@ const PainelPeriodo = () => {
   const [desfechos, setDesfechos] = useState<Desfechos | null>(null);
   const [cohort, setCohort] = useState<Cohort | null>(null);
   const [jornada, setJornada] = useState<Jornada | null>(null);
+  const [ads, setAds] = useState<Ads | null>(null);
   const [perdas, setPerdas] = useState<Perdas | null>(null);
   const [semanas, setSemanas] = useState<Semanas | null>(null);
   // Falhas das buscas que não dependem do período, para elas também aparecerem.
@@ -99,6 +90,7 @@ const PainelPeriodo = () => {
         novoCohort,
         novaJornada,
         novasPerdas,
+        novosAds,
       ] = await Promise.all([
         buscarDados(periodo),
         comparar ? buscarComparacao(anterior) : Promise.resolve(null),
@@ -107,6 +99,7 @@ const PainelPeriodo = () => {
         buscarCohort(periodo),
         buscarJornada(periodo),
         buscarPerdas(periodo),
+        buscarAds(periodo),
       ]);
 
       setDados(novosDados);
@@ -116,6 +109,7 @@ const PainelPeriodo = () => {
       setCohort(novoCohort);
       setJornada(novaJornada);
       setPerdas(novasPerdas);
+      setAds(novosAds);
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : String(falha));
     } finally {
@@ -184,6 +178,7 @@ const PainelPeriodo = () => {
     ...(jornada?.falhas ?? []),
     ...(perdas?.falhas ?? []),
     ...(semanas?.falhas ?? []),
+    ...(ads?.falhas ?? []),
   ];
 
   return (
@@ -234,53 +229,23 @@ const PainelPeriodo = () => {
           opacity: carregando ? 0.6 : 1,
         }}
       >
-        {visao === 'geral' ? (
-          <>
-            <ComoLer itens={GUIA_VISAO_GERAL} tema={tema} />
-            <NumerosComerciais dados={dados} comparacao={comparacao} tema={tema} />
-            {dados && !periodoInvalido ? (
-              <GraficosComerciais
-                dados={dados}
-                comparacao={comparacao}
-                periodo={periodo}
-                tema={tema}
-              />
-            ) : null}
-          </>
-        ) : null}
-
-        {visao === 'funil' && dados && funil && !periodoInvalido ? (
-          <SecaoFunil
-            funil={funil}
-            jornada={jornada}
-            criadosNoPeriodo={dados.numeros.criados}
-            tema={tema}
-          />
-        ) : null}
-
-        {visao === 'vendedores' && dados && !periodoInvalido ? (
-          <SecaoVendedores
-            dados={dados}
-            comparacao={comparacao}
-            cohort={cohortCompleto}
-            desfechos={desfechos}
-            perdas={perdas}
-            semanas={semanas}
-            nomes={nomes}
-            tema={tema}
-          />
-        ) : null}
-
-        {visao === 'cohort' && cohortCompleto && !periodoInvalido ? (
-          <SecaoCohort
-            cohort={cohortCompleto}
-            funil={funil}
-            periodo={periodo}
-            hoje={hoje}
-            nomes={nomes}
-            tema={tema}
-          />
-        ) : null}
+        <ConteudoDaVisao
+          visao={visao}
+          periodo={periodo}
+          periodoInvalido={periodoInvalido}
+          hoje={hoje}
+          nomes={nomes}
+          tema={tema}
+          dados={dados}
+          comparacao={comparacao}
+          funil={funil}
+          desfechos={desfechos}
+          cohort={cohortCompleto}
+          jornada={jornada}
+          perdas={perdas}
+          semanas={semanas}
+          ads={ads}
+        />
 
         {visao !== 'geral' && dados === null ? (
           <div style={{ fontSize: '12px', color: tema.suave }}>Carregando…</div>
