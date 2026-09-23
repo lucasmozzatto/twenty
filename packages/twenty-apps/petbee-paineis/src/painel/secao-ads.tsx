@@ -33,8 +33,16 @@ const OPCOES: { valor: Dimensao; rotulo: string }[] = [
 
 const MAXIMO_DE_LINHAS = 25;
 const GRADE =
-  'minmax(160px, 2fr) repeat(2, minmax(60px, 0.8fr)) minmax(72px, 0.9fr) minmax(96px, 1.1fr) minmax(96px, 1.1fr)';
-const COLUNAS = ['', 'Leads', 'Vendas', 'Conversão', 'Receita', 'Ticket médio'];
+  'minmax(150px, 1.9fr) repeat(3, minmax(60px, 0.8fr)) minmax(72px, 0.9fr) minmax(92px, 1.05fr) minmax(92px, 1.05fr)';
+const COLUNAS = [
+  '',
+  'Leads',
+  'Qualificados',
+  'Vendas',
+  'Conversão',
+  'Receita',
+  'Ticket médio',
+];
 
 // Os enums têm rótulo bonito; o resto é texto da UTM e vai como veio, só em
 // minúsculas. O CRM guarda o enum em maiúsculas, então desfaço a limpeza aqui.
@@ -89,6 +97,7 @@ export const SecaoAds = ({ ads, tema }: { ads: Ads; tema: Tema }) => {
     >
       {celula(linha.rotulo, linha.chave === '' ? tema.suave : tema.texto, destaque, true)}
       {celula(formatarInteiro(linha.leads), tema.texto, destaque)}
+      {celula(formatarInteiro(linha.qualificados), tema.azul, destaque)}
       {celula(formatarInteiro(linha.vendas), tema.verde, destaque)}
       {celula(formatarPercentual(linha.vendas, linha.leads), tema.texto, true)}
       {celula(formatarReais(linha.receita), tema.verde, destaque)}
@@ -112,7 +121,7 @@ export const SecaoAds = ({ ads, tema }: { ads: Ads; tema: Tema }) => {
 
       <Cartao
         titulo="Leads e vendas por origem de mídia"
-        nota="Leads: criados no período. Vendas: desses mesmos leads, os que estão em Ganho hoje. Conversão: vendas sobre leads. Texto da UTM vai em minúsculas, para 'Google' e 'google' não contarem separado."
+        nota="Leads: criados no período. Qualificados: desses, os que passaram da qualificação e entraram em negociação em alguma data. Vendas: desses mesmos leads, os que estão em Ganho hoje. Conversão: vendas sobre leads. Texto da UTM vai em minúsculas, para 'Google' e 'google' não contarem separado."
         tema={tema}
       >
         {ads.truncado ? (
@@ -166,8 +175,9 @@ export const SecaoAds = ({ ads, tema }: { ads: Ads; tema: Tema }) => {
             {visiveis.map((linha) => fileira(linha, false))}
             {resto.length === 0 ? null : (
               <div style={{ fontSize: '11px', color: tema.suave, padding: '6px 0' }}>
-                e mais {formatarInteiro(resto.length)} com menos leads, somando{' '}
-                {formatarInteiro(somarMidia(resto).leads)} leads e{' '}
+                  e mais {formatarInteiro(resto.length)} com menos leads, somando{' '}
+                {formatarInteiro(somarMidia(resto).leads)} leads,{' '}
+                {formatarInteiro(somarMidia(resto).qualificados)} qualificados e{' '}
                 {formatarInteiro(somarMidia(resto).vendas)} vendas.
               </div>
             )}

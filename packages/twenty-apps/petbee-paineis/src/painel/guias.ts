@@ -61,6 +61,8 @@ export const GUIA_COHORT = [
 export const GUIA_ADS = [
   'A régua aqui é o LEAD: entram os negócios criados no período, e a venda contada é a desses mesmos leads, olhando a etapa de hoje. É o certo para julgar campanha, porque a campanha responde pelo lead que trouxe, não por uma venda de um lead de meses atrás.',
   'Por isso o mês corrente sempre parece pior: lead de ontem ainda não decidiu. Compare meses fechados.',
+  'Qualificados: dos leads criados no período, os que passaram da qualificação e entraram em negociação em alguma data, ou seja, chegaram a falar com um vendedor. Serve para separar campanha que traz volume de campanha que traz conversa.',
+  'Qualificados vem do histórico de etapas, que só existe a partir de 18/08/2026: em períodos anteriores a coluna sai baixa.',
   'Os botões trocam o que fica nas linhas: Origem e Canal são campos do CRM, o resto vem da UTM que chegou com o lead.',
   'Aqui entram todas as vendas, inclusive direta e recompra, sem a regra de comissão: quem trouxe o lead trouxe, não importa quem fechou.',
   '"Sem valor", em itálico no fim, é o lead que chegou sem aquela informação. Em setembro/2026 era mais da metade das vendas, porque recompra, indicação e WhatsApp direto não trazem UTM.',
