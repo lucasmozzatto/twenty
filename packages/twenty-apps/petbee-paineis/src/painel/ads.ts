@@ -12,9 +12,12 @@
 // lead trouxe, não importa quem fechou.
 import { deMicros, listarNegocios } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
-import { negociosQuePassaramPor } from 'src/painel/linha-do-tempo';
-import { limitesIso, type Periodo } from 'src/painel/periodo';
-import { ETAPAS_EM_NEGOCIACAO } from 'src/painel/rotulos';
+import {
+  buscarMudancasDeEtapa,
+  type Percurso,
+  resumirPercurso,
+} from 'src/painel/percurso';
+import { INICIO_HISTORICO, limitesIso, type Periodo } from 'src/painel/periodo';
 
 export const DIMENSOES = [
   'origem',
@@ -41,18 +44,22 @@ export type NegocioDeMidia = {
   utmTerm: string | null;
   testeLp: string | null;
   valor: number | null;
-  // Passou da qualificação: entrou em negociação ou fechamento em alguma
-  // data. Vem do histórico de etapas, que só existe a partir de 18/08/2026.
-  qualificado: boolean;
+  // Por onde passou no funil. `percurso.qualificado` é a coluna
+  // Qualificados: passou por negociação ou fechamento em alguma data. Vem do
+  // histórico de etapas, que só existe a partir de 18/08/2026.
+  percurso: Percurso;
 };
 
 export type Ads = {
   negocios: NegocioDeMidia[];
   truncado: boolean;
+  // O período começa antes do piso do histórico: o percurso dos leads mais
+  // antigos sai incompleto, e a tela avisa.
+  antesDoHistorico: boolean;
   falhas: Falha[];
 };
 
-type NegocioBruto = Omit<NegocioDeMidia, 'valor' | 'qualificado'> & {
+type NegocioBruto = Omit<NegocioDeMidia, 'valor' | 'percurso'> & {
   amount: { amountMicros: number | null } | null;
 };
 
@@ -76,16 +83,13 @@ export const buscarAds = async (periodo: Periodo): Promise<Ads> => {
     falhas,
   );
 
-  // Quem passou da qualificação. É a pergunta "a campanha traz lead que dá
-  // conversa", e ela precisa do histórico: a etapa de hoje não conta a
-  // história de um lead que já foi perdido.
-  const qualificados = await tentar(
-    'leads que entraram em negociação',
-    negociosQuePassaramPor(
-      criados.nos.map((negocio) => negocio.id),
-      ETAPAS_EM_NEGOCIACAO,
-    ),
-    { passaram: new Set<string>(), truncado: false },
+  // Por onde cada lead passou. Responde "a campanha traz lead que dá
+  // conversa" e a jornada embaixo da tabela, e precisa do histórico: a etapa
+  // de hoje não conta a história de um lead que já foi perdido.
+  const historico = await tentar(
+    'histórico de etapas dos leads',
+    buscarMudancasDeEtapa(criados.nos.map((negocio) => negocio.id)),
+    { porNegocio: new Map(), truncado: false },
     falhas,
   );
 
@@ -93,9 +97,10 @@ export const buscarAds = async (periodo: Periodo): Promise<Ads> => {
     negocios: criados.nos.map(({ amount, ...resto }) => ({
       ...resto,
       valor: deMicros(amount?.amountMicros),
-      qualificado: qualificados.passaram.has(resto.id),
+      percurso: resumirPercurso(resto.stage, historico.porNegocio.get(resto.id) ?? []),
     })),
-    truncado: criados.truncado || qualificados.truncado,
+    truncado: criados.truncado || historico.truncado,
+    antesDoHistorico: periodo.de < INICIO_HISTORICO,
     falhas,
   };
 };
@@ -118,6 +123,11 @@ const limpar = (valor: string | null): string => {
   return texto === '' ? '' : texto;
 };
 
+// A chave da linha em que o negócio cai. É por ela que o clique numa linha
+// filtra a jornada embaixo da tabela.
+export const chaveNaDimensao = (negocio: NegocioDeMidia, dimensao: Dimensao): string =>
+  limpar(negocio[dimensao]);
+
 export const agruparPorDimensao = (
   negocios: NegocioDeMidia[],
   dimensao: Dimensao,
@@ -126,7 +136,7 @@ export const agruparPorDimensao = (
   const linhas = new Map<string, LinhaDeMidia>();
 
   for (const negocio of negocios) {
-    const chave = limpar(negocio[dimensao]);
+    const chave = chaveNaDimensao(negocio, dimensao);
     const linha = linhas.get(chave) ?? {
       chave,
       rotulo: chave === '' ? 'Sem valor' : rotularEnum(dimensao, chave),
@@ -137,7 +147,7 @@ export const agruparPorDimensao = (
     };
 
     linha.leads += 1;
-    if (negocio.qualificado) linha.qualificados += 1;
+    if (negocio.percurso.qualificado) linha.qualificados += 1;
     if (negocio.stage === 'WON') {
       linha.vendas += 1;
       linha.receita += negocio.valor ?? 0;
