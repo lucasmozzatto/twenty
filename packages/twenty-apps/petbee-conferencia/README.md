@@ -73,8 +73,11 @@ recortam depois. Só o funil Vendas desde 30/09/2026, quando o dono do painel
 criou o funil Referidos para trabalhar indicações à parte: a página deixou de
 listar venda de outro funil. Consequência combinada: se um indicado comprar
 sem um card em Vendas, a assinatura dele aparece como "sem venda" até o
-processo dos referidos definir onde essa venda mora. A conciliação do n8n, que
-grava os vereditos, ainda lê todos os funis; mudar isso é decisão à parte. Assinatura de valor zero aparece na lista mas
+processo dos referidos definir onde essa venda mora. **A conciliação do n8n
+continua lendo todos os funis, de propósito**: o dono do painel decidiu em
+30/09/2026 não mexer no n8n nem na inbox por causa do Referidos, e deixar a
+conciliação julgar as vendas desse funil também. O que ele quis isolar foi o
+painel comercial; o resto ele refina quando sair a primeira venda de indicado. Assinatura de valor zero aparece na lista mas
 fica fora da conta de dinheiro; a marca "cortesia" do banco com valor cobrado
 é assinatura normal, igual à conciliação.
 
