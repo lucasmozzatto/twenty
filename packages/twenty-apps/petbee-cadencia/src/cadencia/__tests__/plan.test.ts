@@ -40,7 +40,7 @@ function criacoes(ops: PlanOp[]): Extract<PlanOp, { kind: 'createTask' }>[] {
   return ops.filter((op): op is Extract<PlanOp, { kind: 'createTask' }> => op.kind === 'createTask');
 }
 
-test('negócio novo em Em Negociação ganha a FUP 1 imediata, da Vitória, com zap', () => {
+test('negócio novo em Em Negociação ganha a FUP 1 imediata com zap; sem dono, cai na Vitória', () => {
   const ops = computePlan(entrada({ funil: [oppDe({})] }));
   const criadas = criacoes(ops);
 
@@ -49,6 +49,77 @@ test('negócio novo em Em Negociação ganha a FUP 1 imediata, da Vitória, com 
   assert.equal(criadas[0].data.dueAt, AGORA.toISOString());
   assert.equal(criadas[0].data.assigneeId, '69572821-c2f4-4923-9c68-23381b665a49');
   assert.equal(criadas[0].data.whatsapp?.primaryLinkUrl, 'https://wpp.petbeetools.com.br/?tel=5541999998888');
+});
+
+test('card com dono: a FUP nova vai para o dono do card', () => {
+  const ops = computePlan(entrada({ funil: [oppDe({ ownerId: 'membro-rodrigo' })] }));
+  const criadas = criacoes(ops);
+
+  assert.equal(criadas.length, 1);
+  assert.equal(criadas[0].data.assigneeId, 'membro-rodrigo');
+});
+
+test('trocou o dono: a FUP aberta muda de responsável, sem mexer em link nem vencimento', () => {
+  const opp = oppDe({
+    ownerId: 'membro-rodrigo',
+    tarefas: [
+      {
+        id: 't1',
+        title: 'FUP 1 (mensagem, abordar agora) — Luc Test',
+        status: 'TODO',
+        assigneeId: '69572821-c2f4-4923-9c68-23381b665a49',
+        whatsapp: { primaryLinkUrl: 'https://wpp.petbeetools.com.br/?tel=5541999998888' },
+      },
+    ],
+  });
+
+  assert.deepEqual(computePlan(entrada({ funil: [opp] })), [
+    { kind: 'updateTask', taskId: 't1', data: { assigneeId: 'membro-rodrigo' } },
+  ]);
+});
+
+test('task aberta lida sem o campo assigneeId não é tocada', () => {
+  const opp = oppDe({
+    ownerId: 'membro-rodrigo',
+    tarefas: [
+      {
+        id: 't1',
+        title: 'FUP 1 (mensagem, abordar agora) — Luc Test',
+        status: 'TODO',
+        whatsapp: { primaryLinkUrl: 'https://wpp.petbeetools.com.br/?tel=5541999998888' },
+      },
+    ],
+  });
+
+  assert.deepEqual(computePlan(entrada({ funil: [opp] })), []);
+});
+
+test('guarda de motivo vai para o dono do card perdido, e a aberta segue o dono', () => {
+  const perdida = { id: 'opp-9', name: 'Perdida X', ownerId: 'membro-rodrigo' };
+  const criada = criacoes(computePlan(entrada({ perdidasSemMotivo: [perdida] })));
+
+  assert.equal(criada.length, 1);
+  assert.equal(criada[0].oppId, 'opp-9');
+  assert.equal(criada[0].data.assigneeId, 'membro-rodrigo');
+
+  const ops = computePlan(
+    entrada({
+      perdidasSemMotivo: [perdida],
+      abertas: [
+        {
+          id: 'tm',
+          title: criada[0].data.title,
+          targetOpportunityId: 'opp-9',
+          assigneeId: '69572821-c2f4-4923-9c68-23381b665a49',
+        },
+      ],
+      foraDoFunil: { 'opp-9': { id: 'opp-9', stage: 'LOST', motivoLost: null } },
+    }),
+  );
+
+  assert.deepEqual(ops, [
+    { kind: 'updateTask', taskId: 'tm', data: { assigneeId: 'membro-rodrigo' } },
+  ]);
 });
 
 test('FUP 9 concluída sem mover o card cobra a decisão (guarda pós-régua)', () => {

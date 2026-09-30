@@ -12,6 +12,10 @@ mesma régua, mesmas guardas, mesmo algoritmo de reconciliação.
 - **Guarda pós-FUP 9**: card parado em Em Negociação com os 9 toques feitos
   ganha a task "Decidir: Break ou Perdido? — [nome]" até alguém mover o card.
 - **Break**: agenda a "FUP final (antes do lost)" pra +25 dias, 11h.
+- **Responsável = dono do card** (desde 30/09/2026; antes toda task ia para a Vitoria):
+  vale para FUPs, decisão, FUP final e guarda de motivo. Card sem dono cai na Vitoria,
+  para nenhuma task ficar sem responsável. Trocou o dono, as tasks abertas do card mudam
+  de responsável na reconciliação seguinte; concluída não é tocada.
 - **Perdido sem motivo**: task-guarda "Preencher motivo da perda" até o motivo entrar.
 - **Ganhou/Perdido/fora do funil**: tasks de régua abertas somem; manuais nunca são tocadas.
 - **Só o funil Vendas** (desde 30/09/2026): a régua, a guarda do motivo e a trava do
