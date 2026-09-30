@@ -78,9 +78,16 @@ export type EventoOportunidade = {
       id?: string | null;
       stage?: string | null;
       motivoLost?: string | null;
+      funnel?: string | null;
     } | null;
   } | null;
 };
+
+// A régua inteira é do funil Vendas. Funil desconhecido (evento sem o campo)
+// passa: quem decide nesse caso é o handler, depois de perguntar ao CRM.
+export function travaValeParaFunil(funil: string | null | undefined): boolean {
+  return funil === undefined || funil === null || funil === 'VENDAS';
+}
 
 // Trava do Perdido: humano arrastou pro LOST sem motivo → devolve pra etapa anterior.
 // Só vale para gente (workspaceMemberId presente) — API/inbox passa direto e a
@@ -97,6 +104,7 @@ export function etapaParaDevolver(
   if (!oppId) return null;
   if (depois?.stage !== 'LOST') return null;
   if (depois?.motivoLost) return null;
+  if (!travaValeParaFunil(depois?.funnel)) return null;
 
   const etapaAnterior = antes?.stage;
 

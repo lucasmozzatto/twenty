@@ -1,13 +1,14 @@
 // As perguntas que a conferência faz ao CRM, todas de uma vez.
 //
 // Duas regras de filtro, e só duas:
-//   VENDA      → etapa Ganho + data de FECHAMENTO no período (qualquer funil)
+//   VENDA      → funil Vendas + etapa Ganho + data de FECHAMENTO no período
 //   ASSINATURA → data de INÍCIO no período (qualquer status)
 //
 // Fechamento, e não criação, de propósito: a venda acontece quando fecha. Um
 // negócio criado em agosto e ganho em setembro é venda de setembro. Qualquer
-// funil e qualquer status porque a pergunta é "o que existe de cada lado"; as
-// fichas da tela recortam depois.
+// status porque a pergunta é "o que existe de cada lado"; as fichas da tela
+// recortam depois. Só o funil Vendas desde 30/09/2026: o funil Referidos é
+// trabalhado à parte pelo dono do painel e não entra na conferência.
 import { resumir, porVendedor, type LinhaVendedor, type Resumo } from 'src/painel/contas';
 import { ASSINATURAS, deMicros, type Filtro, listar, NEGOCIOS } from 'src/painel/crm';
 import { diaCivil, limitesIso, type Periodo } from 'src/painel/periodo';
@@ -145,6 +146,7 @@ export const buscarVendas = async (
   // data" do primeiro dia; o dia civil, abaixo, recorta o que sobrou de fora.
   const filter: Filtro = {
     and: [
+      { funnel: { eq: 'VENDAS' } },
       { stage: { eq: 'WON' } },
       { closeDate: { gte: inicioSoData } },
       { closeDate: { lt: fim } },

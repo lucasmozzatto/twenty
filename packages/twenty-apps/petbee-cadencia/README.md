@@ -14,6 +14,11 @@ mesma régua, mesmas guardas, mesmo algoritmo de reconciliação.
 - **Break**: agenda a "FUP final (antes do lost)" pra +25 dias, 11h.
 - **Perdido sem motivo**: task-guarda "Preencher motivo da perda" até o motivo entrar.
 - **Ganhou/Perdido/fora do funil**: tasks de régua abertas somem; manuais nunca são tocadas.
+- **Só o funil Vendas** (desde 30/09/2026): a régua, a guarda do motivo e a trava do
+  Perdido ignoram card de outro funil. O funil Referidos foi criado nesse dia pelo dono
+  do painel para indicações trabalhadas à parte; um card dele nunca ganha tarefa nem é
+  devolvido. Quando o evento não traz o campo funil, a trava pergunta ao CRM antes de
+  devolver.
 - **Autocura**: dedup de corrida, self-heal do link do WhatsApp (wa.me → inbox),
   fupNumero sincronizado, órfãs removidas. Vencimento editado à mão é respeitado.
 

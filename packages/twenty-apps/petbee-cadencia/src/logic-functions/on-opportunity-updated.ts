@@ -1,9 +1,14 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
 import { OPPORTUNITY_UPDATED_LOGIC_FUNCTION_UNIVERSAL_IDENTIFIER } from 'src/constants/universal-identifiers';
-import { etapaParaDevolver, type EventoOportunidade } from 'src/cadencia/plan.ts';
+import {
+  etapaParaDevolver,
+  type EventoOportunidade,
+  travaValeParaFunil,
+} from 'src/cadencia/plan.ts';
 import {
   devolverEtapa,
+  funilDoNegocio,
   reconcile,
   type ResultadoReconcile,
 } from 'src/cadencia/reconcile.ts';
@@ -20,9 +25,18 @@ const handler = async (
   const devolver = etapaParaDevolver(evento);
 
   if (devolver) {
-    await devolverEtapa(devolver.oppId, devolver.etapa);
+    // Evento sem o campo funil: pergunta ao CRM antes de devolver, porque um
+    // card de Referidos arrastado para Perdido é assunto de quem cuida dele.
+    const funil =
+      evento.properties?.after?.funnel === undefined
+        ? await funilDoNegocio(devolver.oppId)
+        : evento.properties.after.funnel;
 
-    return reconcile('trava-motivo');
+    if (travaValeParaFunil(funil)) {
+      await devolverEtapa(devolver.oppId, devolver.etapa);
+
+      return reconcile('trava-motivo');
+    }
   }
 
   return reconcile('opportunity.updated');

@@ -182,8 +182,17 @@ export const buscarJornada = async (periodoPedido: Periodo): Promise<Jornada> =>
     ),
     tentar(
       'negócios criados (jornada)',
+      // Só Vendas, como o resto do painel: criado em outro funil não é
+      // "entrar em Novo Lead" desta jornada, e os passos dele ficam de fora
+      // porque nunca ganham uma história.
       listarNegocios<NegocioHoje>(
-        { and: [{ createdAt: { gte: inicio } }, { createdAt: { lt: fim } }] },
+        {
+          and: [
+            SO_FUNIL_DE_VENDAS,
+            { createdAt: { gte: inicio } },
+            { createdAt: { lt: fim } },
+          ],
+        },
         'id stage createdAt',
       ),
       { nos: [] as NegocioHoje[], truncado: false },
