@@ -61,12 +61,13 @@ async function carregarFunil(): Promise<OppDoFunil[]> {
       stage: string;
       fupNumero?: number | null;
       whatsapp?: string | null;
+      ownerId?: string | null;
       taskTargets: Conexao<{ task: TaskDoFunil | null }>;
     }>;
   }>(
     // Só o funil Vendas: a régua é do time de inbound. O funil Referidos
     // (criado em 30/09/2026, trabalhado à parte) não ganha tarefa nenhuma.
-    'query { opportunities(filter: {and: [{funnel: {eq: "VENDAS"}}, {or: [{stage: {eq: "EM_NEGOCIACAO"}}, {stage: {eq: "BREAK"}}]}]}, first: 200) { edges { node { id name stage fupNumero whatsapp taskTargets { edges { node { task { id title status dueAt whatsapp { primaryLinkUrl } } } } } } } } }',
+    'query { opportunities(filter: {and: [{funnel: {eq: "VENDAS"}}, {or: [{stage: {eq: "EM_NEGOCIACAO"}}, {stage: {eq: "BREAK"}}]}]}, first: 200) { edges { node { id name stage fupNumero whatsapp ownerId taskTargets { edges { node { task { id title status dueAt assigneeId whatsapp { primaryLinkUrl } } } } } } } } }',
   );
 
   return nodesDe(dados.opportunities).map((opp) => ({
@@ -75,6 +76,7 @@ async function carregarFunil(): Promise<OppDoFunil[]> {
     stage: opp.stage,
     fupNumero: opp.fupNumero,
     whatsapp: opp.whatsapp,
+    ownerId: opp.ownerId,
     tarefas: nodesDe(opp.taskTargets)
       .map((alvo) => alvo.task)
       .filter((task): task is TaskDoFunil => task != null),
@@ -86,27 +88,29 @@ async function carregarAbertas(): Promise<TaskAberta[]> {
     tasks: Conexao<{
       id: string;
       title: string;
+      assigneeId?: string | null;
       taskTargets: Conexao<{ targetOpportunityId: string | null }>;
     }>;
   }>(
-    'query { tasks(filter: {status: {eq: "TODO"}}, first: 300) { edges { node { id title taskTargets { edges { node { targetOpportunityId } } } } } } }',
+    'query { tasks(filter: {status: {eq: "TODO"}}, first: 300) { edges { node { id title assigneeId taskTargets { edges { node { targetOpportunityId } } } } } } }',
   );
 
   return nodesDe(dados.tasks).map((task) => ({
     id: task.id,
     title: task.title,
+    assigneeId: task.assigneeId,
     targetOpportunityId:
       nodesDe(task.taskTargets)[0]?.targetOpportunityId ?? null,
   }));
 }
 
 async function carregarPerdidasSemMotivo(): Promise<
-  { id: string; name: string }[]
+  { id: string; name: string; ownerId?: string | null }[]
 > {
   const dados = await gql<{
-    opportunities: Conexao<{ id: string; name: string }>;
+    opportunities: Conexao<{ id: string; name: string; ownerId?: string | null }>;
   }>(
-    'query { opportunities(filter: {funnel: {eq: "VENDAS"}, stage: {eq: "LOST"}, motivoLost: {is: NULL}}, first: 50) { edges { node { id name } } } }',
+    'query { opportunities(filter: {funnel: {eq: "VENDAS"}, stage: {eq: "LOST"}, motivoLost: {is: NULL}}, first: 50) { edges { node { id name ownerId } } } }',
   );
 
   return nodesDe(dados.opportunities);

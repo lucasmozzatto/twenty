@@ -22,6 +22,8 @@ export type TaskDoFunil = {
   status: string;
   dueAt?: string | null;
   whatsapp?: { primaryLinkUrl?: string | null } | null;
+  // Ausente (undefined) quando a leitura não trouxe o campo: aí não se cura.
+  assigneeId?: string | null;
 };
 
 export type OppDoFunil = {
@@ -30,6 +32,7 @@ export type OppDoFunil = {
   stage: string;
   fupNumero?: number | null;
   whatsapp?: string | null;
+  ownerId?: string | null;
   tarefas: TaskDoFunil[];
 };
 
@@ -37,6 +40,7 @@ export type TaskAberta = {
   id: string;
   title: string;
   targetOpportunityId: string | null;
+  assigneeId?: string | null;
 };
 
 export type OppForaDoFunil = {
@@ -49,7 +53,7 @@ export type PlanInput = {
   agora: Date;
   funil: OppDoFunil[];
   abertas: TaskAberta[];
-  perdidasSemMotivo: { id: string; name: string }[];
+  perdidasSemMotivo: { id: string; name: string; ownerId?: string | null }[];
   // Negócios (fora do funil vivo) que são alvo de alguma task gerenciada aberta, por id.
   foraDoFunil: Record<string, OppForaDoFunil>;
 };
@@ -123,8 +127,16 @@ function camposZap(zap: Zap): {
   };
 }
 
+// Responsável pela task = dono do card (decisão do dono do painel, 30/09/2026;
+// até então toda task ia para a Vitoria). Card sem dono cai na Vitoria para
+// nenhuma task ficar sem responsável.
+export function responsavelDe(ownerId: string | null | undefined): string {
+  return ownerId ?? VITORIA_WORKSPACE_MEMBER_ID;
+}
+
 function opCreate(
   oppId: string,
+  responsavel: string,
   titulo: string,
   dueAt: string,
   zap: Zap | null,
@@ -134,13 +146,28 @@ function opCreate(
     title: titulo,
     status: 'TODO',
     dueAt,
-    assigneeId: VITORIA_WORKSPACE_MEMBER_ID,
+    assigneeId: responsavel,
   };
 
   if (zap) Object.assign(data, camposZap(zap));
   if (markdown) data.bodyV2 = { markdown };
 
   return { kind: 'createTask', oppId, data };
+}
+
+// Self-heal de task aberta: link do WhatsApp velho e responsável diferente do
+// dono do card, numa op só. Trocou o dono, as tasks abertas vão junto;
+// vencimento editado à mão continua respeitado. Task sem o campo assigneeId
+// na leitura não é tocada.
+function opCurar(task: TaskDoFunil, zap: Zap | null, responsavel: string): PlanOp | null {
+  const data: Record<string, unknown> = {};
+
+  if (zap && linkDesatualizado(task)) Object.assign(data, camposZap(zap));
+  if (task.assigneeId !== undefined && task.assigneeId !== responsavel) {
+    data.assigneeId = responsavel;
+  }
+
+  return Object.keys(data).length ? { kind: 'updateTask', taskId: task.id, data } : null;
 }
 
 function numDe(titulo: string): number | null {
@@ -190,6 +217,7 @@ export function computePlan(input: PlanInput): PlanOp[] {
       .filter((n): n is number => n != null);
     const maxFeito = feitos.length ? Math.max(...feitos) : 0;
     const zap = zapDe(opp.whatsapp);
+    const responsavel = responsavelDe(opp.ownerId);
 
     if (opp.stage === 'EM_NEGOCIACAO') {
       const fupCampo = opp.fupNumero == null ? 0 : opp.fupNumero;
@@ -225,15 +253,17 @@ export function computePlan(input: PlanInput): PlanOp[] {
         }
       }
 
-      // Esperada faltando é criada; aberta existente só ganha self-heal do link
-      // (vazio ou wa.me) — vencimento editado à mão é respeitado.
+      // Esperada faltando é criada; aberta existente só ganha self-heal (link
+      // e responsável) — vencimento editado à mão é respeitado.
       for (const esperada of esperadas) {
         const jaTem = tarefas.find((t) => t.title === esperada.titulo);
 
         if (!jaTem) {
-          ops.push(opCreate(opp.id, esperada.titulo, esperada.dueAt, zap));
-        } else if (jaTem.status !== 'DONE' && zap && linkDesatualizado(jaTem)) {
-          ops.push({ kind: 'updateTask', taskId: jaTem.id, data: camposZap(zap) });
+          ops.push(opCreate(opp.id, responsavel, esperada.titulo, esperada.dueAt, zap));
+        } else if (jaTem.status !== 'DONE') {
+          const cura = opCurar(jaTem, zap, responsavel);
+
+          if (cura) ops.push(cura);
         }
       }
 
@@ -255,12 +285,17 @@ export function computePlan(input: PlanInput): PlanOp[] {
         ops.push(
           opCreate(
             opp.id,
+            responsavel,
             tituloDecisao,
             agora.toISOString(),
             zap,
             markdownDecisao(zap),
           ),
         );
+      } else if (fupReal >= 9 && decisaoAberta) {
+        const cura = opCurar(decisaoAberta, zap, responsavel);
+
+        if (cura) ops.push(cura);
       }
     } else {
       // BREAK: só a "FUP final" (+25 dias, 11h SP) fica de pé; decisão e FUPs somem.
@@ -279,9 +314,11 @@ export function computePlan(input: PlanInput): PlanOp[] {
       const jaFinal = tarefas.find((t) => t.title === tituloFinal);
 
       if (!jaFinal) {
-        ops.push(opCreate(opp.id, tituloFinal, horarioSP(agora, 25, 11, 0), zap));
-      } else if (jaFinal.status !== 'DONE' && zap && linkDesatualizado(jaFinal)) {
-        ops.push({ kind: 'updateTask', taskId: jaFinal.id, data: camposZap(zap) });
+        ops.push(opCreate(opp.id, responsavel, tituloFinal, horarioSP(agora, 25, 11, 0), zap));
+      } else if (jaFinal.status !== 'DONE') {
+        const cura = opCurar(jaFinal, zap, responsavel);
+
+        if (cura) ops.push(cura);
       }
     }
   }
@@ -299,16 +336,24 @@ export function computePlan(input: PlanInput): PlanOp[] {
     }
   }
 
-  // Perdido sem motivo ganha a task-guarda (due imediato, sem zap).
+  // Perdido sem motivo ganha a task-guarda (due imediato, sem zap), para o
+  // dono do card perdido.
+  const donoDaPerdida: Record<string, string> = {};
+
   for (const perdida of perdidasSemMotivo) {
     const titulo = tituloMotivoDe(perdida.name);
 
+    donoDaPerdida[perdida.id] = responsavelDe(perdida.ownerId);
+
     if (!abertas.find((t) => t.title === titulo)) {
-      ops.push(opCreate(perdida.id, titulo, agora.toISOString(), null));
+      ops.push(
+        opCreate(perdida.id, donoDaPerdida[perdida.id], titulo, agora.toISOString(), null),
+      );
     }
   }
 
   // Guarda de motivo some quando o motivo entra (ou o card sai de Perdido); dedup.
+  // A que fica segue o dono do card, como as outras.
   const vistosMotivo: Record<string, boolean> = {};
 
   for (const t of abertas) {
@@ -322,6 +367,16 @@ export function computePlan(input: PlanInput): PlanOp[] {
       ops.push({ kind: 'deleteTask', taskId: t.id });
     } else {
       vistosMotivo[t.title] = true;
+
+      const responsavel = donoDaPerdida[t.targetOpportunityId];
+
+      if (
+        responsavel !== undefined &&
+        t.assigneeId !== undefined &&
+        t.assigneeId !== responsavel
+      ) {
+        ops.push({ kind: 'updateTask', taskId: t.id, data: { assigneeId: responsavel } });
+      }
     }
   }
 
