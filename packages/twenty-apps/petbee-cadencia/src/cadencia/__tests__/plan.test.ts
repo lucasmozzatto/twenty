@@ -8,6 +8,7 @@ import {
   type OppDoFunil,
   type PlanInput,
   type PlanOp,
+  travaValeParaFunil,
 } from '../plan.ts';
 
 const AGORA = new Date('2026-08-19T13:00:00.000Z');
@@ -189,8 +190,13 @@ test('link da inbox V1 (sem ?tel=) é curado para o endereço novo', () => {
 
   assert.equal(ops.length, 1);
   assert.equal(ops[0].kind, 'updateTask');
+  // `data` é um saco genérico (Record<string, unknown>); o teste sabe o formato.
+  const data = (ops[0] as Extract<PlanOp, { kind: 'updateTask' }>).data as {
+    whatsapp?: { primaryLinkUrl?: string };
+  };
+
   assert.equal(
-    (ops[0] as Extract<PlanOp, { kind: 'updateTask' }>).data.whatsapp?.primaryLinkUrl,
+    data.whatsapp?.primaryLinkUrl,
     'https://wpp.petbeetools.com.br/?tel=5541999998888',
   );
 });
@@ -244,6 +250,7 @@ function eventoDe(parcial: {
   antes?: string | null;
   depois?: string | null;
   motivo?: string | null;
+  funil?: string | null;
 }): EventoOportunidade {
   return {
     workspaceMemberId: parcial.humano === false ? null : 'membro-vitoria',
@@ -254,10 +261,28 @@ function eventoDe(parcial: {
         id: 'opp-1',
         stage: parcial.depois ?? 'LOST',
         motivoLost: parcial.motivo ?? null,
+        ...('funil' in parcial ? { funnel: parcial.funil } : {}),
       },
     },
   };
 }
+
+test('trava: card do funil Referidos arrastado pro Perdido não é devolvido', () => {
+  assert.equal(etapaParaDevolver(eventoDe({ funil: 'REFERIDOS' })), null);
+});
+
+test('trava: card do funil Vendas, ou evento sem o campo funil, segue a regra', () => {
+  assert.deepEqual(etapaParaDevolver(eventoDe({ funil: 'VENDAS' })), {
+    oppId: 'opp-1',
+    etapa: 'EM_NEGOCIACAO',
+  });
+  assert.deepEqual(etapaParaDevolver(eventoDe({})), {
+    oppId: 'opp-1',
+    etapa: 'EM_NEGOCIACAO',
+  });
+  assert.equal(travaValeParaFunil('REFERIDOS'), false);
+  assert.equal(travaValeParaFunil(null), true);
+});
 
 test('trava: humano arrasta pro Perdido sem motivo → devolve pra etapa anterior', () => {
   assert.deepEqual(etapaParaDevolver(eventoDe({})), {

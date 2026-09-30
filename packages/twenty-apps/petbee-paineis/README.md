@@ -685,6 +685,16 @@ Contou lead, usa data de criação. Contou venda, usa data de fechamento. Trocar
 é o erro mais fácil de cometer e o mais difícil de perceber: os totais continuam
 plausíveis. Já aconteceu três vezes durante a montagem manual.
 
+**`Funil = Vendas` vale para todas as visões, sem exceção.** O campo Funil do negócio
+tem três opções: Vendas (o time de inbound), Corretoras (só métrica, nunca teve card) e
+Referidos, criado pelo dono do painel em 30/09/2026 para trabalhar indicações à parte,
+fora da inbox e das ferramentas do time. As visões que leem o negócio direto sempre
+filtraram; as que partem do histórico de etapas (que não sabe o funil) passam os ids
+pelo CRM com o mesmo filtro: Cohort e Semana a semana já faziam isso na busca da
+situação, e a aba Funil (`funil.ts` e `jornada.ts`) passou a fazer em 30/09/2026, por
+causa do Referidos. Se essa busca de recorte falhar, a aba Funil segue sem o recorte e
+avisa, em vez de zerar.
+
 ## Detalhes que custaram para descobrir
 
 - **`timeZone` fixo em `America/Sao_Paulo`** em todo agrupamento por data. Sem isso o

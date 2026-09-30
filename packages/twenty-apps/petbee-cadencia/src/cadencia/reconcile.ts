@@ -64,7 +64,9 @@ async function carregarFunil(): Promise<OppDoFunil[]> {
       taskTargets: Conexao<{ task: TaskDoFunil | null }>;
     }>;
   }>(
-    'query { opportunities(filter: {or: [{stage: {eq: "EM_NEGOCIACAO"}}, {stage: {eq: "BREAK"}}]}, first: 200) { edges { node { id name stage fupNumero whatsapp taskTargets { edges { node { task { id title status dueAt whatsapp { primaryLinkUrl } } } } } } } } }',
+    // Só o funil Vendas: a régua é do time de inbound. O funil Referidos
+    // (criado em 30/09/2026, trabalhado à parte) não ganha tarefa nenhuma.
+    'query { opportunities(filter: {and: [{funnel: {eq: "VENDAS"}}, {or: [{stage: {eq: "EM_NEGOCIACAO"}}, {stage: {eq: "BREAK"}}]}]}, first: 200) { edges { node { id name stage fupNumero whatsapp taskTargets { edges { node { task { id title status dueAt whatsapp { primaryLinkUrl } } } } } } } } }',
   );
 
   return nodesDe(dados.opportunities).map((opp) => ({
@@ -104,7 +106,7 @@ async function carregarPerdidasSemMotivo(): Promise<
   const dados = await gql<{
     opportunities: Conexao<{ id: string; name: string }>;
   }>(
-    'query { opportunities(filter: {stage: {eq: "LOST"}, motivoLost: {is: NULL}}, first: 50) { edges { node { id name } } } }',
+    'query { opportunities(filter: {funnel: {eq: "VENDAS"}, stage: {eq: "LOST"}, motivoLost: {is: NULL}}, first: 50) { edges { node { id name } } } }',
   );
 
   return nodesDe(dados.opportunities);
@@ -201,6 +203,17 @@ async function avisarFalha(erro: unknown): Promise<void> {
   } catch {
     // O alerta nunca pode mascarar o erro original.
   }
+}
+
+// O funil do negócio, para quando o evento não trouxe o campo: a trava do
+// Perdido só vale para Vendas, e sem saber o funil ela não pode devolver.
+export async function funilDoNegocio(oppId: string): Promise<string | null> {
+  const dados = await gql<{ opportunity: { funnel: string | null } | null }>(
+    'query F($f: OpportunityFilterInput) { opportunity(filter: $f) { funnel } }',
+    { f: { id: { eq: oppId } } },
+  );
+
+  return dados.opportunity?.funnel ?? null;
 }
 
 // Trava do Perdido: restaura a etapa anterior do negócio (arrasto humano sem motivo).

@@ -13,7 +13,8 @@
 //   COHORT  — dos que entraram em negociação DENTRO do período, como estão
 //            hoje. Essa sim é conversão, e é a que responde "falamos com
 //            quantos e fechamos quantos".
-import { agrupar, consultar } from 'src/painel/crm';
+import { SO_FUNIL_DE_VENDAS } from 'src/painel/cohort';
+import { agruparPorId, consultar, listarNegociosPorId } from 'src/painel/crm';
 import { type Falha, tentar } from 'src/painel/dados';
 import {
   listarMudancas,
@@ -97,7 +98,7 @@ const SITUACAO_VAZIA: Situacao = { ganhos: 0, perdidos: 0, emAberto: 0 };
 const situacaoDeHoje = async (negocios: string[]): Promise<Situacao> => {
   if (negocios.length === 0) return SITUACAO_VAZIA;
 
-  const grupos = await agrupar({ id: { in: negocios } }, [{ stage: true }]);
+  const grupos = await agruparPorId(negocios, [{ stage: true }], [SO_FUNIL_DE_VENDAS]);
   const situacao = { ...SITUACAO_VAZIA };
 
   for (const grupo of grupos) {
@@ -134,10 +135,33 @@ export const buscarFunil = async (periodoPedido: Periodo): Promise<Funil> => {
     ),
   ]);
 
-  const emNegociacao = negociosQueEntraramEm(
-    coleta.mudancas,
-    ETAPAS_EM_NEGOCIACAO,
+  // O histórico não sabe o funil do negócio. Os ids que aparecem nele passam
+  // pelo CRM para ficar só quem é do funil Vendas: o Referidos (criado em
+  // 30/09/2026) é trabalhado à parte e não entra em nenhuma visão. Se essa
+  // consulta falhar, a falha aparece no aviso e a conta segue sem o recorte,
+  // em vez de zerar a tela.
+  const idsNoHistorico = [
+    ...new Set(
+      coleta.mudancas
+        .map((mudanca) => mudanca.targetOpportunityId)
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+  const doFunilDeVendas = await tentar<{ nos: { id: string }[]; truncado: boolean } | null>(
+    'funil dos negócios do histórico',
+    listarNegociosPorId<{ id: string }>(idsNoHistorico, 'id', [SO_FUNIL_DE_VENDAS]),
+    null,
+    falhas,
   );
+  const soVendas =
+    doFunilDeVendas === null ? null : new Set(doFunilDeVendas.nos.map((negocio) => negocio.id));
+  const mudancas = coleta.mudancas.filter(
+    (mudanca) =>
+      soVendas === null ||
+      (mudanca.targetOpportunityId !== null && soVendas.has(mudanca.targetOpportunityId)),
+  );
+
+  const emNegociacao = negociosQueEntraramEm(mudancas, ETAPAS_EM_NEGOCIACAO);
 
   const cohort = await tentar(
     'situação do cohort em negociação',
@@ -148,12 +172,10 @@ export const buscarFunil = async (periodoPedido: Periodo): Promise<Funil> => {
 
   return {
     ...FUNIL_VAZIO,
-    entrouQualificacao: negociosQueEntraramEm(coleta.mudancas, [
-      'EM_QUALIFICACAO',
-    ]).size,
+    entrouQualificacao: negociosQueEntraramEm(mudancas, ['EM_QUALIFICACAO']).size,
     entrouNegociacao: emNegociacao.size,
-    virouGanho: negociosQueEntraramEm(coleta.mudancas, ['WON']).size,
-    virouPerdido: negociosQueEntraramEm(coleta.mudancas, ['LOST']).size,
+    virouGanho: negociosQueEntraramEm(mudancas, ['WON']).size,
+    virouPerdido: negociosQueEntraramEm(mudancas, ['LOST']).size,
     negociacaoTotal: emNegociacao.size,
     negociacaoGanhos: cohort.ganhos,
     negociacaoPerdidos: cohort.perdidos,
@@ -163,7 +185,7 @@ export const buscarFunil = async (periodoPedido: Periodo): Promise<Funil> => {
       historicoComecaEm !== null && periodo.de < historicoComecaEm,
     periodo,
     cortadoNoInicio: cortado,
-    truncado: coleta.truncado,
+    truncado: coleta.truncado || (doFunilDeVendas?.truncado ?? false),
     falhas,
   };
 };

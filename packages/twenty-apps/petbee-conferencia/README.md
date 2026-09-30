@@ -62,14 +62,19 @@ o número não apontava para nada.
 
 Estão em `src/painel/dados.ts` e valem para tudo:
 
-- **Venda** → Etapa = Ganho + **data de fechamento** dentro do período, em
-  qualquer funil.
+- **Venda** → Funil = Vendas + Etapa = Ganho + **data de fechamento** dentro do
+  período.
 - **Assinatura** → **data de início** dentro do período, em qualquer status.
 
 Fechamento, e não criação, de propósito: a venda acontece quando fecha. Um
 negócio criado em agosto e ganho em setembro é venda de setembro. Qualquer
-funil e qualquer status porque a pergunta é "o que existe de cada lado"; as
-fichas da tela recortam depois. Assinatura de valor zero aparece na lista mas
+status porque a pergunta é "o que existe de cada lado"; as fichas da tela
+recortam depois. Só o funil Vendas desde 30/09/2026, quando o dono do painel
+criou o funil Referidos para trabalhar indicações à parte: a página deixou de
+listar venda de outro funil. Consequência combinada: se um indicado comprar
+sem um card em Vendas, a assinatura dele aparece como "sem venda" até o
+processo dos referidos definir onde essa venda mora. A conciliação do n8n, que
+grava os vereditos, ainda lê todos os funis; mudar isso é decisão à parte. Assinatura de valor zero aparece na lista mas
 fica fora da conta de dinheiro; a marca "cortesia" do banco com valor cobrado
 é assinatura normal, igual à conciliação.
 
