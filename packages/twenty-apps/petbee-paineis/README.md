@@ -693,7 +693,9 @@ filtraram; as que partem do histórico de etapas (que não sabe o funil) passam 
 pelo CRM com o mesmo filtro: Cohort e Semana a semana já faziam isso na busca da
 situação, e a aba Funil (`funil.ts` e `jornada.ts`) passou a fazer em 30/09/2026, por
 causa do Referidos. Se essa busca de recorte falhar, a aba Funil segue sem o recorte e
-avisa, em vez de zerar.
+avisa, em vez de zerar. O isolamento é só deste painel e da cadência: o dono do painel
+decidiu em 30/09/2026 não mexer no n8n nem na inbox por causa do Referidos, e refinar o
+resto quando sair a primeira venda de indicado.
 
 ## Detalhes que custaram para descobrir
 
