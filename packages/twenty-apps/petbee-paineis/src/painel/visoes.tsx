@@ -53,6 +53,7 @@ export const ConteudoDaVisao = ({
   periodoInvalido,
   hoje,
   nomes,
+  membros,
   tema,
   dados,
   comparacao,
@@ -69,6 +70,8 @@ export const ConteudoDaVisao = ({
   periodoInvalido: boolean;
   hoje: string;
   nomes: Record<string, string>;
+  // Quem ganha linha fixa nas tabelas por vendedor.
+  membros: string[];
   tema: Tema;
 }): ReactNode => (
   <>
@@ -105,6 +108,7 @@ export const ConteudoDaVisao = ({
         perdas={perdas}
         semanas={semanas}
         nomes={nomes}
+        membros={membros}
         tema={tema}
       />
     ) : null}

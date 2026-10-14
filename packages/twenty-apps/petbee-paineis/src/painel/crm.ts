@@ -216,3 +216,21 @@ export const buscarNomes = async (): Promise<Record<string, string>> => {
   );
 };
 
+// Quem tem pelo menos um negócio no nome, de qualquer etapa e qualquer data.
+// Decide quem ganha linha fixa nas tabelas por vendedor (regra de 14/10/2026):
+// membro sem negócio nenhum, como quem acabou de entrar no CRM, não aparece
+// zerado. Uma consulta só, agrupada por dono: quem tem zero nem volta no
+// resultado. Apelidos repetidos da mesma consulta não servem aqui, o servidor
+// recusa ("Duplicate root resolver", ver `agregar`).
+export const buscarComNegocio = async (ids: string[]): Promise<Set<string>> => {
+  if (ids.length === 0) return new Set();
+
+  const grupos = await agrupar({ ownerId: { in: ids } }, [{ ownerId: true }]);
+
+  return new Set(
+    grupos
+      .filter((grupo) => grupo.contagem > 0)
+      .map((grupo) => grupo.chaves[0])
+      .filter((chave): chave is string => chave !== null),
+  );
+};

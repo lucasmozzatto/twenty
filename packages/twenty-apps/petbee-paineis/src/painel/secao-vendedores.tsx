@@ -34,6 +34,7 @@ export const SecaoVendedores = ({
   perdas,
   semanas,
   nomes,
+  membros,
   tema,
 }: {
   dados: Dados;
@@ -43,6 +44,8 @@ export const SecaoVendedores = ({
   perdas: Perdas | null;
   semanas: Semanas | null;
   nomes: Record<string, string>;
+  // Quem ganha linha fixa: só quem tem negócio no nome (regra de 14/10/2026).
+  membros: string[];
   tema: Tema;
 }) => {
   const { pipeline } = dados;
@@ -95,7 +98,7 @@ export const SecaoVendedores = ({
           linhas={montarLinhas(
             recebidosPorVendedor(cohort?.negocios ?? []),
             desfechos?.porVendedor ?? [],
-            Object.keys(nomes),
+            membros,
           )}
           nomes={nomes}
           semClassificacao={desfechos?.semClassificacao ?? []}
@@ -188,7 +191,7 @@ export const SecaoVendedores = ({
       {perdas === null ? null : (
         <TabelasDePerdas
           itens={perdas.itens}
-          membros={Object.keys(nomes)}
+          membros={membros}
           ignorar={(dono) => NAO_SAO_VENDEDORES.has(dono)}
           nomes={nomes}
           truncado={perdas.truncado}

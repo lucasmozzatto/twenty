@@ -205,6 +205,15 @@ Todo membro do workspace tem linha, mesmo zerado: num dia parado, uma pessoa que
 tabela parece erro, e a lista completa é o que permite comparar. "Sem dono" só aparece
 quando tem algo. Pedido do dono do painel em 17/09/2026.
 
+Ajuste de 14/10/2026, pedido do dono do painel: "membro" aqui é quem tem **pelo menos um
+negócio no nome**, de qualquer etapa e qualquer data. Quem nunca teve negócio, como quem
+acabou de entrar no CRM sem vender, não ganha linha zerada. Vendedor de verdade continua
+com linha num dia parado, porque tem negócio no nome desde sempre. O painel descobre isso
+numa consulta só, agrupada por dono, quando abre (`buscarComNegocio` em `crm.ts`); se ela
+falhar, todo mundo ganha linha como antes, com aviso na tela. Vale para a tabela por
+vendedor e para as tabelas de perdas por vendedor. Na data do ajuste, isso tirou o
+Mateus, que entrou em 12/10 sem negócio; Lucas, Rodrigo e Vitoria seguiram com linha.
+
 A exceção é quem não vende: `src/painel/equipe.ts` lista esses membros, e eles só
 aparecem se algum número cair no nome deles no período — aí a linha é o aviso de que um
 lead ou uma venda foi parar em quem não é do comercial. A lista mora no código porque o
