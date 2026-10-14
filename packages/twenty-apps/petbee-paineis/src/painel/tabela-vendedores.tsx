@@ -27,9 +27,10 @@ export type LinhaVendedor = {
 // no vendedor no período, contados uma vez só); ganhos, perdidos, receita e
 // ticket vêm dos desfechos. Todo membro do time ganha linha, mesmo zerado: uma
 // pessoa que some da tabela num dia parado parece erro, e a lista completa é o
-// que permite comparar. Quem não é vendedor (`equipe.ts`) fica de fora dessa
-// regra e só aparece se tiver algum número. "Sem dono" só aparece quando tem
-// algo.
+// que permite comparar. "Membro do time" é quem tem pelo menos um negócio no
+// nome (regra de 14/10/2026): quem nunca teve, como quem acabou de entrar no
+// CRM, não ganha linha. Quem não é vendedor (`equipe.ts`) também fica de fora
+// e só aparece se tiver algum número. "Sem dono" só aparece quando tem algo.
 export const montarLinhas = (
   recebidos: RecebidosPorVendedor[],
   desfechos: DesfechoPorVendedor[],

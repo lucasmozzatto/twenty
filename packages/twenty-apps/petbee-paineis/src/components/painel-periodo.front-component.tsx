@@ -9,14 +9,14 @@
 //
 // Lê o GraphQL do CRM direto: o runtime injeta TWENTY_API_URL e o token do
 // app, cujo papel é somente leitura. Nem por bug este código altera algo.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { defineFrontComponent } from 'twenty-sdk/define';
 import { useColorScheme } from 'twenty-sdk/front-component';
 
 import { PAINEL_PERIODO_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/constants/universal-identifiers';
 import { Abas, AvisoDeErro, AvisoDeFalhas } from 'src/painel/avisos';
 import { ComoLer } from 'src/painel/como-ler';
-import { buscarNomes } from 'src/painel/crm';
+import { buscarComNegocio, buscarNomes } from 'src/painel/crm';
 import { buscarComparacao, type Comparacao } from 'src/painel/comparacao';
 import { buscarDados, type Dados, type Falha } from 'src/painel/dados';
 import { buscarDesfechos, type Desfechos } from 'src/painel/desfechos';
@@ -68,6 +68,10 @@ const PainelPeriodo = () => {
   const [falhasFixas, setFalhasFixas] = useState<Falha[]>([]);
   const [visao, setVisao] = useState<Visao>('geral');
   const [nomes, setNomes] = useState<Record<string, string>>({});
+  // Quem tem pelo menos um negócio no nome. Enquanto não chega, ou se falhar,
+  // fica null e todo mundo ganha linha, como antes: melhor sobrar um nome
+  // zerado do que sumir um vendedor.
+  const [comNegocio, setComNegocio] = useState<Set<string> | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -134,6 +138,32 @@ const PainelPeriodo = () => {
         ]),
       );
   }, []);
+
+  // Também não depende do período: uma busca por sessão, depois dos nomes.
+  useEffect(() => {
+    const ids = Object.keys(nomes);
+
+    if (ids.length === 0) return;
+    buscarComNegocio(ids)
+      .then(setComNegocio)
+      .catch(() =>
+        setFalhasFixas((antes) => [
+          ...antes,
+          { onde: 'quem tem negócio no nome', motivo: 'não carregou' },
+        ]),
+      );
+  }, [nomes]);
+
+  // Quem ganha linha fixa nas tabelas por vendedor: só quem tem negócio no
+  // nome (regra de 14/10/2026). Os nomes continuam todos, para quem aparecer
+  // por ter número no período ser chamado pelo nome.
+  const membros = useMemo(
+    () =>
+      Object.keys(nomes).filter(
+        (id) => comNegocio === null || comNegocio.has(id),
+      ),
+    [nomes, comNegocio],
+  );
 
   // O acompanhamento semanal é fixo: não depende do filtro de período, então
   // é buscado uma vez só, quando o painel abre.
@@ -235,6 +265,7 @@ const PainelPeriodo = () => {
           periodoInvalido={periodoInvalido}
           hoje={hoje}
           nomes={nomes}
+          membros={membros}
           tema={tema}
           dados={dados}
           comparacao={comparacao}

@@ -157,6 +157,7 @@ export const perdasPorVendedor = (
   const presentes = new Set(linhas.map((linha) => linha.chave));
 
   // Todo vendedor tem linha, como na tabela de cima, mesmo sem perda nenhuma.
+  // `membros` já vem só com quem tem negócio no nome (regra de 14/10/2026).
   for (const membro of membros) {
     if (presentes.has(membro) || ignorar(membro)) continue;
     linhas.push({ chave: membro, porEtapa: vazio(), total: 0 });
