@@ -43,7 +43,7 @@ node sync-petbee-crm.mjs --full   # primeira carga completa (alguns minutos)
 > aceita `mysql://…@127.0.0.1:3307/petbee` via túnel — mas a réplica é o
 > caminho padrão e recomendado pela infra.
 
-Depois disso o cron roda sozinho a cada 30 min no modo incremental (só o que
+Depois disso o cron roda sozinho de hora em hora, no minuto zero, no modo incremental (só o que
 mudou desde a última rodada, com 1h de sobreposição de segurança). Logs em
 `/var/log/twenty-sync.log`.
 
