@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Instala o robô de sincronização no VPS: Node.js, dependências e cron a cada
-# 30 minutos. Rodar dentro de petbee/sync, como root, DEPOIS de criar o .env.
+# Instala o robô de sincronização no VPS: Node.js, dependências e cron de hora
+# em hora, no minuto zero (SYNC_CRON_SCHEDULE no .env muda isso). Rodar dentro
+# de petbee/sync, como root, DEPOIS de criar o .env.
 set -euo pipefail
 
 cd "$(dirname "$0")"
