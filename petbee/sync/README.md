@@ -60,6 +60,8 @@ mudou desde a última rodada, com 1h de sobreposição de segurança). Logs em
 - **Status da assinatura**: `canceled_at`/`finished` → Cancelada; `blocked` →
   Bloqueada; senão Ativa.
 - **Status do cliente** (Person): tem assinatura ativa → Ativo; senão Inativo.
+  Recalculado também quando uma assinatura do tutor muda (nova, cancelada,
+  bloqueada), não só quando o cadastro dele muda.
 - **Tutor do pet**: quem paga a assinatura; sem assinatura, o vínculo mais
   antigo de `pets_humans` (guarda compartilhada: o 2º guardião existe como
   pessoa, mas o vínculo pet↔tutor é único).

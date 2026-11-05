@@ -427,7 +427,13 @@ const run = async () => {
     anchorMap: personMap,
     adoptByEmail: leadsByEmail,
     emailOf: (row) => row.emails?.primaryEmail,
-    changedIds: new Set(humans.filter(changed).map((h) => String(h.id))),
+    // O status de cliente sai das ASSINATURAS, e comprar (ou cancelar) não mexe no cadastro do
+    // tutor: sem a segunda lista, quem era sincronizado antes de comprar ficava Inativo pra sempre
+    // (caso Nelzi, 04/11/2026: 4 clientes com plano ativo marcados como Inativo em 30 dias).
+    changedIds: new Set([
+      ...humans.filter(changed).map((h) => String(h.id)),
+      ...subs.filter(changed).map((s) => String(s.human_id)),
+    ]),
     rows: humans.map((h) => ({
       hIdPetbee: String(h.id),
       name: splitName(h.full_name),
