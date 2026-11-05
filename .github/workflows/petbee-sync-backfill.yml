@@ -1,0 +1,52 @@
+name: petbee-sync-backfill
+# Roda o sync Petbee → CRM no modo --backfill na VPS: regrava todos os registros a partir da
+# Petbee (idempotente, não duplica; anotações, tarefas e funil ficam intactos). Serve para
+# acertar o CRM depois de uma correção de regra no sync, como a do status do cliente (PR #49).
+# Só manual: Actions → petbee-sync-backfill → Run workflow. Sem entradas de propósito: o
+# comando é fixo, nada digitado na tela do Actions chega na VPS.
+# O repositório é público, então o log do Actions mostra só o resumo (contagens); a saída
+# completa vai para /var/log/twenty-sync.log na VPS, junto com as rodadas do cron.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Rodar --backfill na VPS
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/key
+          chmod 600 ~/.ssh/key
+          ssh -i ~/.ssh/key -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 root@srv1897290.hstgr.cloud 'bash -s' << 'REMOTO'
+          set -uo pipefail
+          cd /opt/twenty-repo/petbee/sync
+          # O cron roda no minuto zero e o script não tem trava: duas rodadas juntas podem criar o
+          # mesmo registro novo duas vezes. Não começa perto da virada da hora nem com outra rodada no ar.
+          if [ "$(date +%-M)" -ge 45 ]; then
+            echo "Perto da virada da hora (cron do sync). Rode de novo depois de :05."
+            exit 1
+          fi
+          if pgrep -f sync-petbee-crm.mjs > /dev/null; then
+            echo "Já tem uma rodada do sync no ar. Rode de novo quando ela terminar."
+            exit 1
+          fi
+          LOG=$(mktemp)
+          node sync-petbee-crm.mjs --backfill > "$LOG" 2>&1
+          STATUS=$?
+          cat "$LOG" >> /var/log/twenty-sync.log
+          # Só o resumo: as linhas de detalhe podem trazer dado de cliente.
+          grep -E '^\[[0-9TZ:.-]+\] Sync|^Fonte:|^Dedup|: \+[0-9]+ criados|^\[ok\]' "$LOG" || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "[falhou] código $STATUS: detalhes em /var/log/twenty-sync.log na VPS"
+          fi
+          rm -f "$LOG"
+          exit "$STATUS"
+          REMOTO
