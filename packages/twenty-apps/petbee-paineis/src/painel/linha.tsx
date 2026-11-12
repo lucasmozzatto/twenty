@@ -71,7 +71,11 @@ export const Linha = ({
 
   // Com muitos dias os rótulos se atropelam: mostra um a cada N.
   const passoRotulo = Math.max(1, Math.ceil(dias.length / 31));
-  const mostrarValores = dias.length <= 31;
+  // O número em cima de cada ponto vai até dois meses, com letra menor depois
+  // de 31 dias (pedido do dono do painel em 12/11/2026). Acima disso, os números
+  // de dias vizinhos se sobrepõem e a leitura fica pior que sem eles.
+  const mostrarValores = dias.length <= 62;
+  const tamanhoDoValor = dias.length <= 31 ? '11px' : '10px';
 
   return (
     <Cartao
@@ -148,7 +152,7 @@ export const Linha = ({
                   left: `${xPorcento(indice)}%`,
                   top: `calc(${yPorcento(valor)}% - 20px)`,
                   transform: 'translateX(-50%)',
-                  fontSize: '11px',
+                  fontSize: tamanhoDoValor,
                   color: tema.texto,
                   whiteSpace: 'nowrap',
                 }}
