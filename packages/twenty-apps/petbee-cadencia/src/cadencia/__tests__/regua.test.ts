@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { horarioSP, proximas, tardeDoDia, zapDe } from '../regua.ts';
+import {
+  horarioSP,
+  numeroFechamentoDe,
+  PADRAO_DECISAO,
+  proximas,
+  proximoHorarioFechamento,
+  tardeDoDia,
+  tituloFechamentoDe,
+  zapDe,
+} from '../regua.ts';
 
 // 2026-08-19 10:00 em São Paulo (13:00 UTC).
 const MANHA_SP = new Date('2026-08-19T13:00:00.000Z');
@@ -69,4 +78,43 @@ test('zapDe aceita número real e rejeita vazio ou lixo', () => {
   assert.equal(zapDe(''), null);
   assert.equal(zapDe('abc'), null);
   assert.equal(zapDe(null), null);
+});
+
+test('régua de Fechamento: próximo horário entre 8h, 14h e 17h de São Paulo', () => {
+  // 07h SP → 8h do mesmo dia.
+  assert.deepEqual(proximoHorarioFechamento(new Date('2026-08-19T10:00:00.000Z')), {
+    dueAt: '2026-08-19T11:00:00.000Z',
+    rotulo: 'manhã',
+  });
+  // 10h SP → 14h.
+  assert.deepEqual(proximoHorarioFechamento(MANHA_SP), {
+    dueAt: '2026-08-19T17:00:00.000Z',
+    rotulo: 'tarde',
+  });
+  // 14h em ponto → 17h (estritamente depois).
+  assert.deepEqual(proximoHorarioFechamento(new Date('2026-08-19T17:00:00.000Z')), {
+    dueAt: '2026-08-19T20:00:00.000Z',
+    rotulo: 'fim do dia',
+  });
+  // 17h SP → 8h do dia seguinte.
+  assert.deepEqual(proximoHorarioFechamento(FIM_DE_TARDE_SP), {
+    dueAt: '2026-08-20T11:00:00.000Z',
+    rotulo: 'manhã',
+  });
+  // 23h SP (02h UTC do dia seguinte) → 8h do dia seguinte em SP.
+  assert.deepEqual(proximoHorarioFechamento(new Date('2026-08-20T02:00:00.000Z')), {
+    dueAt: '2026-08-20T11:00:00.000Z',
+    rotulo: 'manhã',
+  });
+});
+
+test('título do toque de Fechamento e leitura do número', () => {
+  const titulo = tituloFechamentoDe(4, 'tarde', 'Luc Test');
+
+  assert.equal(titulo, 'Fechamento 4/30 (tarde) — Luc Test');
+  assert.equal(numeroFechamentoDe(titulo), 4);
+  assert.equal(numeroFechamentoDe('Fechamento do contrato com o cliente'), null);
+  assert.equal(PADRAO_DECISAO.test('Decidir: Ganho, Break ou Perdido? — Luc Test'), true);
+  assert.equal(PADRAO_DECISAO.test('Decidir: Break ou Perdido? — Luc Test'), true);
+  assert.equal(PADRAO_DECISAO.test('Decidir: o que fazer com o cliente'), false);
 });
