@@ -11,6 +11,16 @@ mesma régua, mesmas guardas, mesmo algoritmo de reconciliação.
   conclusão da "tarde" após as 16h empurra pra amanhã).
 - **Guarda pós-FUP 9**: card parado em Em Negociação com os 9 toques feitos
   ganha a task "Decidir: Break ou Perdido? — [nome]" até alguém mover o card.
+- **Fechamento** (desde 12/11/2026, pedido do dono do painel): 3 toques por dia,
+  às 8h, 14h e 17h de São Paulo, 30 toques no total ("Fechamento N/30 (manhã) —
+  [nome]"). Um toque aberto por vez: o card entra na etapa e ganha o toque 1 no
+  próximo horário; concluir o toque N cria o N+1 no horário seguinte ao vencimento
+  do N ou a agora, o que vier depois (adiantar não empilha toques, atrasar pula
+  para o próximo horário livre). Conta por número de toques, não pelo calendário:
+  no horário, são 10 dias; quem atrasa estica a régua. Fim de semana conta normal.
+  Depois do toque 30, "Decidir: Ganho, Break ou Perdido? — [nome]" até mover o card.
+  As FUPs de negociação abertas somem quando o card entra em Fechamento, e os toques
+  de Fechamento abertos somem quando ele sai.
 - **Break**: agenda a "FUP final (antes do lost)" pra +25 dias, 11h.
 - **Responsável = dono do card** (desde 30/09/2026; antes toda task ia para a Vitoria):
   vale para FUPs, decisão, FUP final e guarda de motivo. Card sem dono cai na Vitoria,
@@ -53,7 +63,7 @@ cron dá verdade.
 ## Testes
 
 ```bash
-yarn test        # 21 testes do núcleo puro (datas da régua + plano)
+yarn test        # testes do núcleo puro (datas da régua + plano)
 ```
 
 ## Deploy (na máquina do Lucas)
