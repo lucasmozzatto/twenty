@@ -25,7 +25,10 @@ export const TOQUES: Record<number, string> = {
 
 export const PADRAO_FUP = /^FUP (\d+|final) /;
 export const PADRAO_MOTIVO = /^Preencher motivo da perda — /;
-export const PADRAO_DECISAO = /^Decidir: Break ou Perdido\? — /;
+// As duas decisões: a de Em negociação (depois da FUP 9) e a de Fechamento
+// (depois do toque 30). Título exato, para nunca pegar uma task manual.
+export const PADRAO_DECISAO = /^Decidir: (Break ou Perdido|Ganho, Break ou Perdido)\? — /;
+export const PADRAO_FECHAMENTO = /^Fechamento (\d+)\/\d+ /;
 
 const SP_OFFSET_MS = 3 * 3600000;
 
@@ -88,6 +91,44 @@ export function proximas(
   return [];
 }
 
+// RÉGUA DE FECHAMENTO (12/11/2026, pedido do dono do painel): 3 toques por dia,
+// às 8h, 14h e 17h de São Paulo, 30 toques no total (10 dias se ninguém atrasar).
+// Conta por número de toques, não pelo calendário: quem atrasa estica a régua,
+// do mesmo jeito que a régua de negociação. Fim de semana conta normal.
+export const TOQUES_FECHAMENTO = 30;
+
+const HORARIOS_FECHAMENTO: { hora: number; rotulo: string }[] = [
+  { hora: 8, rotulo: 'manhã' },
+  { hora: 14, rotulo: 'tarde' },
+  { hora: 17, rotulo: 'fim do dia' },
+];
+
+// Primeiro horário da régua de Fechamento estritamente depois de `base`.
+export function proximoHorarioFechamento(base: Date): { dueAt: string; rotulo: string } {
+  for (let dia = 0; dia <= 1; dia += 1) {
+    for (const horario of HORARIOS_FECHAMENTO) {
+      const dueAt = horarioSP(base, dia, horario.hora, 0);
+
+      if (new Date(dueAt).getTime() > base.getTime()) {
+        return { dueAt, rotulo: horario.rotulo };
+      }
+    }
+  }
+
+  // Inalcançável: amanhã às 8h é sempre depois de `base`.
+  return { dueAt: horarioSP(base, 1, 8, 0), rotulo: 'manhã' };
+}
+
+export function tituloFechamentoDe(numero: number, rotulo: string, nome: string): string {
+  return `Fechamento ${numero}/${TOQUES_FECHAMENTO} (${rotulo}) — ${nome}`;
+}
+
+export function numeroFechamentoDe(titulo: string): number | null {
+  const m = titulo.match(PADRAO_FECHAMENTO);
+
+  return m ? parseInt(m[1], 10) : null;
+}
+
 export type Zap = { label: string; url: string; markdown: string };
 
 // Dados de WhatsApp do negócio, prontos pros campos da task. null quando não há número usável.
@@ -122,6 +163,21 @@ export function tituloFinalDe(nome: string): string {
 
 export function tituloMotivoDe(nome: string): string {
   return `Preencher motivo da perda — ${nome}`;
+}
+
+export function tituloDecisaoFechamentoDe(nome: string): string {
+  return `Decidir: Ganho, Break ou Perdido? — ${nome}`;
+}
+
+export function markdownDecisaoFechamento(zap: Zap | null): string {
+  const corpo =
+    `**${TOQUES_FECHAMENTO} toques de fechamento feitos.** Decida o destino deste negócio:\n\n` +
+    '- Fechou → arraste o card para **Ganho**.\n' +
+    '- Ainda não decidiu → arraste para **Break** → o motor agenda um FUP final em 25 dias.\n' +
+    '- Desistiu → arraste para **Perdido** e preencha o **motivo** (obrigatório).\n\n' +
+    'Esta task some sozinha quando o card mudar de coluna.';
+
+  return zap ? `${corpo}\n\n${zap.markdown}` : corpo;
 }
 
 export function markdownDecisao(zap: Zap | null): string {

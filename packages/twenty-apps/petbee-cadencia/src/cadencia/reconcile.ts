@@ -4,7 +4,7 @@
 // As chamadas usam GraphQL cru (fetch + token do app) em vez do cliente tipado:
 // o validador do twenty-client-sdk não enxerga o campo custom `whatsapp` da Task
 // aninhada via taskTargets, e estas queries são as mesmas já provadas no motor n8n.
-import { PADRAO_DECISAO, PADRAO_FUP, PADRAO_MOTIVO } from './regua.ts';
+import { PADRAO_DECISAO, PADRAO_FECHAMENTO, PADRAO_FUP, PADRAO_MOTIVO } from './regua.ts';
 import {
   computePlan,
   type OppDoFunil,
@@ -51,7 +51,10 @@ async function gql<TData>(
 }
 
 const GERENCIADA = (titulo: string): boolean =>
-  PADRAO_FUP.test(titulo) || PADRAO_DECISAO.test(titulo) || PADRAO_MOTIVO.test(titulo);
+  PADRAO_FUP.test(titulo) ||
+  PADRAO_DECISAO.test(titulo) ||
+  PADRAO_MOTIVO.test(titulo) ||
+  PADRAO_FECHAMENTO.test(titulo);
 
 async function carregarFunil(): Promise<OppDoFunil[]> {
   const dados = await gql<{
@@ -67,7 +70,8 @@ async function carregarFunil(): Promise<OppDoFunil[]> {
   }>(
     // Só o funil Vendas: a régua é do time de inbound. O funil Referidos
     // (criado em 30/09/2026, trabalhado à parte) não ganha tarefa nenhuma.
-    'query { opportunities(filter: {and: [{funnel: {eq: "VENDAS"}}, {or: [{stage: {eq: "EM_NEGOCIACAO"}}, {stage: {eq: "BREAK"}}]}]}, first: 200) { edges { node { id name stage fupNumero whatsapp ownerId taskTargets { edges { node { task { id title status dueAt assigneeId whatsapp { primaryLinkUrl } } } } } } } } }',
+    // Fechamento entrou no funil vivo em 12/11/2026 (régua de 3 toques por dia).
+    'query { opportunities(filter: {and: [{funnel: {eq: "VENDAS"}}, {or: [{stage: {eq: "EM_NEGOCIACAO"}}, {stage: {eq: "FECHAMENTO"}}, {stage: {eq: "BREAK"}}]}]}, first: 200) { edges { node { id name stage fupNumero whatsapp ownerId taskTargets { edges { node { task { id title status dueAt assigneeId whatsapp { primaryLinkUrl } } } } } } } } }',
   );
 
   return nodesDe(dados.opportunities).map((opp) => ({

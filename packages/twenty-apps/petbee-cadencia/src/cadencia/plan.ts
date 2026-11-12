@@ -3,11 +3,18 @@
 // tornam o CRM igual ao estado desejado. Função PURA: nada de rede ou relógio próprio.
 import {
   markdownDecisao,
+  markdownDecisaoFechamento,
+  numeroFechamentoDe,
   PADRAO_DECISAO,
+  PADRAO_FECHAMENTO,
   PADRAO_FUP,
   PADRAO_MOTIVO,
   proximas,
+  proximoHorarioFechamento,
+  TOQUES_FECHAMENTO,
   tituloDecisaoDe,
+  tituloDecisaoFechamentoDe,
+  tituloFechamentoDe,
   tituloFinalDe,
   tituloMotivoDe,
   horarioSP,
@@ -57,6 +64,9 @@ export type PlanInput = {
   // Negócios (fora do funil vivo) que são alvo de alguma task gerenciada aberta, por id.
   foraDoFunil: Record<string, OppForaDoFunil>;
 };
+
+// Etapas em que a cadência trabalha. Fechamento entrou em 12/11/2026.
+export const ETAPAS_DO_FUNIL_VIVO = ['EM_NEGOCIACAO', 'FECHAMENTO', 'BREAK'];
 
 export type TaskCreateData = {
   title: string;
@@ -176,6 +186,109 @@ function numDe(titulo: string): number | null {
   return m ? parseInt(m[1], 10) : null;
 }
 
+// Régua de Fechamento: um toque aberto por vez, o próximo nasce quando o anterior
+// é concluído, no horário seguinte (8h, 14h, 17h). A base é o vencimento do toque
+// concluído ou agora, o que vier depois: adiantar o toque das 8h não puxa o das
+// 14h para as 8h, e atrasar pula para o próximo horário que ainda não passou.
+// Depois do toque 30, a decisão fica aberta até alguém mover o card.
+function planoFechamento(
+  opp: OppDoFunil,
+  tarefas: TaskDoFunil[],
+  agora: Date,
+  zap: Zap | null,
+  responsavel: string,
+): PlanOp[] {
+  const ops: PlanOp[] = [];
+  const concluidos = tarefas.filter(
+    (t) => t.status === 'DONE' && numeroFechamentoDe(t.title) != null,
+  );
+  const feitos = concluidos.length
+    ? Math.max(...concluidos.map((t) => numeroFechamentoDe(t.title) as number))
+    : 0;
+  const tituloDecisao = tituloDecisaoFechamentoDe(opp.name);
+
+  // A régua de negociação e a do Break não valem aqui.
+  for (const t of tarefas) {
+    if (t.status === 'DONE') continue;
+    if (PADRAO_FUP.test(t.title)) ops.push({ kind: 'deleteTask', taskId: t.id });
+    if (
+      PADRAO_DECISAO.test(t.title) &&
+      (t.title !== tituloDecisao || feitos < TOQUES_FECHAMENTO)
+    ) {
+      ops.push({ kind: 'deleteTask', taskId: t.id });
+    }
+  }
+
+  const esperado = feitos < TOQUES_FECHAMENTO ? feitos + 1 : null;
+  let jaTemEsperado: TaskDoFunil | null = null;
+
+  for (const t of tarefas) {
+    const numero = numeroFechamentoDe(t.title);
+
+    if (t.status === 'DONE' || numero == null) continue;
+    if (numero === esperado) {
+      jaTemEsperado = t;
+    } else if (numero <= feitos) {
+      ops.push({ kind: 'updateTask', taskId: t.id, data: { status: 'DONE' } });
+    } else {
+      ops.push({ kind: 'deleteTask', taskId: t.id });
+    }
+  }
+
+  if (esperado != null && jaTemEsperado) {
+    const cura = opCurar(jaTemEsperado, zap, responsavel);
+
+    if (cura) ops.push(cura);
+  } else if (esperado != null) {
+    const ultimo = concluidos.find((t) => numeroFechamentoDe(t.title) === feitos);
+    const vencimento = ultimo?.dueAt ? new Date(ultimo.dueAt).getTime() : 0;
+    const base = new Date(Math.max(agora.getTime(), vencimento));
+    const horario = proximoHorarioFechamento(base);
+
+    ops.push(
+      opCreate(
+        opp.id,
+        responsavel,
+        tituloFechamentoDe(esperado, horario.rotulo, opp.name),
+        horario.dueAt,
+        zap,
+      ),
+    );
+  }
+
+  if (esperado == null) {
+    const decisaoAberta = tarefas.find(
+      (t) => t.title === tituloDecisao && t.status !== 'DONE',
+    );
+
+    if (!decisaoAberta) {
+      ops.push(
+        opCreate(
+          opp.id,
+          responsavel,
+          tituloDecisao,
+          agora.toISOString(),
+          zap,
+          markdownDecisaoFechamento(zap),
+        ),
+      );
+    } else {
+      const cura = opCurar(decisaoAberta, zap, responsavel);
+
+      if (cura) ops.push(cura);
+    }
+  }
+
+  return ops;
+}
+
+// Toques de Fechamento abertos num card que saiu da etapa somem.
+function apagarFechamentoAberto(tarefas: TaskDoFunil[]): PlanOp[] {
+  return tarefas
+    .filter((t) => t.status !== 'DONE' && PADRAO_FECHAMENTO.test(t.title))
+    .map((t): PlanOp => ({ kind: 'deleteTask', taskId: t.id }));
+}
+
 function linkDesatualizado(task: TaskDoFunil): boolean {
   const url = task.whatsapp?.primaryLinkUrl;
 
@@ -195,19 +308,24 @@ export function computePlan(input: PlanInput): PlanOp[] {
 
   for (const opp of funil) {
     // Dedup anti-corrida: segunda task gerenciada ABERTA com mesmo título é excluída.
+    // Toque de Fechamento é comparado pelo número: o rótulo do horário pode mudar.
     const vistos: Record<string, boolean> = {};
     const tarefas: TaskDoFunil[] = [];
 
     for (const t of opp.tarefas) {
+      const numeroFechamento = numeroFechamentoDe(t.title);
       const gerenciadaAberta =
         t.status !== 'DONE' &&
-        (PADRAO_FUP.test(t.title) || PADRAO_DECISAO.test(t.title));
+        (PADRAO_FUP.test(t.title) ||
+          PADRAO_DECISAO.test(t.title) ||
+          numeroFechamento != null);
+      const chave = numeroFechamento != null ? `fechamento:${numeroFechamento}` : t.title;
 
-      if (gerenciadaAberta && vistos[t.title]) {
+      if (gerenciadaAberta && vistos[chave]) {
         ops.push({ kind: 'deleteTask', taskId: t.id });
         continue;
       }
-      if (gerenciadaAberta) vistos[t.title] = true;
+      if (gerenciadaAberta) vistos[chave] = true;
       tarefas.push(t);
     }
 
@@ -218,6 +336,13 @@ export function computePlan(input: PlanInput): PlanOp[] {
     const maxFeito = feitos.length ? Math.max(...feitos) : 0;
     const zap = zapDe(opp.whatsapp);
     const responsavel = responsavelDe(opp.ownerId);
+
+    if (opp.stage === 'FECHAMENTO') {
+      ops.push(...planoFechamento(opp, tarefas, agora, zap, responsavel));
+      continue;
+    }
+
+    ops.push(...apagarFechamentoAberto(tarefas));
 
     if (opp.stage === 'EM_NEGOCIACAO') {
       const fupCampo = opp.fupNumero == null ? 0 : opp.fupNumero;
@@ -325,13 +450,18 @@ export function computePlan(input: PlanInput): PlanOp[] {
 
   // Órfãs: task gerenciada aberta apontando pra negócio que saiu do funil vivo.
   for (const t of abertas) {
-    if (!PADRAO_FUP.test(t.title) && !PADRAO_DECISAO.test(t.title)) continue;
+    if (
+      !PADRAO_FUP.test(t.title) &&
+      !PADRAO_DECISAO.test(t.title) &&
+      !PADRAO_FECHAMENTO.test(t.title)
+    )
+      continue;
     if (!t.targetOpportunityId) continue;
 
     const opp = foraDoFunil[t.targetOpportunityId];
 
     if (!opp) continue;
-    if (opp.stage !== 'EM_NEGOCIACAO' && opp.stage !== 'BREAK') {
+    if (!ETAPAS_DO_FUNIL_VIVO.includes(opp.stage)) {
       ops.push({ kind: 'deleteTask', taskId: t.id });
     }
   }

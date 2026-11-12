@@ -128,7 +128,7 @@ async function carregarNegocio(id: string): Promise<Negocio | null> {
   const tarefas = (opp.taskTargets?.edges ?? [])
     .map((edge) => edge?.node?.task)
     .filter((task): task is TaskResumo => Boolean(task))
-    .filter((task) => /^(FUP |Decidir: |Preencher motivo)/.test(task.title));
+    .filter((task) => /^(FUP |Fechamento \d+\/|Decidir: |Preencher motivo)/.test(task.title));
 
   return { ...opp, tarefas };
 }
@@ -296,6 +296,9 @@ const ReguaPetbee = () => {
     .filter((t) => t.status === 'DONE' && numeroDaFup(t.title) != null)
     .sort((a, b) => (numeroDaFup(a.title) ?? 0) - (numeroDaFup(b.title) ?? 0));
   const abertas = negocio.tarefas.filter((t) => t.status !== 'DONE');
+  const feitasFechamento = negocio.tarefas.filter(
+    (t) => t.status === 'DONE' && /^Fechamento \d+\//.test(t.title),
+  ).length;
   const emJogo = negocio.stage === 'EM_NEGOCIACAO' || negocio.stage === 'BREAK' || negocio.stage === 'FECHAMENTO';
 
   return (
@@ -333,11 +336,17 @@ const ReguaPetbee = () => {
         <div style={{ marginBottom: '10px', color: cores.verde, fontSize: '12px' }}>
           {feitas.map((t) => `✓ FUP ${numeroDaFup(t.title)}`).join('  ·  ')}
         </div>
-      ) : (
+      ) : null}
+      {feitasFechamento > 0 ? (
+        <div style={{ marginBottom: '10px', color: cores.verde, fontSize: '12px' }}>
+          ✓ Fechamento: {feitasFechamento} de 30 toques feitos
+        </div>
+      ) : null}
+      {feitas.length === 0 && feitasFechamento === 0 ? (
         <div style={{ marginBottom: '10px', color: cores.suave, fontSize: '12px' }}>
           Nenhum toque concluído ainda.
         </div>
-      )}
+      ) : null}
 
       {abertas.map((t) => {
         const atrasada = t.status === 'TODO' && t.dueAt != null && new Date(t.dueAt).getTime() < agora;
