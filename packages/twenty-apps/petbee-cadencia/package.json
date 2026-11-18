@@ -13,7 +13,7 @@
   "scripts": {
     "twenty": "twenty",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --experimental-strip-types --test src/cadencia/__tests__/regua.test.ts src/cadencia/__tests__/plan.test.ts"
+    "test": "node --experimental-strip-types --test src/cadencia/__tests__/regua.test.ts src/cadencia/__tests__/plan.test.ts src/cadencia/__tests__/rede.test.ts"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",
