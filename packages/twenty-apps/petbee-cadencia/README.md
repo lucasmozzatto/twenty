@@ -42,6 +42,7 @@ mesma régua, mesmas guardas, mesmo algoritmo de reconciliação.
 src/cadencia/regua.ts      → régua pura (datas, títulos, padrões)   [testada]
 src/cadencia/plan.ts       → computePlan: estado desejado → ops     [testada]
 src/cadencia/reconcile.ts  → lê o CRM (CoreApiClient), executa o plano, alerta falha
+src/cadencia/rede.ts       → até 3 tentativas em falha passageira; causa real no alerta [testada]
 src/logic-functions/
   tick.ts                    → cron */5min (rede de segurança)
   on-opportunity-created.ts  → campainha: negócio novo
@@ -63,7 +64,7 @@ cron dá verdade.
 ## Testes
 
 ```bash
-yarn test        # testes do núcleo puro (datas da régua + plano)
+yarn test        # testes do núcleo puro (datas da régua + plano + tentativas de rede)
 ```
 
 ## Deploy (na máquina do Lucas)

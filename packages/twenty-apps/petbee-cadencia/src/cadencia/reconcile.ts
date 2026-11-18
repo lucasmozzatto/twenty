@@ -13,6 +13,7 @@ import {
   type TaskAberta,
   type TaskDoFunil,
 } from './plan.ts';
+import { comTentativas, descreverErro, RespostaSemJson } from './rede.ts';
 
 type Edge<T> = { node: T };
 type Conexao<T> = { edges: Edge<T>[] } | null | undefined;
@@ -21,7 +22,18 @@ function nodesDe<T>(conexao: Conexao<T>): T[] {
   return (conexao?.edges ?? []).map((edge) => edge.node);
 }
 
+// Falha passageira de rede não vira alerta de primeira: até 3 tentativas, com as
+// regras de rede.ts (escrita só repete quando o pedido nem chegou ao CRM).
 async function gql<TData>(
+  query: string,
+  variables?: Record<string, unknown>,
+): Promise<TData> {
+  const leitura = !/^\s*mutation\b/.test(query);
+
+  return comTentativas(() => gqlUmaVez<TData>(query, variables), leitura);
+}
+
+async function gqlUmaVez<TData>(
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<TData> {
@@ -35,10 +47,14 @@ async function gql<TData>(
     body: JSON.stringify({ query, variables }),
   });
 
-  const corpo = (await resposta.json()) as {
-    data?: TData;
-    errors?: { message: string }[];
-  };
+  const texto = await resposta.text();
+  let corpo: { data?: TData; errors?: { message: string }[] };
+
+  try {
+    corpo = JSON.parse(texto);
+  } catch {
+    throw new RespostaSemJson(resposta.status, texto);
+  }
 
   if (corpo.errors?.length) {
     throw new Error(`GraphQL: ${corpo.errors[0].message}`);
@@ -198,7 +214,7 @@ async function avisarFalha(erro: unknown): Promise<void> {
 
   if (!webhook) return;
 
-  const mensagem = erro instanceof Error ? erro.message : String(erro);
+  const mensagem = descreverErro(erro);
 
   try {
     await fetch(webhook, {
