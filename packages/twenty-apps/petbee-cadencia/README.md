@@ -67,16 +67,27 @@ cron dá verdade.
 yarn test        # testes do núcleo puro (datas da régua + plano + tentativas de rede)
 ```
 
-## Deploy (na máquina do Lucas)
+## Deploy (sempre pela VPS)
+
+Depois do merge na `main`, a Action `deploy-prod` já deixa `/opt/twenty-repo` na versão nova.
+Na VPS 2:
 
 ```bash
-cd packages/twenty-apps/petbee-cadencia
-yarn install
-yarn twenty remote:add --url https://crm.petbeetools.com.br --api-key $TWENTY_API_KEY --as petbee
-yarn twenty plan     # mostra o que será criado, sem aplicar
-yarn twenty apply    # instala/atualiza o app no workspace
-yarn twenty dev:function:logs -n cadencia-tick   # acompanhar o modo sombra
+/opt/twenty-repo/petbee/deploy/publicar-cadencia.sh         # plano: mostra o que mudaria
+/opt/twenty-repo/petbee/deploy/publicar-cadencia.sh apply   # publica no CRM
 ```
+
+O script roda os testes, usa a chave do CRM que já está na VPS e mostra o commit que vai publicar.
+
+**Não publique de um clone local.** Em 18/11/2026 um `yarn twenty apply` feito de um clone de
+setembro, num computador, pôs a versão velha no ar por ~13 h: tarefas com link da inbox V1
+(aposentada), FUP em cards do funil Referidos e régua de Fechamento parada. Se for mesmo preciso
+publicar de fora da VPS, use um clone NOVO da `main` e confira `git log -1` antes. No `plan`,
+mudança em algo que o PR não tocou (o `frontComponent "regua-petbee"`, por exemplo) é sinal de
+versão errada: pare antes do `apply`.
+
+Acompanhar as rodadas: `yarn twenty dev:function:logs -n cadencia-tick` (precisa do remote do CRM
+configurado na máquina).
 
 ## Plano de adoção (sem risco)
 

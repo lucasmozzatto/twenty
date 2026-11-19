@@ -33,6 +33,9 @@ limpar() {
 }
 trap limpar EXIT
 
+# A versão que vai pro CRM (18/11/2026: um apply de clone velho republicou o app de setembro).
+echo "→ versão: $(git -C /opt/twenty-repo log -1 --format='%h %s')"
+
 docker run --rm \
   -v "$APP":/app -w /app \
   -e TWENTY_API_KEY -e ACAO="$ACAO" \
@@ -45,7 +48,8 @@ docker run --rm \
     echo "→ testes da régua…"
     node --experimental-strip-types --test \
       src/cadencia/__tests__/regua.test.ts \
-      src/cadencia/__tests__/plan.test.ts | grep -E "^# (tests|pass|fail)"
+      src/cadencia/__tests__/plan.test.ts \
+      src/cadencia/__tests__/rede.test.ts | grep -E "^# (tests|pass|fail)"
 
     echo "→ apontando pro CRM…"
     yarn twenty remote:add --url https://crm.petbeetools.com.br \
